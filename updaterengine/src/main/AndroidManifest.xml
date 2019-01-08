@@ -1,0 +1,49 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="co.sodalabs.updaterengine">
+
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application>
+        <activity
+                android:name=".installer.DefaultInstallerActivity"
+                android:theme="@style/AppThemeTransparent" />
+
+        <service
+                android:name=".UpdaterService"
+                android:enabled="true"
+                android:exported="false" />
+        <service
+                android:name=".UpdateJobService"
+                android:exported="false"
+                android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service
+                android:name=".installer.InstallerService"
+                android:exported="false"
+                android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <provider
+                android:name=".installer.ApkFileProvider"
+                android:authorities="${applicationId}.installer.ApkFileProvider"
+                android:exported="false"
+                android:grantUriPermissions="true">
+            <meta-data
+                    android:name="android.support.FILE_PROVIDER_PATHS"
+                    android:resource="@xml/apk_file_provider" />
+        </provider>
+
+        <provider
+                android:name="android.support.v4.content.FileProvider"
+                android:authorities="${applicationId}.installer"
+                android:exported="false"
+                android:grantUriPermissions="true">
+            <meta-data
+                    android:name="android.support.FILE_PROVIDER_PATHS"
+                    android:resource="@xml/installer_file_provider" />
+        </provider>
+
+    </application>
+</manifest>

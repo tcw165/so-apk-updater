@@ -1,0 +1,1 @@
+include ':apkupdater', ':updaterengine', ':privilegedinstaller'
