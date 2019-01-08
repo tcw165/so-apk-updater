@@ -1,8 +1,9 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
+apply plugin: 'kotlin-kapt'
 apply plugin: "io.fabric"
-apply from: "$rootDir/android_extension.gradle"
+apply from: "$rootDir/android_app_extension.gradle"
 
 android {
     compileSdkVersion 28
@@ -18,11 +19,77 @@ android {
     }
 
     buildTypes {
-        release {
+        debug {
+            debuggable true
             minifyEnabled false
+            testCoverageEnabled = true
+        }
+
+        release {
+            debuggable false
+            minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+
+            // Disables PNG crunching for the release build type.
+            crunchPngs false
         }
     }
+
+    dexOptions {
+        // Don't preDex on CI
+        preDexLibraries = !rootProject.build.ci
+    }
+
+    packagingOptions {
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/rxjava.properties'
+        exclude 'LICENSE.txt'
+    }
+
+    aaptOptions {
+        cruncherEnabled = false
+    }
+
+    lintOptions {
+        abortOnError true
+        fatal 'StopShip'
+
+        // this is never going to be a real "app"
+        disable 'GoogleAppIndexingWarning'
+    }
+
+    testOptions {
+        execution 'ANDROID_TEST_ORCHESTRATOR'
+        unitTests {
+            all {
+                // configure the test JVM arguments
+                jvmArgs '-noverify'
+                includeAndroidResources = true
+                returnDefaultValues = true
+            }
+        }
+    }
+
+    testOptions.unitTests.all {
+        testLogging {
+            events 'passed', 'skipped', 'failed', 'standardOut', 'standardError'
+            outputs.upToDateWhen { false }
+            showStandardStreams = true
+        }
+    }
+
+    configurations.all {
+        resolutionStrategy.force "com.google.code.findbugs:jsr305:3.0.2"
+    }
+}
+
+kapt {
+    useBuildCache = true
+}
+
+androidExtensions {
+    experimental = true
 }
 
 dependencies {

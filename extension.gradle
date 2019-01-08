@@ -1,4 +1,8 @@
 rootProject.ext {
+    build = [
+            ci: 'true' == System.getenv('CI')
+    ]
+
     buildVersionCode = { version ->
         def majorMinorBuild = version.tokenize(".")
         def vCode = 0

@@ -13,7 +13,7 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
 // Add findbugs, pmd, lint, and ktlint to the check task.
-check.dependsOn 'findbugs', 'pmd', 'lint', 'ktlint'
+check.dependsOn 'findbugs', 'pmd', 'lint', 'ktlintCheck'
 
 task findbugs(type: FindBugs, dependsOn: "assembleDebug") {
     ignoreFailures = false
@@ -64,18 +64,4 @@ android {
         htmlOutput file("$project.buildDir/reports/lint/lint-result.html")
         xmlOutput file("$project.buildDir/reports/lint/lint-result.xml")
     }
-}
-
-task ktlint(type: JavaExec, group: "verification") {
-    description = "Check Kotlin code style."
-    classpath = configurations.ktlint
-    main = "com.github.shyiko.ktlint.Main"
-    args "src/**/*.kt"
-}
-
-task ktlintFormat(type: JavaExec, group: "formatting") {
-    description = "Fix Kotlin code style deviations."
-    classpath = configurations.ktlint
-    main = "com.github.shyiko.ktlint.Main"
-    args "-F", "src/**/*.kt"
 }

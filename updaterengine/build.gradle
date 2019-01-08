@@ -4,26 +4,79 @@ apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
 apply from: "$rootDir/quality.gradle"
 apply from: "$rootDir/extension.gradle"
+apply from: "$rootDir/android_library_extension.gradle"
 
 android {
     compileSdkVersion 28
-
-
 
     defaultConfig {
         minSdkVersion 19
         targetSdkVersion 28
         versionCode buildVersionCode(artifact_version)
         versionName artifact_version
+        multiDexEnabled true
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
+        consumerProguardFiles 'lib-proguard-rules.pro'
     }
 
     buildTypes {
-        release {
+        debug {
+            debuggable true
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            testCoverageEnabled = true
+        }
+
+        release {
+            debuggable false
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'lib-proguard-rules.pro'
+
+            // Disables PNG crunching for the release build type.
+            crunchPngs false
+        }
+    }
+
+    dexOptions {
+        // Don't preDex on CI
+        preDexLibraries = !rootProject.build.ci
+    }
+
+    packagingOptions {
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/rxjava.properties'
+        exclude 'LICENSE.txt'
+    }
+
+    aaptOptions {
+        cruncherEnabled = false
+    }
+
+    lintOptions {
+        // TODO: Abort on error to true when lint is fixed
+        abortOnError false
+        fatal 'StopShip'
+    }
+
+    testOptions {
+        execution 'ANDROID_TEST_ORCHESTRATOR'
+        unitTests {
+            all {
+                // configure the test JVM arguments
+                jvmArgs '-noverify'
+                includeAndroidResources = true
+                returnDefaultValues = true
+            }
+        }
+    }
+
+    testOptions.unitTests.all {
+        testLogging {
+            events 'passed', 'skipped', 'failed', 'standardOut', 'standardError'
+            outputs.upToDateWhen { false }
+            showStandardStreams = true
         }
     }
 

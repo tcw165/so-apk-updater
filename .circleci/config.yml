@@ -8,12 +8,12 @@ jobs:
       steps:
         - checkout
         - restore_cache:
-            key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+            key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
         - run:
             name: Download dependencies
             command: ./gradlew androidDependencies --no-daemon --stacktrace
         - save_cache:
-            key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+            key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
             paths:
               - ~/.gradle
   
@@ -24,7 +24,7 @@ jobs:
       steps:
         - checkout
         - restore_cache:
-            key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+            key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
         - run: ./gradlew ktlintCheck --no-daemon --stacktrace
         
   test-apkupdater:
@@ -34,7 +34,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
       - run: ./gradlew :apkupdater:testDebugUnitTest --no-daemon --stacktrace
       - store_test_results:
           path: apkupdater/build/test-results
@@ -46,7 +46,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
       - run: ./gradlew :privilegedinstaller:testDebugUnitTest --no-daemon --stacktrace
       - store_test_results:
           path: privilegedinstaller/build/test-results
@@ -58,7 +58,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
       - run: ./gradlew assembleRelease --no-daemon --stacktrace
       - store_artifacts:
           path: apkupdater/build/outputs/mapping/release
@@ -76,7 +76,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
       - run:
           name: Run :apkupdater:check
           command: ./gradlew :apkupdater:check --no-daemon --stacktrace
@@ -93,7 +93,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
       - run:
           name: Run :apkupdater:assembleDebug
           command: ./gradlew :apkupdater:assembleDebug --no-daemon --stacktrace
@@ -110,7 +110,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
       - run:
           name: Run :privilegedinstaller:check
           command: ./gradlew :privilegedinstaller:check --no-daemon --stacktrace
@@ -127,7 +127,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
       - run:
           name: Run :privilegedinstaller:assembleDebug
           command: ./gradlew :privilegedinstaller:assembleDebug --no-daemon --stacktrace
@@ -144,7 +144,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
       - run: ./gradlew :apkupdater:assembleRelease --no-daemon --stacktrace
       - store_artifacts:
           path: apkupdater/build/outputs/apk/release
@@ -159,7 +159,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
       - run: ./gradlew :privilegedinstaller:assembleRelease --no-daemon --stacktrace
       - store_artifacts:
           path: privilegedinstaller/build/outputs/apk/release

@@ -1,0 +1,46 @@
+apply from: "$rootDir/extension.gradle"
+
+android.libraryVariants.all { variant ->
+    def isDebuggable = variant.getBuildType().isDebuggable()
+    def appName
+
+    if (project.hasProperty("applicationName")) {
+        appName = applicationName
+    } else {
+        appName = project.name
+    }
+
+    variant.outputs.all { output ->
+        if (isDebuggable) {
+            outputFileName = "${appName}-${output.baseName}-${artifact_version}-${getGitHash()}.aar"
+        } else {
+            outputFileName = "${appName}-${output.baseName}-${artifact_version}.aar"
+        }
+    }
+}
+
+
+android.libraryVariants.all { variant ->
+    variant.assemble.doLast {
+        if (variant.mappingFile != null && variant.mappingFile.exists()) {
+            def isDebuggable = variant.getBuildType().isDebuggable()
+            def mappingFileName = "$archivesBaseName-$variant.baseName-mapping.txt"
+            (new File(variant.mappingFile.parent, mappingFileName)).delete()
+
+            def appName
+            if (project.hasProperty("applicationName")) {
+                appName = applicationName
+            } else {
+                appName = project.name
+            }
+
+            if (isDebuggable) {
+                variant.mappingFile.renameTo(variant.mappingFile.parent +
+                        "/$appName-$variant.baseName-${artifact_version}-${getGitHash()}-mapping.txt")
+            } else {
+                variant.mappingFile.renameTo(variant.mappingFile.parent +
+                        "/$appName-$variant.baseName-${artifact_version}-mapping.txt")
+            }
+        }
+    }
+}
