@@ -1,0 +1,234 @@
+version: 2
+
+jobs:
+  checkout-cache:
+      working_directory: ~/project
+      docker:
+        - image: circleci/android:api-28-alpha
+      steps:
+        - checkout
+        - restore_cache:
+            key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+        - run:
+            name: Download dependencies
+            command: ./gradlew androidDependencies --no-daemon --stacktrace
+        - save_cache:
+            key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+            paths:
+              - ~/.gradle
+  
+  test-lint:
+      working_directory: ~/project
+      docker:
+        - image: circleci/android:api-28-alpha
+      steps:
+        - checkout
+        - restore_cache:
+            key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+        - run: ./gradlew ktlintCheck --no-daemon --stacktrace
+        
+  test-apkupdater:
+    working_directory: ~/ApkUpdater
+    docker:
+      - image: circleci/android:api-28-alpha
+    steps:
+      - checkout
+      - restore_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+      - run: ./gradlew :apkupdater:testDebugUnitTest --no-daemon --stacktrace
+      - store_test_results:
+          path: apkupdater/build/test-results
+
+  test-privilegedinstaller:
+    working_directory: ~/ApkUpdater
+    docker:
+      - image: circleci/android:api-28-alpha
+    steps:
+      - checkout
+      - restore_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+      - run: ./gradlew :privilegedinstaller:testDebugUnitTest --no-daemon --stacktrace
+      - store_test_results:
+          path: privilegedinstaller/build/test-results
+
+  test-proguard:
+    working_directory: ~/ApkUpdater
+    docker:
+      - image: circleci/android:api-28-alpha
+    steps:
+      - checkout
+      - restore_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+      - run: ./gradlew assembleRelease --no-daemon --stacktrace
+      - store_artifacts:
+          path: apkupdater/build/outputs/mapping/release
+          destination: proguard
+      - store_artifacts:
+          path: privilegedinstaller/build/outputs/mapping/release
+          destination: proguard
+
+  check-apkupdater-debug:
+    working_directory: ~/ApkUpdater
+    docker:
+      - image: circleci/android:api-28-alpha
+    environment:
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xms256m -Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"'
+    steps:
+      - checkout
+      - restore_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+      - run:
+          name: Run :apkupdater:check
+          command: ./gradlew :apkupdater:check --no-daemon --stacktrace
+      - store_artifacts:
+          path: apkupdater/build/reports/
+          destination: reports/
+      
+  build-apkupdater-debug:
+    working_directory: ~/ApkUpdater
+    docker:
+      - image: circleci/android:api-28-alpha
+    environment:
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xms256m -Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"'
+    steps:
+      - checkout
+      - restore_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+      - run:
+          name: Run :apkupdater:assembleDebug
+          command: ./gradlew :apkupdater:assembleDebug --no-daemon --stacktrace
+      - store_artifacts:
+          path: apkupdater/build/outputs/apk/debug
+          destination: apk
+
+  check-privilegedinstaller-debug:
+    working_directory: ~/ApkUpdater
+    docker:
+      - image: circleci/android:api-28-alpha
+    environment:
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xms256m -Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"'
+    steps:
+      - checkout
+      - restore_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+      - run:
+          name: Run :privilegedinstaller:check
+          command: ./gradlew :privilegedinstaller:check --no-daemon --stacktrace
+      - store_artifacts:
+          path: privilegedinstaller/build/reports/
+          destination: reports/
+
+  build-privilegedinstaller-debug:
+    working_directory: ~/ApkUpdater
+    docker:
+      - image: circleci/android:api-28-alpha
+    environment:
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xms256m -Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"'
+    steps:
+      - checkout
+      - restore_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+      - run:
+          name: Run :privilegedinstaller:assembleDebug
+          command: ./gradlew :privilegedinstaller:assembleDebug --no-daemon --stacktrace
+      - store_artifacts:
+          path: privilegedinstaller/build/outputs/apk/debug
+          destination: apk
+
+  build-apkupdater-release:
+    working_directory: ~/ApkUpdater
+    docker:
+      - image: circleci/android:api-28-alpha
+    environment:
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xms256m -Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"'
+    steps:
+      - checkout
+      - restore_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+      - run: ./gradlew :apkupdater:assembleRelease --no-daemon --stacktrace
+      - store_artifacts:
+          path: apkupdater/build/outputs/apk/release
+          destination: apk
+
+  build-privilegedinstaller-release:
+    working_directory: ~/ApkUpdater
+    docker:
+      - image: circleci/android:api-28-alpha
+    environment:
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xms256m -Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"'
+    steps:
+      - checkout
+      - restore_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}
+      - run: ./gradlew :privilegedinstaller:assembleRelease --no-daemon --stacktrace
+      - store_artifacts:
+          path: privilegedinstaller/build/outputs/apk/release
+          destination: apk
+
+workflows:
+  version: 2
+  robot:
+    jobs:
+      - checkout-cache
+      - test-lint:
+          requires:
+            - checkout-cache
+      - test-apkupdater:
+          requires:
+            - checkout-cache
+            - test-lint
+      - test-privilegedinstaller:
+          requires:
+            - checkout-cache
+            - test-lint
+      - test-proguard:
+          requires:
+            - checkout-cache
+      - build-apkupdater-debug:
+          filters:
+            branches:
+              ignore: master
+          requires:
+            - checkout-cache
+            - test-apkupdater
+            - test-proguard
+      - build-privilegedinstaller-debug:
+          filters:
+            branches:
+              ignore: master
+          requires:
+            - checkout-cache
+            - test-privilegedinstaller
+            - test-proguard
+      - check-apkupdater-debug:
+          filters:
+            branches:
+              ignore: master
+          requires:
+            - checkout-cache
+            - test-apkupdater
+            - test-proguard
+            - build-apkupdater-debug
+      - check-privilegedinstaller-debug:
+          filters:
+            branches:
+              ignore: master
+          requires:
+            - checkout-cache
+            - test-privilegedinstaller
+            - test-proguard
+            - build-privilegedinstaller-debug
+      - build-apkupdater-release:
+          filters:
+            branches:
+              only: master
+          requires:
+            - checkout-cache
+            - check-apkupdater-debug
+      - build-privilegedinstaller-release:
+          filters:
+            branches:
+              only: master
+          requires:
+            - checkout-cache
+            - check-privilegedinstaller-debug
