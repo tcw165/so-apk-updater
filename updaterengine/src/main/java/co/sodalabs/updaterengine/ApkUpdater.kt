@@ -162,6 +162,7 @@ class ApkUpdater private constructor(
         return builder.build()
     }
 
+    @Keep
     class Config(
         context: Context,
         internal val baseUrl: String
@@ -209,6 +210,7 @@ class ApkUpdater private constructor(
         }
     }
 
+    @Keep
     interface OnUpdateAvailableCallback {
         fun onUpdateAvailable(apk: Apk, updateMessage: String)
         fun onUpdateDownloaded(apk: Apk)
