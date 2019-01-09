@@ -6,6 +6,7 @@ import co.sodalabs.updaterengine.data.Apk
 import co.sodalabs.updaterengine.data.SanitizedFile
 import co.sodalabs.updaterengine.net.ApkCache
 import co.sodalabs.updaterengine.utils.BuildUtils
+import co.sodalabs.updaterengine.utils.runOnUiThread
 import com.thin.downloadmanager.DefaultRetryPolicy
 import com.thin.downloadmanager.DefaultRetryPolicy.DEFAULT_TIMEOUT_MS
 import com.thin.downloadmanager.DownloadManager
@@ -26,36 +27,49 @@ class Downloader(
         ThinDownloadManager(loggingEnabled)
     }
 
-    fun startDownload(apk: Apk, autoInstall: Boolean) {
+    fun startDownload(apk: Apk) {
         val uri = apk.downloadUri
         val apkFilePath = ApkCache.getApkDownloadPath(context, uri)
         // TODO: val apkFileSize = apkFilePath.length()
 
         if (apkFilePath.exists()) {
-            handleDownloadSuccess(uri, apkFilePath, apk, autoInstall)
+            handleDownloadSuccess(uri, apkFilePath, apk)
         } else {
-            download(uri, apk, autoInstall)
+            download(uri, apk)
         }
     }
 
-    private fun download(uri: Uri, apk: Apk, autoInstall: Boolean): Int {
+    private fun download(uri: Uri, apk: Apk): Int {
         val request = DownloadRequest(uri)
             .setRetryPolicy(DefaultRetryPolicy(DEFAULT_TIMEOUT_MS, MAX_RETRY_COUNT, BACKOFF_MULTIPLIER))
             .setPriority(DownloadRequest.Priority.LOW)
             .setStatusListener(object : DownloadStatusListenerV1 {
+                private val NO_PROGRESS = -1
+                private var innerProgress = -1
+
                 override fun onDownloadComplete(downloadRequest: DownloadRequest) {
                     val resultPath = ApkCache.getApkDownloadPath(context, uri)
                     Timber.i("Download complete: ${downloadRequest.downloadId}")
-                    handleDownloadSuccess(downloadRequest.uri, resultPath, apk, autoInstall)
+                    handleDownloadSuccess(downloadRequest.uri, resultPath, apk)
+                    innerProgress = NO_PROGRESS
                 }
 
                 override fun onDownloadFailed(downloadRequest: DownloadRequest, errorCode: Int, errorMessage: String?) {
                     Timber.i("Download complete: ${downloadRequest.downloadId}")
                     handleDownloadFailed(downloadRequest.uri, errorCode, apk)
+                    innerProgress = NO_PROGRESS
                 }
 
-                override fun onProgress(downloadRequest: DownloadRequest, totalBytes: Long, downloadedBytes: Long, progress: Int) {
-                    Timber.d("Downloading ${downloadRequest.uri}\nDestination: ${downloadRequest.destinationURI}\nProgress: $progress")
+                override fun onProgress(
+                    downloadRequest: DownloadRequest,
+                    totalBytes: Long,
+                    downloadedBytes: Long,
+                    progress: Int
+                ) {
+                    if (progress > innerProgress) {
+                        innerProgress = progress
+                        Timber.v("Progress: $progress%")
+                    }
                 }
             })
 
@@ -63,6 +77,7 @@ class Downloader(
         val destFile = ApkCache.getApkDownloadPath(context, uri)
         request.destinationURI = Uri.fromFile(destFile)
 
+        Timber.v("Downloading ${request.uri}\nDestination: ${request.destinationURI}")
         val id = downloadManager.add(request)
         Timber.i("Start download, id = $id")
         return id
@@ -71,15 +86,16 @@ class Downloader(
     private fun handleDownloadSuccess(
         uri: Uri,
         resultPath: SanitizedFile,
-        apk: Apk,
-        autoInstall: Boolean
+        apk: Apk
     ) {
         Timber.d("Download successful: $uri - $resultPath")
 
-        ApkUpdater.singleton().notifyUpdateDownloaded(apk)
+        context.runOnUiThread {
+            val autoInstall = ApkUpdater.singleton().notifyUpdateDownloaded(apk)
 
-        if (autoInstall) {
-            ApkUpdater.singleton().installApk(apk)
+            if (autoInstall) {
+                ApkUpdater.singleton().installApk(apk)
+            }
         }
     }
 
@@ -97,6 +113,8 @@ class Downloader(
         }
 
         Timber.w("Download failed: $uri - $failedReason")
-        ApkUpdater.singleton().notifyUpdateDownloadFailed(apk, failedReason)
+        context.runOnUiThread {
+            ApkUpdater.singleton().notifyUpdateDownloadFailed(apk, failedReason)
+        }
     }
 }

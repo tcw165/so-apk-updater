@@ -75,6 +75,7 @@ abstract class Installer(
         //            }
         //        }
 
+        Timber.d("Attempt Install Package: $sanitizedUri - $downloadUri")
         installPackageInternal(sanitizedUri, downloadUri)
     }
 

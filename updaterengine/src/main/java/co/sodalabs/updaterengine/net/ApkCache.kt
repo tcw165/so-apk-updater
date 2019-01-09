@@ -7,6 +7,7 @@ import co.sodalabs.updaterengine.data.SanitizedFile
 import co.sodalabs.updaterengine.utils.Hasher
 import co.sodalabs.updaterengine.utils.StorageUtils
 import org.apache.commons.io.FileUtils
+import timber.log.Timber
 import java.io.File
 import java.io.IOException
 
@@ -53,6 +54,7 @@ object ApkCache {
             sanitizedApkFile.delete()
         }
 
+        Timber.d("copyApkToFiles: ${apkFile.path} -> ${sanitizedApkFile.path}")
         FileUtils.copyFile(apkFile, sanitizedApkFile)
 
         // verify copied file's hash install expected hash from Apk class

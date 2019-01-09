@@ -22,16 +22,17 @@ android {
     }
 
     buildTypes {
+        all {
+            minifyEnabled false
+        }
+
         debug {
             debuggable true
-            minifyEnabled false
             testCoverageEnabled = true
         }
 
         release {
             debuggable false
-            minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'lib-proguard-rules.pro'
 
             // Disables PNG crunching for the release build type.
             crunchPngs false

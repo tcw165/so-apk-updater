@@ -2,6 +2,8 @@ package co.sodalabs.updaterengine.utils
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
 
 val Context.versionCode: Int
     get() {
@@ -18,5 +20,13 @@ fun PackageManager.versionCodeForPackage(packageName: String): Int {
         packageInfo.versionCode
     } catch (ignored: PackageManager.NameNotFoundException) {
         0
+    }
+}
+
+fun Context.runOnUiThread(f: Context.() -> Unit) {
+    if (Looper.getMainLooper().thread == Thread.currentThread()) {
+        f()
+    } else {
+        Handler(Looper.getMainLooper()).post { f() }
     }
 }

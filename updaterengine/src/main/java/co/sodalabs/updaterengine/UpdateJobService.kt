@@ -15,9 +15,9 @@ class UpdateJobService : JobService() {
 
     override fun onStartJob(params: JobParameters): Boolean {
         val extras = params.extras
-        val updateUrl = extras.getString(UpdaterService.EXTRA_UPDATE_URL) ?: throw IllegalArgumentException("Must provide update url.")
-        val autoDownload = extras.getInt(UpdaterService.EXTRA_AUTO_DOWNLOAD, 0) == 1
-        UpdaterService.checkNow(this, updateUrl, autoDownload)
+        val updateUrl = extras.getString(UpdaterService.EXTRA_UPDATE_URL)
+            ?: throw IllegalArgumentException("Must provide update url.")
+        UpdaterService.checkNow(this, updateUrl)
         return false
     }
 

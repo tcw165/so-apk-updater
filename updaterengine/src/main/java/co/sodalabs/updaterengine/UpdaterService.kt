@@ -17,6 +17,7 @@ import co.sodalabs.updaterengine.data.Apk
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.net.UpdaterApi
 import co.sodalabs.updaterengine.utils.BuildUtils
+import co.sodalabs.updaterengine.utils.runOnUiThread
 import co.sodalabs.updaterengine.utils.versionCodeForPackage
 import com.squareup.moshi.Moshi
 import okhttp3.OkHttpClient
@@ -39,25 +40,22 @@ class UpdaterService : JobIntentService() {
         private const val INITIAL_CHECK_DELAY = 5000L
         private const val UPDATE_CHECK_JOB_ID = 0xfedcba
         internal const val EXTRA_UPDATE_URL = "co.sodalabs.updaterengine.UpdaterService.update_url"
-        internal const val EXTRA_AUTO_DOWNLOAD = "co.sodalabs.updaterengine.UpdaterService.auto_download"
 
-        fun checkNow(context: Context, updateUrl: String, autoDownload: Boolean) {
+        fun checkNow(context: Context, updateUrl: String) {
             val intent = Intent(context, UpdaterService::class.java)
             intent.putExtra(EXTRA_UPDATE_URL, updateUrl)
-            intent.putExtra(EXTRA_AUTO_DOWNLOAD, autoDownload)
             context.startService(intent)
         }
 
-        fun schedule(context: Context, interval: Long, updateUrl: String, autoDownload: Boolean) {
+        fun schedule(context: Context, interval: Long, updateUrl: String) {
             if (Build.VERSION.SDK_INT < 21) {
                 val intent = Intent(context, UpdaterService::class.java)
                 intent.putExtra(EXTRA_UPDATE_URL, updateUrl)
-                intent.putExtra(EXTRA_AUTO_DOWNLOAD, autoDownload)
-
-                val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
 
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
                 alarmManager.cancel(pendingIntent)
+
                 alarmManager.setInexactRepeating(
                     AlarmManager.ELAPSED_REALTIME,
                     SystemClock.elapsedRealtime() + INITIAL_CHECK_DELAY,
@@ -74,7 +72,6 @@ class UpdaterService : JobIntentService() {
                 val componentName = ComponentName(context, UpdateJobService::class.java)
                 val bundle = PersistableBundle()
                 bundle.putString(EXTRA_UPDATE_URL, updateUrl)
-                bundle.putInt(EXTRA_AUTO_DOWNLOAD, if (autoDownload) 1 else 0)
 
                 val builder = JobInfo.Builder(UPDATE_CHECK_JOB_ID, componentName)
                     .setRequiresDeviceIdle(true)
@@ -108,7 +105,7 @@ class UpdaterService : JobIntentService() {
     private fun provideOkHttpClient(): OkHttpClient {
         val logging = HttpLoggingInterceptor()
         logging.level =
-                if (BuildUtils.isDebug()) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
+            if (BuildUtils.isDebug()) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
 
         return OkHttpClient.Builder()
             .followRedirects(true)
@@ -145,7 +142,6 @@ class UpdaterService : JobIntentService() {
 
         val updateUrl =
             intent.getStringExtra(EXTRA_UPDATE_URL) ?: throw IllegalArgumentException("Must provide update url.")
-        val autoDownload = intent.getBooleanExtra(EXTRA_AUTO_DOWNLOAD, false)
 
         val apiRequest = getUpdaterApi(updateUrl).getAppUpdate(updateUrl)
 
@@ -157,7 +153,7 @@ class UpdaterService : JobIntentService() {
 
                 Timber.i("getAppUpdate result: ${apiResponse.raw().code()}\n$appUpdate")
                 if (appUpdate != null) {
-                    checkIfUpdateIsAvailable(appUpdate, autoDownload)
+                    checkIfUpdateIsAvailable(appUpdate)
                 }
             }
         } catch (e: IOException) {
@@ -171,7 +167,7 @@ class UpdaterService : JobIntentService() {
         stopSelf(UPDATE_CHECK_JOB_ID)
     }
 
-    private fun checkIfUpdateIsAvailable(appUpdate: AppUpdate, autoDownload: Boolean) {
+    private fun checkIfUpdateIsAvailable(appUpdate: AppUpdate) {
         val versionCode = packageManager.versionCodeForPackage(appUpdate.packageName)
 
         if (appUpdate.versionCode > versionCode) {
@@ -186,10 +182,13 @@ class UpdaterService : JobIntentService() {
                 appUpdate.hash,
                 apkName = appUpdate.fileName
             )
-            ApkUpdater.singleton().notifyUpdateAvailable(apk, appUpdate.updateMessage)
 
-            if (autoDownload) {
-                ApkUpdater.singleton().downloadApk(appUpdate)
+            applicationContext.runOnUiThread {
+                val autoDownload = ApkUpdater.singleton().notifyUpdateAvailable(apk, appUpdate.updateMessage)
+
+                if (autoDownload) {
+                    ApkUpdater.singleton().downloadApk(appUpdate)
+                }
             }
         } else {
             Timber.d("Already up to date install $appUpdate")
