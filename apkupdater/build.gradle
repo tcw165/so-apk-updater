@@ -23,6 +23,8 @@ android {
             debuggable true
             minifyEnabled false
             testCoverageEnabled = true
+
+            matchingFallbacks = ['debug']
         }
 
         release {
@@ -32,6 +34,8 @@ android {
 
             // Disables PNG crunching for the release build type.
             crunchPngs false
+
+            matchingFallbacks = ['release']
         }
     }
 
@@ -93,7 +97,7 @@ androidExtensions {
 }
 
 dependencies {
-    implementation project(path: ":updaterengine", configuration: "default")
+    implementation project(":updaterengine")
 
     // Kotlin
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
