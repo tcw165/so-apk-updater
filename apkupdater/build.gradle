@@ -11,8 +11,8 @@ android {
         applicationId "co.sodalabs.apkupdater"
         minSdkVersion 19
         targetSdkVersion 28
-        versionCode 1
-        versionName "1.0"
+        versionCode buildVersionCode(artifact_version)
+        versionName artifact_version
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
         buildConfigField "String", "BASE_URL", "\"https://sparkpoint-func.azurewebsites.net/api/\""
