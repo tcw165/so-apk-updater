@@ -5,6 +5,14 @@ apply plugin: 'kotlin-kapt'
 apply from: "$rootDir/quality.gradle"
 apply from: "$rootDir/extension.gradle"
 apply from: "$rootDir/android_library_extension.gradle"
+apply plugin: 'com.github.dcendents.android-maven'
+
+// The version is for our local maven snapshot folder and name.
+// We use maven local as a way to distribute the framework for testing
+version = artifact_version + '-SNAPSHOT'
+
+// The group is used by local maven and Jitpack
+group = 'com.github.sodalabs'
 
 android {
     compileSdkVersion 28

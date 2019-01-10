@@ -1,7 +1,8 @@
 apply from: "$rootDir/extension.gradle"
 
 android.libraryVariants.all { variant ->
-    def isDebuggable = variant.getBuildType().isDebuggable()
+    def buildType = variant.getBuildType().getName()
+    def isDebug = buildType == "debug"
     def appName
 
     if (project.hasProperty("applicationName")) {
@@ -11,7 +12,7 @@ android.libraryVariants.all { variant ->
     }
 
     variant.outputs.all { output ->
-        if (isDebuggable) {
+        if (isDebug) {
             outputFileName = "${appName}-${output.baseName}-${artifact_version}-${getGitHash()}.aar"
         } else {
             outputFileName = "${appName}-${output.baseName}-${artifact_version}.aar"
@@ -23,7 +24,9 @@ android.libraryVariants.all { variant ->
 android.libraryVariants.all { variant ->
     variant.assemble.doLast {
         if (variant.mappingFile != null && variant.mappingFile.exists()) {
-            def isDebuggable = variant.getBuildType().isDebuggable()
+            def buildType = variant.getBuildType().getName()
+            def isDebug = buildType == "debug"
+
             def mappingFileName = "$archivesBaseName-$variant.baseName-mapping.txt"
             (new File(variant.mappingFile.parent, mappingFileName)).delete()
 
@@ -34,7 +37,7 @@ android.libraryVariants.all { variant ->
                 appName = project.name
             }
 
-            if (isDebuggable) {
+            if (isDebug) {
                 variant.mappingFile.renameTo(variant.mappingFile.parent +
                         "/$appName-$variant.baseName-${artifact_version}-${getGitHash()}-mapping.txt")
             } else {
