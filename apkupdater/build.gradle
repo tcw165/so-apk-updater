@@ -93,7 +93,7 @@ androidExtensions {
 }
 
 dependencies {
-    implementation project(":updaterengine")
+    implementation project(path: ":updaterengine", configuration: "default")
 
     // Kotlin
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
