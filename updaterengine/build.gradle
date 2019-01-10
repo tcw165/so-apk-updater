@@ -12,7 +12,7 @@ apply plugin: 'com.github.dcendents.android-maven'
 version = artifact_version + '-SNAPSHOT'
 
 // The group is used by local maven and Jitpack
-group = 'com.github.sodalabs'
+group = 'com.github.sodalabs.apkupdater'
 
 android {
     compileSdkVersion 28
@@ -37,6 +37,7 @@ android {
         debug {
             debuggable true
             testCoverageEnabled = true
+            matchingFallbacks = ['debug']
         }
 
         release {
@@ -44,6 +45,7 @@ android {
 
             // Disables PNG crunching for the release build type.
             crunchPngs false
+            matchingFallbacks = ['release']
         }
     }
 
@@ -134,8 +136,4 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
-}
-
-repositories {
-    mavenCentral()
 }

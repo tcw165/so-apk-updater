@@ -23,6 +23,8 @@ android {
             debuggable true
             minifyEnabled false
             testCoverageEnabled = true
+
+            matchingFallbacks = ['debug']
         }
 
         release {
@@ -32,6 +34,8 @@ android {
 
             // Disables PNG crunching for the release build type.
             crunchPngs false
+
+            matchingFallbacks = ['release']
         }
     }
 
