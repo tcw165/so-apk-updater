@@ -12,7 +12,7 @@ apply plugin: 'com.github.dcendents.android-maven'
 version = artifact_version + '-SNAPSHOT'
 
 // The group is used by local maven and Jitpack
-group = 'com.github.sodalabs'
+group = 'com.github.sodalabs.apkupdater'
 
 android {
     compileSdkVersion 28
