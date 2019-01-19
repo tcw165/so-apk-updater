@@ -1,0 +1,18 @@
+githubRelease {
+    token "${System.getenv('GITHUB_API_TOKEN')}"
+    owner "SodaLabs"
+    repo "ApkUpdater"
+    tagName "v${artifact_version}"
+    targetCommitish "master"
+    releaseName "Release Notes for v${artifact_version}"
+    releaseAssets = files(
+            "$rootDir/updaterengine/build/outputs/aar/updaterengine-release-${artifact_version}.aar",
+            "$rootDir/privilegedinstaller/build/outputs/apk/release/privilegedinstaller-release-${artifact_version}.apk",
+            "$rootDir/apkupdater/build/outputs/apk/release/apkupdater-release-${artifact_version}.apk")
+
+    body {
+        def lastTag = ['git', 'describe', '--abbrev=0', '--tags'].execute().text.trim()
+        def changeLog = ['git', 'log', "--pretty=format:### **%s**%n%h %an - _%aD_%n%n%b", "${lastTag}..HEAD", "--no-merges"].execute().text.trim()
+        changeLog
+    }
+}

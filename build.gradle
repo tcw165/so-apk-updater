@@ -17,8 +17,18 @@ buildscript {
         classpath 'io.fabric.tools:gradle:1.26.1'
         // For Releasing on Jitpack
         classpath 'com.github.dcendents:android-maven-gradle-plugin:2.1'
+
+        classpath 'com.squareup.okhttp3:okhttp:3.12.0'
+        classpath 'com.j256.simplemagic:simplemagic:1.10'
+        classpath 'org.zeroturnaround:zt-exec:1.10'
     }
 }
+
+plugins {
+    id "com.github.breadmoirai.github-release" version "2.2.1"
+}
+
+apply from: "$rootDir/release.gradle"
 
 allprojects {
     repositories {
