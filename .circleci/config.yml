@@ -35,7 +35,7 @@ jobs:
       - checkout
       - restore_cache:
           key: jars-{{ checksum "build.gradle" }}-{{ checksum "apkupdater/build.gradle" }}-{{ checksum "updaterengine/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
-      - run: ./gradlew :apkupdater:testDebugUnitTest --no-daemon --stacktrace
+      - run: ./gradlew :apkupdater:testNimbleDebugUnitTest :apkupdater:testSparkpointDebugUnitTest --no-daemon --stacktrace
       - store_test_results:
           path: apkupdater/build/test-results
 
