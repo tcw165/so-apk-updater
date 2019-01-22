@@ -14,8 +14,6 @@ android {
         versionCode buildVersionCode(artifact_version)
         versionName artifact_version
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-
-        buildConfigField "String", "BASE_URL", "\"https://sparkpoint-func.azurewebsites.net/api/\""
     }
 
     buildTypes {
@@ -36,6 +34,28 @@ android {
             crunchPngs false
 
             matchingFallbacks = ['release']
+        }
+    }
+
+    flavorDimensions "PRODUCT"
+
+    productFlavors {
+        sparkpoint {
+            dimension "PRODUCT"
+            buildConfigField "String", "BASE_URL", "\"https://sparkpoint-func.azurewebsites.net/api/\""
+            buildConfigField "String[]", "PACKAGES_TO_CHECK", "{" +
+                    "\"co.sodalabs.sparkpoint\"," +
+                    "\"todo.example.sodalabs\"" +
+                    "}"
+        }
+
+        nimble {
+            dimension "PRODUCT"
+            buildConfigField "String", "BASE_URL", "\"https://nimble-func.azurewebsites.net/api/\""
+            buildConfigField "String[]", "PACKAGES_TO_CHECK", "{" +
+                    "\"com.foxconn.slid\"," +
+                    "\"todo.example.sodalabs\"" +
+                    "}"
         }
     }
 
