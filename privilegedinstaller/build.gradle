@@ -2,21 +2,45 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
-apply from: "$rootDir/quality.gradle"
-apply from: "$rootDir/android_app_extension.gradle"
+apply from: rootProject.file("gradleScripts/android_app_extension.gradle")
+apply from: rootProject.file("gradleScripts/version_extension.gradle")
+
+// If you are missing these files, please download from our internal file repo
+// https://drive.google.com/open?id=1a-H4w7Qia5EPBJKh2fE7aJ-07LjBR2Vh
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+
+// Version
+def versionPropertiesFile = project.file("version.properties")
+def versionProperties = new Properties()
+versionProperties.load(new FileInputStream(versionPropertiesFile))
 
 android {
-    compileSdkVersion 28
+    compileSdkVersion rootProject.ext.compileSdkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
 
     defaultConfig {
         applicationId "co.sodalabs.privilegedinstaller"
-        minSdkVersion 14
-        targetSdkVersion 28
-        versionCode buildVersionCode(artifact_version)
-        versionName artifact_version
+
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+
+        versionCode buildVersionCode(versionProperties.artifact_version)
+        versionName versionProperties.artifact_version
+
         multiDexEnabled true
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        platform {
+            keyAlias keystoreProperties['releaseKeyAlias']
+            keyPassword keystoreProperties['releaseKeyPassword']
+            storeFile rootProject.file(keystoreProperties['releaseKeyStore'])
+            storePassword keystoreProperties['releaseStorePassword']
+        }
     }
 
     buildTypes {
@@ -30,6 +54,8 @@ android {
         debug {
             debuggable true
 
+            signingConfig signingConfigs.platform
+
             buildConfigField "String", "DATE_OF_BUILD", "\"00-00-00\""
             buildConfigField "String", "GIT_SHA", "\"-\""
         }
@@ -37,14 +63,28 @@ android {
         release {
             debuggable true
 
+            signingConfig signingConfigs.platform
+
             // Disables PNG crunching for the release build type.
             crunchPngs false
         }
     }
 
+    flavorDimensions "APP"
+
+    productFlavors {
+        dev {
+            dimension "APP"
+        }
+
+        prod {
+            dimension "APP"
+        }
+    }
+
     dexOptions {
         // Don't preDex on CI
-        preDexLibraries = !rootProject.build.ci
+        preDexLibraries = !rootProject.ext.isCI
     }
 
     packagingOptions {
@@ -78,6 +118,14 @@ android {
         }
     }
 
+    // This configuration is to fix the packing problem that we use androidx
+    // namespace (ViewModel) and some of the other modules use older android
+    // namespace.
+    // e.g. android-23-no-hides.jar
+    packagingOptions {
+        exclude 'META-INF/proguard/androidx-annotations.pro'
+    }
+
     testOptions.unitTests.all {
         testLogging {
             events 'passed', 'skipped', 'failed', 'standardOut', 'standardError'
@@ -92,20 +140,39 @@ android {
 }
 
 dependencies {
-    // Kotlin
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    // Support libs
-    implementation "com.android.support:appcompat-v7:28.0.0"
-    implementation "com.android.support:multidex:1.0.3"
+    // Google Support Library.
+    implementation rootProject.ext.dep.xCompat
+    implementation rootProject.ext.dep.xConstraintLayout
+    // Multi-dex.
+    implementation rootProject.ext.dep.xMultidex
 
-    // Better logging
-    implementation "com.jakewharton.timber:timber:4.7.1"
+    // Kotlin STD Library.
+    api rootProject.ext.dep.kotlinStdlibJdk7
 
-    // Tests
-    testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'com.android.support.test:runner:1.0.2'
-    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+    // RxAndroid
+    api rootProject.ext.dep.rxAndroid
+    // RxJava
+    api rootProject.ext.dep.rxJava
+    api rootProject.ext.dep.rxKotlin
+    api rootProject.ext.dep.rxRelay
+    // RxView
+    api rootProject.ext.dep.rxBinding
+
+    // Log
+    implementation rootProject.ext.dep.timber
+
+    // Unit tests.
+    testImplementation rootProject.ext.dep.testJunit
+    testImplementation rootProject.ext.dep.testMockito
+    testImplementation rootProject.ext.dep.testRobolectric
+    testImplementation rootProject.ext.dep.koinTest
+    testImplementation rootProject.ext.dep.xMultidex
+
+    // Instrumentation tests.
+    androidTestImplementation rootProject.ext.dep.testRunner
+    androidTestImplementation rootProject.ext.dep.testEspressoCore
 }
 repositories {
     mavenCentral()

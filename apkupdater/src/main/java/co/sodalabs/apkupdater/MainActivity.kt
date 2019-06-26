@@ -1,8 +1,8 @@
 package co.sodalabs.apkupdater
 
 import android.os.Bundle
-import android.support.v7.app.AppCompatActivity
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.data.Apk
 import io.reactivex.disposables.CompositeDisposable

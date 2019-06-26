@@ -12,7 +12,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PersistableBundle
 import android.os.SystemClock
-import android.support.v4.app.JobIntentService
+import androidx.core.app.JobIntentService
 import co.sodalabs.updaterengine.data.Apk
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.net.UpdaterApi

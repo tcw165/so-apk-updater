@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.support.v4.app.JobIntentService
+import androidx.core.app.JobIntentService
 import co.sodalabs.updaterengine.data.Apk
 import java.util.Objects
 

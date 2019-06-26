@@ -4,7 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.net.Uri
 import android.os.Looper
-import android.support.annotation.Keep
+import androidx.annotation.Keep
 import co.sodalabs.updaterengine.data.Apk
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.installer.InstallerService

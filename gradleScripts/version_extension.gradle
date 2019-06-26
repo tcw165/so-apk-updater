@@ -1,7 +1,8 @@
 rootProject.ext {
-    build = [
-            ci: 'true' == System.getenv('CI')
-    ]
+
+    isCI = {
+        return 'true' == System.getenv('CI')
+    }
 
     buildVersionCode = { version ->
         def majorMinorBuild = version.tokenize(".")
@@ -31,7 +32,6 @@ rootProject.ext {
         def stdout = new ByteArrayOutputStream()
         exec {
             commandLine 'git', 'rev-parse', '--short', 'HEAD'
-            ignoreExitValue = true
             standardOutput = stdout
         }
         return stdout.toString().trim()

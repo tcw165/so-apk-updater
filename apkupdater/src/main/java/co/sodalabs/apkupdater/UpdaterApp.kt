@@ -1,6 +1,6 @@
 package co.sodalabs.apkupdater
 
-import android.support.multidex.MultiDexApplication
+import androidx.multidex.MultiDexApplication
 import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.apkupdater.utils.ConfigHelper
 import co.sodalabs.apkupdater.utils.CrashlyticsTree
