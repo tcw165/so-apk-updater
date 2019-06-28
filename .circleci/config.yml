@@ -2,73 +2,7 @@ version: 2
 
 jobs:
   checkout-cache:
-      working_directory: ~/project
-      docker:
-        - image: circleci/android:api-28-alpha
-      steps:
-        - checkout
-        - restore_cache:
-            key: jars-{{ checksum "build.gradle" }}-{{ checksum "apkupdater/build.gradle" }}-{{ checksum "updaterengine/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
-        - run:
-            name: Download dependencies
-            command: ./gradlew androidDependencies --no-daemon --stacktrace
-        - save_cache:
-            key: jars-{{ checksum "build.gradle" }}-{{ checksum "apkupdater/build.gradle" }}-{{ checksum "updaterengine/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
-            paths:
-              - ~/.gradle
-  
-  test-lint:
-      working_directory: ~/project
-      docker:
-        - image: circleci/android:api-28-alpha
-      steps:
-        - checkout
-        - restore_cache:
-            key: jars-{{ checksum "build.gradle" }}-{{ checksum "apkupdater/build.gradle" }}-{{ checksum "updaterengine/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
-        - run: ./gradlew ktlintCheck --no-daemon --stacktrace
-        
-  test-apkupdater:
-    working_directory: ~/ApkUpdater
-    docker:
-      - image: circleci/android:api-28-alpha
-    steps:
-      - checkout
-      - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "apkupdater/build.gradle" }}-{{ checksum "updaterengine/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
-      - run: ./gradlew :apkupdater:testNimbleDebugUnitTest :apkupdater:testSparkpointDebugUnitTest --no-daemon --stacktrace
-      - store_test_results:
-          path: apkupdater/build/test-results
-
-  test-privilegedinstaller:
-    working_directory: ~/ApkUpdater
-    docker:
-      - image: circleci/android:api-28-alpha
-    steps:
-      - checkout
-      - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "apkupdater/build.gradle" }}-{{ checksum "updaterengine/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
-      - run: ./gradlew :privilegedinstaller:testDebugUnitTest --no-daemon --stacktrace
-      - store_test_results:
-          path: privilegedinstaller/build/test-results
-
-  test-proguard:
-    working_directory: ~/ApkUpdater
-    docker:
-      - image: circleci/android:api-28-alpha
-    steps:
-      - checkout
-      - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "apkupdater/build.gradle" }}-{{ checksum "updaterengine/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
-      - run: ./gradlew assembleRelease --no-daemon --stacktrace
-      - store_artifacts:
-          path: apkupdater/build/outputs/mapping/release
-          destination: proguard
-      - store_artifacts:
-          path: privilegedinstaller/build/outputs/mapping/release
-          destination: proguard
-
-  check-apkupdater-debug:
-    working_directory: ~/ApkUpdater
+    working_directory: ~/project
     docker:
       - image: circleci/android:api-28-alpha
     environment:
@@ -76,14 +10,81 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "apkupdater/build.gradle" }}-{{ checksum "updaterengine/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
-          name: Run :apkupdater:check
-          command: ./gradlew :apkupdater:check --no-daemon --stacktrace
+          name: Download Keystore
+          command: echo $RELEASE_KEYSTORE_BASE64 | base64 --decode > build.keystore
+      - run:
+          name: Create keystore.properies
+          command: printf 'releaseKeyAlias=%s\nreleaseKeyPassword=%s\nreleaseKeyStore=%s\nreleaseStorePassword=%s\n'
+            $RELEASE_KEY_ALIAS $RELEASE_KEY_PASSWORD build.keystore $RELEASE_STORE_PASSWORD
+            > keystore.properties
+      - run:
+          name: Download dependencies
+          command: ./gradlew androidDependencies --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
+      - save_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+          paths:
+            - ~/.gradle
+            - ~/.bundle
+            - ~/project/keystore.properties
+            - ~/project/build.keystore
+
+  test-lint:
+    working_directory: ~/project
+    docker:
+      - image: circleci/android:api-28-alpha
+    environment:
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xms256m -Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"'
+    steps:
+      - checkout
+      - restore_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+      - run:
+          name: Run Lint Test
+          command: ./gradlew pmd ktlintCheck --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
+
+  test-unit-test:
+    working_directory: ~/project
+    docker:
+      - image: circleci/android:api-28-alpha
+    environment:
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xms256m -Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"'
+    steps:
+      - checkout
+      - restore_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+      - run:
+          name: Run Unit Test
+          command: ./gradlew test --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
+      - store_test_results:
+          path: apkupdater/build/test-results
+          destination: apkupdater-test
+      # TODO: Shall we add the engine lib test report?
+      - store_test_results:
+          path: privilegedinstaller/build/test-results
+          destination: privilegedinstaller-test
+
+  test-proguard:
+    working_directory: ~/project
+    docker:
+      - image: circleci/android:api-28-alpha
+    environment:
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xms256m -Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"'
+    steps:
+      - checkout
+      - restore_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+      - run:
+          name: Test ProGuard
+          command: ./gradlew assembleRelease --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
       - store_artifacts:
-          path: apkupdater/build/reports/
-          destination: reports/
-      
+          path: apkupdater/build/outputs/mapping/release
+          destination: proguard
+      - store_artifacts:
+          path: privilegedinstaller/build/outputs/mapping/release
+          destination: proguard
+
   build-apkupdater-debug:
     working_directory: ~/ApkUpdater
     docker:
@@ -93,30 +94,13 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "apkupdater/build.gradle" }}-{{ checksum "updaterengine/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
-          name: Run :apkupdater:assembleDebug
-          command: ./gradlew :apkupdater:assembleDebug --no-daemon --stacktrace
+          name: Build APK Updater (Debug)
+          command: ./gradlew :apkupdater:assembleDebug --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
       - store_artifacts:
           path: apkupdater/build/outputs/apk/debug
           destination: apk
-
-  check-privilegedinstaller-debug:
-    working_directory: ~/ApkUpdater
-    docker:
-      - image: circleci/android:api-28-alpha
-    environment:
-      GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xms256m -Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"'
-    steps:
-      - checkout
-      - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "apkupdater/build.gradle" }}-{{ checksum "updaterengine/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
-      - run:
-          name: Run :privilegedinstaller:check
-          command: ./gradlew :privilegedinstaller:check --no-daemon --stacktrace
-      - store_artifacts:
-          path: privilegedinstaller/build/reports/
-          destination: reports/
 
   build-privilegedinstaller-debug:
     working_directory: ~/ApkUpdater
@@ -127,13 +111,15 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "apkupdater/build.gradle" }}-{{ checksum "updaterengine/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
-          name: Run :privilegedinstaller:assembleDebug
-          command: ./gradlew :privilegedinstaller:assembleDebug --no-daemon --stacktrace
+          name: Build Privileged Installer (Debug)
+          command: ./gradlew :privilegedinstaller:assembleDebug --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
       - store_artifacts:
           path: privilegedinstaller/build/outputs/apk/debug
           destination: apk
+
+  # TODO: Release the engine lib to Jitpack?
 
   build-apkupdater-release:
     working_directory: ~/ApkUpdater
@@ -144,8 +130,18 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "apkupdater/build.gradle" }}-{{ checksum "updaterengine/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
-      - run: ./gradlew :apkupdater:assembleRelease --no-daemon --stacktrace
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+      - run:
+          name: Build APK Updater (Release)
+          command: ./gradlew :apkupdater:assembleRelease --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
+      - run:
+          name: Install FastLane
+          command: |
+            gem update bundler
+            bundle install
+      - run:
+          name: Release to Github
+          command: fastlane releaseGithub
       - store_artifacts:
           path: apkupdater/build/outputs/apk/release
           destination: apk
@@ -159,8 +155,18 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "apkupdater/build.gradle" }}-{{ checksum "updaterengine/build.gradle" }}-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}
-      - run: ./gradlew :privilegedinstaller:assembleRelease --no-daemon --stacktrace
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+      - run:
+          name: Build Privileged Installer (Release)
+          command: ./gradlew :privilegedinstaller:assembleRelease --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
+      - run:
+          name: Install FastLane
+          command: |
+            gem update bundler
+            bundle install
+      - run:
+          name: Release to Github
+          command: fastlane releaseGithub
       - store_artifacts:
           path: privilegedinstaller/build/outputs/apk/release
           destination: apk
@@ -173,14 +179,9 @@ workflows:
       - test-lint:
           requires:
             - checkout-cache
-      - test-apkupdater:
+      - test-unit-test:
           requires:
             - checkout-cache
-            - test-lint
-      - test-privilegedinstaller:
-          requires:
-            - checkout-cache
-            - test-lint
       - test-proguard:
           requires:
             - checkout-cache
@@ -189,46 +190,31 @@ workflows:
             branches:
               ignore: master
           requires:
-            - checkout-cache
-            - test-apkupdater
+            - test-lint
+            - test-unit-test
             - test-proguard
       - build-privilegedinstaller-debug:
           filters:
             branches:
               ignore: master
           requires:
-            - checkout-cache
-            - test-privilegedinstaller
+            - test-lint
+            - test-unit-test
             - test-proguard
-      - check-apkupdater-debug:
-          filters:
-            branches:
-              ignore: master
-          requires:
-            - checkout-cache
-            - test-apkupdater
-            - test-proguard
-            - build-apkupdater-debug
-      - check-privilegedinstaller-debug:
-          filters:
-            branches:
-              ignore: master
-          requires:
-            - checkout-cache
-            - test-privilegedinstaller
-            - test-proguard
-            - build-privilegedinstaller-debug
+      # TODO: Release the engine lib to Jitpack?
       - build-apkupdater-release:
           filters:
             branches:
               only: master
           requires:
-            - checkout-cache
-            - check-apkupdater-debug
+            - test-lint
+            - test-unit-test
+            - test-proguard
       - build-privilegedinstaller-release:
           filters:
             branches:
               only: master
           requires:
-            - checkout-cache
-            - check-privilegedinstaller-debug
+            - test-lint
+            - test-unit-test
+            - test-proguard

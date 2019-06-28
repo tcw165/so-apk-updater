@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="fastlane.lanes">
+    
+    
+    
+      
+      <testcase classname="fastlane.lanes" name="0: default_platform" time="0.010415">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="1: pwd" time="0.014813">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="2: grep -oE &quot;\d+\.\d+\.\d+&quot; version.properties" time="0.014769">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="3: git describe --abbrev=0 --tags" time="0.048479">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="4: git log --pretty=format:&quot;### **%s**%n###### %h %an - _%aD_%n%n%b&quot; v0.7.0..HEAD --no-merges" time="0.02483">
+        
+      </testcase>
+    
+      
+      <testcase classname="fastlane.lanes" name="5: set_github_release" time="33.278345">
+        
+      </testcase>
+    
+  </testsuite>
+</testsuites>
