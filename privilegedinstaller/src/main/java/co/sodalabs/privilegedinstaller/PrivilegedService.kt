@@ -52,6 +52,7 @@ class PrivilegedService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Timber.v("Privileged installer is online")
 
         // get internal methods via reflection
         try {
@@ -85,6 +86,8 @@ class PrivilegedService : Service() {
     }
 
     override fun onDestroy() {
+        Timber.v("Privileged installer is offline")
+
         super.onDestroy()
         unregisterReceiver(broadcastReceiver)
     }
@@ -113,6 +116,9 @@ class PrivilegedService : Service() {
             Manifest.permission.DELETE_PACKAGES,
             packageName
         ) == PackageManager.PERMISSION_GRANTED
+
+        Timber.v("Permission for APK install: $hasInstallPermission")
+        Timber.v("Permission for APK delete: $hasDeletePermission")
 
         return hasInstallPermission && hasDeletePermission
     }

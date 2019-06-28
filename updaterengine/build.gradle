@@ -2,26 +2,35 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
-apply from: "$rootDir/quality.gradle"
-apply from: "$rootDir/extension.gradle"
-apply from: "$rootDir/android_library_extension.gradle"
+// For Jitpack release
 apply plugin: 'com.github.dcendents.android-maven'
 
-// The version is for our local maven snapshot folder and name.
-// We use maven local as a way to distribute the framework for testing
-version = artifact_version + '-SNAPSHOT'
+apply from: rootProject.file("gradleScripts/android_library_extension.gradle")
+apply from: rootProject.file("gradleScripts/version_extension.gradle")
+
+//// The version is for our local maven snapshot folder and name.
+//// We use maven local as a way to distribute the framework for testing
+//version = artifact_version + '-SNAPSHOT'
+
+// Version
+def versionPropertiesFile = project.file("version.properties")
+def versionProperties = new Properties()
+versionProperties.load(new FileInputStream(versionPropertiesFile))
 
 // The group is used by local maven and Jitpack
 group = 'com.github.sodalabs.apkupdater'
 
 android {
-    compileSdkVersion 28
+    compileSdkVersion rootProject.ext.compileSdkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
 
     defaultConfig {
-        minSdkVersion 19
-        targetSdkVersion 28
-        versionCode buildVersionCode(artifact_version)
-        versionName artifact_version
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+
+        versionCode buildVersionCode(versionProperties.artifact_version)
+        versionName versionProperties.artifact_version
+
         multiDexEnabled true
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
@@ -51,7 +60,7 @@ android {
 
     dexOptions {
         // Don't preDex on CI
-        preDexLibraries = !rootProject.build.ci
+        preDexLibraries = !rootProject.ext.isCI
     }
 
     packagingOptions {
@@ -105,35 +114,45 @@ androidExtensions {
 }
 
 dependencies {
-    // Kotlin
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    // Support Libs
-    implementation 'com.android.support:appcompat-v7:28.0.0'
-    implementation "com.android.support:multidex:1.0.3"
+    // Google Support Library.
+    implementation rootProject.ext.dep.xCompat
+    implementation rootProject.ext.dep.xConstraintLayout
+    // Multi-dex.
+    implementation rootProject.ext.dep.xMultidex
 
-    // Better logging
-    implementation "com.jakewharton.timber:timber:4.7.1"
+    // Kotlin STD Library.
+    api rootProject.ext.dep.kotlinStdlibJdk7
+
+    // Log
+    implementation rootProject.ext.dep.timber
 
     // Networking
-    implementation "com.squareup.retrofit2:retrofit:2.4.0"
-    implementation "com.squareup.retrofit2:converter-scalars:2.4.0"
-    implementation "com.squareup.retrofit2:converter-moshi:2.4.0"
-    implementation "com.squareup.retrofit2:adapter-rxjava2:2.4.0"
-    implementation "com.squareup.okhttp3:logging-interceptor:3.11.0"
+    implementation rootProject.ext.dep.retrofit2
+    implementation rootProject.ext.dep.retrofit2ConverterScalar
+    implementation rootProject.ext.dep.retrofit2ConverterMoshi
+    implementation rootProject.ext.dep.retrofit2AdapterRxJava2
+    implementation rootProject.ext.dep.okhttpLoggingInterceptor
 
     // Moshi for Serialization/Deserialization
-    implementation "com.squareup.moshi:moshi:1.7.0"
-    kapt 'com.squareup.moshi:moshi-kotlin-codegen:1.7.0'
+    implementation rootProject.ext.dep.moshi
+    kapt rootProject.ext.dep.moshiKotlinCodegen
 
     // Better File Downloader
-    implementation "com.mani:ThinDownloadManager:1.4.0"
+    implementation rootProject.ext.dep.thinkDownloadManager
 
     // File Utils
-    implementation "commons-io:commons-io:2.6"
+    implementation rootProject.ext.dep.apacheCommonIo
 
-    // Tests
-    testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'com.android.support.test:runner:1.0.2'
-    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+    // Unit tests.
+    testImplementation rootProject.ext.dep.testJunit
+    testImplementation rootProject.ext.dep.testMockito
+    testImplementation rootProject.ext.dep.testRobolectric
+    testImplementation rootProject.ext.dep.koinTest
+    testImplementation rootProject.ext.dep.xMultidex
+
+    // Instrumentation tests.
+    androidTestImplementation rootProject.ext.dep.testRunner
+    androidTestImplementation rootProject.ext.dep.testEspressoCore
 }

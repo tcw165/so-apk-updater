@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.support.v4.content.FileProvider
+import androidx.core.content.FileProvider
 import co.sodalabs.updaterengine.data.Apk
 import co.sodalabs.updaterengine.data.SanitizedFile
 import co.sodalabs.updaterengine.net.ApkCache
@@ -47,8 +47,10 @@ class ApkFileProvider : FileProvider() {
         fun getSafeUri(context: Context, localApkUri: Uri, expectedApk: Apk): Uri {
             val apkFile = File(localApkUri.path)
             val tempApkFile = ApkCache.copyApkFromCacheToFiles(context, apkFile, expectedApk)
-            return getSafeUri(context, tempApkFile,
-                Build.VERSION.SDK_INT >= 24 && expectedApk.isApk())
+            return getSafeUri(
+                context, tempApkFile,
+                Build.VERSION.SDK_INT >= 24 && expectedApk.isApk()
+            )
         }
 
         /**
@@ -69,8 +71,10 @@ class ApkFileProvider : FileProvider() {
                 // TODO: Research if we need to inject
                 val authority = context.packageName + AUTHORITY_SUFFIX
                 val apkUri = getUriForFile(context, authority, tempFile)
-                context.grantUriPermission(PrivilegedInstaller.PRIVILEGED_EXTENSION_PACKAGE_NAME,
-                    apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                context.grantUriPermission(
+                    PrivilegedInstaller.PRIVILEGED_EXTENSION_PACKAGE_NAME,
+                    apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
                 apkUri
             } else {
                 tempFile.setReadable(true, false)

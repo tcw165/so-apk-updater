@@ -42,8 +42,13 @@ class AccessProtectionHelper(
         return isPackageAllowed(currentPkg)
     }
 
-    fun isPackageAllowed(packageName: String): Boolean {
+    private fun isPackageAllowed(packageName: String): Boolean {
         Timber.d("Checking if package is allowed to access privileged extension: $packageName")
+
+        if (packageName == BuildConfig.APPLICATION_ID) {
+            Timber.v("Package $packageName is allowed to access the privileged extension!")
+            return true
+        }
 
         try {
             val currentPackageCert = getPackageCertificate(packageName)

@@ -1,6 +1,6 @@
 package co.sodalabs.privilegedinstaller
 
-import android.support.multidex.MultiDexApplication
+import androidx.multidex.MultiDexApplication
 import timber.log.Timber
 
 class PrivilegedInstallerApp : MultiDexApplication() {

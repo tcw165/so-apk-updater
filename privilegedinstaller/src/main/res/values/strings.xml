@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">PrivilegedInstaller</string>
+
+    <string name="label_apk_install_one">Install APK 1 silently</string>
+    <string name="label_apk_install_two">Install APK 2 silently</string>
 </resources>
