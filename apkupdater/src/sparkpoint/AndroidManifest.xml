@@ -1,0 +1,18 @@
+<manifest package="co.sodalabs.apkupdater"
+          xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!--The job service for deferring job or recurring events-->
+        <service
+            android:name=".UpdatesJobService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service
+            android:name=".UpdatesCheckerService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+    </application>
+</manifest>

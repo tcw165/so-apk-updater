@@ -1,12 +1,17 @@
 package co.sodalabs.apkupdater.utils
 
 import android.content.Context
-import co.sodalabs.updaterengine.ApkUpdater
+import co.sodalabs.updaterengine.ApkUpdaterConfig
 
 object ConfigHelper {
 
-    fun getDefault(context: Context): ApkUpdater.Config {
-        return ApkUpdater.Config(context, BuildUtils.UPDATE_URL)
-            .setPackageName(BuildUtils.PACKAGE_TO_CHECK)
+    fun generateDefault(context: Context): ApkUpdaterConfig {
+        val hostPackageName = context.packageName
+
+        return ApkUpdaterConfig(
+            hostPackageName = hostPackageName,
+            // packageNames = listOf(hostPackageName, *BuildUtils.PACKAGES_TO_CHECK)
+            packageNames = listOf(*BuildUtils.PACKAGES_TO_CHECK)
+        )
     }
 }

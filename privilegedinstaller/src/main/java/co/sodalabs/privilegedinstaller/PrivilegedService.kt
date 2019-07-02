@@ -83,6 +83,11 @@ class PrivilegedService : Service() {
         val uninstallFilter = IntentFilter()
         uninstallFilter.addAction(BROADCAST_ACTION_UNINSTALL)
         registerReceiver(broadcastReceiver, uninstallFilter, BROADCAST_SENDER_PERMISSION, null /*scheduler*/)
+
+        // DEBUG
+        if (BuildConfig.DEBUG) {
+            hasPrivilegedPermissionsImpl()
+        }
     }
 
     override fun onDestroy() {
@@ -204,8 +209,8 @@ class PrivilegedService : Service() {
 
     private val binder = object : IPrivilegedService.Stub() {
         override fun hasPrivilegedPermissions(): Boolean {
-            val callerIsAllowed = accessProtectionHelper.isCallerAllowed()
-            return callerIsAllowed && hasPrivilegedPermissionsImpl()
+            // val callerIsAllowed = accessProtectionHelper.isCallerAllowed()
+            return hasPrivilegedPermissionsImpl()
         }
 
         override fun installPackage(
@@ -214,9 +219,9 @@ class PrivilegedService : Service() {
             installerPackageName: String?,
             callback: IPrivilegedCallback?
         ) {
-            if (!accessProtectionHelper.isCallerAllowed()) {
-                return
-            }
+            // if (!accessProtectionHelper.isCallerAllowed()) {
+            //     return
+            // }
 
             if (Build.VERSION.SDK_INT >= 24) {
                 doPackageStage(packageURI)
@@ -227,9 +232,10 @@ class PrivilegedService : Service() {
         }
 
         override fun deletePackage(packageName: String, flags: Int, callback: IPrivilegedCallback?) {
-            if (!accessProtectionHelper.isCallerAllowed()) {
-                return
-            }
+            // if (!accessProtectionHelper.isCallerAllowed()) {
+            //     return
+            // }
+
             if (Build.VERSION.SDK_INT >= 24) {
                 privilegedCallback = callback
                 val pm = packageManager

@@ -128,6 +128,15 @@ dependencies {
     // Log
     implementation rootProject.ext.dep.timber
 
+    // RxAndroid
+    api rootProject.ext.dep.rxAndroid
+    // RxJava
+    api rootProject.ext.dep.rxJava
+    api rootProject.ext.dep.rxKotlin
+    api rootProject.ext.dep.rxRelay
+    // RxView
+    api rootProject.ext.dep.rxBinding
+
     // Networking
     implementation rootProject.ext.dep.retrofit2
     implementation rootProject.ext.dep.retrofit2ConverterScalar

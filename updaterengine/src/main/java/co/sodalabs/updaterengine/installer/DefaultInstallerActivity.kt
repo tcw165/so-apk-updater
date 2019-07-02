@@ -9,51 +9,51 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.fragment.app.FragmentActivity
-import co.sodalabs.updaterengine.data.Apk
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import co.sodalabs.updaterengine.IntentActions
 import timber.log.Timber
 
 private const val REQUEST_CODE_INSTALL = 0
 private const val REQUEST_CODE_UNINSTALL = 1
 
 /**
-A transparent activity as a wrapper around Android's PackageInstaller Intents
+ * A transparent activity as a wrapper around Android's PackageInstaller Intents
  */
 class DefaultInstallerActivity : FragmentActivity() {
 
-    companion object {
-        const val ACTION_INSTALL_PACKAGE = "co.sodalabs.apkupdater.installer.DefaultInstaller.action.INSTALL_PACKAGE"
-        const val ACTION_UNINSTALL_PACKAGE = "co.sodalabs.apkupdater.installer.DefaultInstaller.action.UNINSTALL_PACKAGE"
-    }
-
-    private var downloadUri: Uri? = null
-
-    private val apk: Apk by lazy { intent.getParcelableExtra(Installer.EXTRA_APK) as Apk }
+    private val broadcastManager by lazy { LocalBroadcastManager.getInstance(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        Timber.v("[Install] The transparent default-install Activity is online")
+
+        val packageName = intent.getStringExtra(IntentActions.PROP_APP_PACKAGE_NAME)
         when (intent.action) {
-            DefaultInstallerActivity.ACTION_INSTALL_PACKAGE -> {
-                val localApkUri = intent.data
-                downloadUri = intent.getParcelableExtra(Installer.EXTRA_DOWNLOAD_URI)
-                installPackage(localApkUri)
+            IntentActions.ACTION_INSTALL_APP -> {
+                val localApkUri = intent.getParcelableExtra<Uri>(IntentActions.PROP_APP_FILE_URI)
+                launchSystemUIForInstall(localApkUri, packageName)
             }
-            DefaultInstallerActivity.ACTION_UNINSTALL_PACKAGE -> uninstallPackage(apk.packageName)
+            IntentActions.ACTION_UNINSTALL_APP -> uninstallPackage(packageName)
             else -> throw IllegalStateException("Intent action not specified!")
         }
     }
 
-    @SuppressLint("InlinedApi")
-    private fun installPackage(uri: Uri?) {
-        if (uri == null) {
-            throw RuntimeException("Set the data uri to point to an apk location!")
-        }
+    override fun onDestroy() {
+        super.onDestroy()
+        Timber.v("[Install] The transparent default-install Activity is offline")
+    }
 
+    @SuppressLint("InlinedApi")
+    private fun launchSystemUIForInstall(
+        localApkUri: Uri,
+        packageName: String
+    ) {
         // https://code.google.com/p/android/issues/detail?id=205827
-        if (Build.VERSION.SDK_INT < 24 && uri.scheme != "file") {
+        if (Build.VERSION.SDK_INT < 24 && localApkUri.scheme != "file") {
             throw RuntimeException("PackageInstaller < Android N only supports file scheme!")
         }
-        if (Build.VERSION.SDK_INT >= 24 && uri.scheme != "content") {
+        if (Build.VERSION.SDK_INT >= 24 && localApkUri.scheme != "content") {
             throw RuntimeException("PackageInstaller >= Android N only supports content scheme!")
         }
 
@@ -63,36 +63,46 @@ class DefaultInstallerActivity : FragmentActivity() {
         // works only when being installed as system-app
         // https://code.google.com/p/android/issues/detail?id=42253
         if (Build.VERSION.SDK_INT < 24) {
+            Timber.v("[Install] Prepare the intent with manner (< 24)")
             intent.action = Intent.ACTION_INSTALL_PACKAGE
-            intent.data = uri
+            intent.data = localApkUri
             intent.putExtra(Intent.EXTRA_RETURN_RESULT, true)
-            intent.putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+            intent.putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, false)
+            intent.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME, applicationInfo.packageName)
+            // Updater engine data
+            intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAME, packageName)
+            intent.putExtra(IntentActions.PROP_APP_FILE_URI, localApkUri)
         } else { // Android N
+            Timber.v("[Install] Prepare the intent with manner (>= 24)")
             intent.action = Intent.ACTION_INSTALL_PACKAGE
-            intent.data = uri
+            intent.data = localApkUri
             // grant READ permission for this content Uri
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             intent.putExtra(Intent.EXTRA_RETURN_RESULT, true)
-            intent.putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+            intent.putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, false)
+            intent.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME, applicationInfo.packageName)
+            // Updater engine data
+            intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAME, packageName)
+            intent.putExtra(IntentActions.PROP_APP_FILE_URI, localApkUri)
         }
 
         try {
+            Timber.v("[Install] Delegate to system UI for installing \"$packageName\" (from \"$localApkUri\")")
             startActivityForResult(intent, REQUEST_CODE_INSTALL)
         } catch (e: ActivityNotFoundException) {
             Timber.e(e)
-            val downloadUri = downloadUri ?: throw IllegalStateException("Download URI is null on install request")
-            // installer.sendBroadcastInstall(downloadUri, Installer.ACTION_INSTALL_INTERRUPTED, "This Android rom does not support ACTION_INSTALL_PACKAGE!")
             finish()
         }
     }
 
-    private fun uninstallPackage(packageName: String) {
+    private fun uninstallPackage(
+        packageName: String
+    ) {
         // check that the package is installed
         try {
             packageManager.getPackageInfo(packageName, 0)
         } catch (e: PackageManager.NameNotFoundException) {
             Timber.e(e)
-            // installer.sendBroadcastUninstall(Installer.ACTION_UNINSTALL_INTERRUPTED, "Package that is scheduled for uninstall is not installed!")
             finish()
             return
         }
@@ -104,55 +114,62 @@ class DefaultInstallerActivity : FragmentActivity() {
         intent.putExtra(Intent.EXTRA_RETURN_RESULT, true)
 
         try {
+            Timber.v("[Install] Delegate to system UI for uninstalling \"$packageName\"")
             startActivityForResult(intent, REQUEST_CODE_UNINSTALL)
         } catch (e: ActivityNotFoundException) {
             Timber.e(e)
-            // installer.sendBroadcastUninstall(Installer.ACTION_UNINSTALL_INTERRUPTED, "This Android rom does not support ACTION_UNINSTALL_PACKAGE!")
             finish()
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
+        // val localApkUri = safeIntent.getParcelableExtra<Uri>(PROP_APP_FILE_URI)
+        val packageName = intent.getStringExtra(IntentActions.PROP_APP_PACKAGE_NAME)
+
         when (requestCode) {
             REQUEST_CODE_INSTALL -> {
-                val downloadUri = downloadUri ?: throw IllegalStateException("Download URI is null on install request")
                 when (resultCode) {
                     Activity.RESULT_OK -> {
-                        Timber.i("Install complete: $downloadUri")
-                        // installer.sendBroadcastInstall(downloadUri, Installer.ACTION_INSTALL_COMPLETE)
+                        Timber.v("[Install] Install completes for \"$packageName\"")
+                        notifyViaLocalBroadcast(IntentActions.ACTION_INSTALL_SUCCESSFULLY, packageName)
                     }
                     Activity.RESULT_CANCELED -> {
-                        Timber.i("Install cancelled: $downloadUri")
-                        // installer.sendBroadcastInstall(downloadUri, Installer.ACTION_INSTALL_INTERRUPTED)
+                        Timber.v("[Install] Install gets cancelled for \"$packageName\"")
+                        notifyViaLocalBroadcast(IntentActions.ACTION_INSTALL_CANCELLED, packageName)
                     }
-                    Activity.RESULT_FIRST_USER ->
+                    Activity.RESULT_FIRST_USER -> {
                         // AOSP returns Activity.RESULT_FIRST_USER on error
-                        // installer.sendBroadcastInstall(downloadUri, Installer.ACTION_INSTALL_INTERRUPTED, getString(R.string.install_error_unknown))
-                        Timber.i("Install error: $downloadUri")
+                        Timber.e("[Install] Install fails for \"$packageName\"")
+                        notifyViaLocalBroadcast(IntentActions.ACTION_INSTALL_FAILED, packageName)
+                    }
                     else -> {
-                        Timber.i("Install error: $downloadUri")
-                        // installer.sendBroadcastInstall(downloadUri, Installer.ACTION_INSTALL_INTERRUPTED, getString(R.string.install_error_unknown))
+                        Timber.e("[Install] Install fails for \"$packageName\"")
+                        notifyViaLocalBroadcast(IntentActions.ACTION_INSTALL_FAILED, packageName)
                     }
                 }
             }
             REQUEST_CODE_UNINSTALL -> {
                 when (resultCode) {
                     Activity.RESULT_OK -> {
-                        Timber.i("Uninstall complete: $downloadUri")
-                        // installer.sendBroadcastUninstall(Installer.ACTION_UNINSTALL_COMPLETE)
+                        Timber.v("[Install] Uninstall completes for \"$packageName\"")
+                        notifyViaLocalBroadcast(IntentActions.ACTION_UNINSTALL_SUCCESSFULLY, packageName)
                     }
                     Activity.RESULT_CANCELED -> {
-                        Timber.i("Uninstall cancelled: $downloadUri")
-                        // installer.sendBroadcastUninstall(Installer.ACTION_UNINSTALL_INTERRUPTED)
+                        Timber.v("[Install] Uninstall gets cancelled for \"$packageName\"")
+                        notifyViaLocalBroadcast(IntentActions.ACTION_UNINSTALL_CANCELLED, packageName)
                     }
                     Activity.RESULT_FIRST_USER -> {
+                        Timber.e("[Install] Uninstall fails for \"$packageName\"")
                         // AOSP UninstallAppProgress returns RESULT_FIRST_USER on error
-                        // installer.sendBroadcastUninstall(Installer.ACTION_UNINSTALL_INTERRUPTED, getString(R.string.uninstall_error_unknown))
-                        Timber.i("Uninstall error: $downloadUri")
+                        notifyViaLocalBroadcast(IntentActions.ACTION_UNINSTALL_FAILED, packageName)
                     }
                     else -> {
-                        // installer.sendBroadcastUninstall(Installer.ACTION_UNINSTALL_INTERRUPTED, getString(R.string.uninstall_error_unknown))
-                        Timber.i("Uninstall error: $downloadUri")
+                        Timber.e("[Install] Uninstall fails for \"$packageName\"")
+                        notifyViaLocalBroadcast(IntentActions.ACTION_UNINSTALL_FAILED, packageName)
                     }
                 }
             }
@@ -161,5 +178,16 @@ class DefaultInstallerActivity : FragmentActivity() {
 
         // after doing the broadcasts, finish this transparent wrapper activity
         finish()
+    }
+
+    private fun notifyViaLocalBroadcast(
+        action: String,
+        packageName: String
+    ) {
+        val intent = Intent()
+        intent.action = action
+        intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAME, packageName)
+
+        broadcastManager.sendBroadcast(intent)
     }
 }

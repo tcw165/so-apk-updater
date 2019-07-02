@@ -3,9 +3,15 @@ package co.sodalabs.updaterengine.installer
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import androidx.core.app.JobIntentService
+import co.sodalabs.updaterengine.IntentActions.ACTION_INSTALL_APP
+import co.sodalabs.updaterengine.IntentActions.ACTION_UNINSTALL_APP
+import co.sodalabs.updaterengine.IntentActions.PROP_APP_FILE_URI
+import co.sodalabs.updaterengine.IntentActions.PROP_APP_PACKAGE_NAME
+import co.sodalabs.updaterengine.UpdaterJobs.JOB_ID_INSTALL_UPDATES
 import co.sodalabs.updaterengine.data.Apk
+import io.reactivex.disposables.CompositeDisposable
+import timber.log.Timber
 import java.util.Objects
 
 /**
@@ -34,12 +40,9 @@ import java.util.Objects
 class InstallerService : JobIntentService() {
 
     companion object {
-        private const val ACTION_INSTALL = "co.sodalabs.apkupdater.installer.InstallerService.action.INSTALL"
-        private const val ACTION_UNINSTALL = "co.sodalabs.apkupdater.installer.InstallerService.action.UNINSTALL"
 
         /**
          * Install an apk from [Uri].
-         *
          *
          * This does not include the same level of input validation as
          * [.uninstall] since this is called in one place where
@@ -51,12 +54,15 @@ class InstallerService : JobIntentService() {
          * @param apk apk object of app that should be installed
          * @see .uninstall
          */
-        fun install(context: Context, localApkUri: Uri, downloadUri: Uri, apk: Apk) {
+        fun install(
+            context: Context,
+            localApkUri: Uri,
+            packageName: String
+        ) {
             val intent = Intent(context, InstallerService::class.java)
-            intent.action = InstallerService.ACTION_INSTALL
-            intent.data = localApkUri
-            intent.putExtra(Installer.EXTRA_DOWNLOAD_URI, downloadUri)
-            intent.putExtra(Installer.EXTRA_APK, apk)
+            intent.action = ACTION_INSTALL_APP
+            intent.putExtra(PROP_APP_FILE_URI, localApkUri)
+            intent.putExtra(PROP_APP_PACKAGE_NAME, packageName)
             enqueueWork(context, intent)
         }
 
@@ -64,7 +70,6 @@ class InstallerService : JobIntentService() {
          * Uninstall an app.  [Objects.requireNonNull] is used to
          * enforce the `@NonNull` requirement, since that annotation alone
          * is not enough to catch all possible nulls.
-         *
          *
          * If you quickly cycle between installing an app and uninstalling it, then
          * [App.installedApk] will still be null when
@@ -76,62 +81,75 @@ class InstallerService : JobIntentService() {
          * install a null `Apk` is sent, it'll crash.
          *
          * @param context this app's [Context]
-         * @param apk [Apk] instance of the app that will be uninstalled
          */
-        fun uninstall(context: Context, apk: Apk) {
-            if (Build.VERSION.SDK_INT >= 19) {
-                Objects.requireNonNull(apk)
-            }
-
+        fun uninstall(
+            context: Context,
+            packageName: String
+        ) {
             val intent = Intent(context, InstallerService::class.java)
-            intent.action = InstallerService.ACTION_UNINSTALL
-            intent.putExtra(Installer.EXTRA_APK, apk)
+            intent.action = ACTION_UNINSTALL_APP
+            intent.putExtra(PROP_APP_PACKAGE_NAME, packageName)
             enqueueWork(context, intent)
         }
 
+        // TODO: Schedule install?
+
         private fun enqueueWork(context: Context, intent: Intent) {
-            enqueueWork(context, InstallerService::class.java, 0x872394, intent)
+            enqueueWork(context, InstallerService::class.java, JOB_ID_INSTALL_UPDATES, intent)
         }
     }
 
+    private val disposables = CompositeDisposable()
+
+    override fun onCreate() {
+        super.onCreate()
+
+        defaultInstaller.start()
+        privilegedInstaller.start()
+    }
+
+    override fun onDestroy() {
+        defaultInstaller.stop()
+        privilegedInstaller.stop()
+
+        disposables.clear()
+
+        super.onDestroy()
+    }
+
     override fun onHandleWork(intent: Intent) {
-        val apk: Apk = intent.getParcelableExtra(Installer.EXTRA_APK) ?: return
+        // A polling for waiting for the privileged install binding established.
+        for (i in 0 until 5) {
+            if (getInstaller() !is PrivilegedInstaller) {
+                Timber.v("[Install] Waiting for the privileged installer binding established (attempt #$i)...")
+                Thread.sleep(1000L)
+            }
+        }
 
-        val installer = InstallerFactory.create(this, apk)
+        val installer = getInstaller()
+        val packageName = intent.getStringExtra(PROP_APP_PACKAGE_NAME)
 
-        if (InstallerService.ACTION_INSTALL == intent.action) {
-            val uri = intent.data ?: return
-            val downloadUri: Uri = intent.getParcelableExtra(Installer.EXTRA_DOWNLOAD_URI)
-            installer.installPackage(uri, downloadUri)
-        } else if (InstallerService.ACTION_UNINSTALL == intent.action) {
-            installer.uninstallPackage()
+        when (intent.action) {
+            ACTION_INSTALL_APP -> {
+                val localApkUri = intent.getParcelableExtra<Uri>(PROP_APP_FILE_URI)
+                installer.installPackage(localApkUri, packageName)
+            }
+            ACTION_UNINSTALL_APP -> {
+                installer.uninstallPackage(packageName)
+            }
+        }
+    }
 
-            // TODO: Uninstall OBB files
-            //            val thread = object : Thread() {
-            //                override fun run() {
-            //                    super.run()
-            //                    priority = MIN_PRIORITY
-            //
-            //                    val mainObbFile = apk.getMainObbFile()
-            //                    if (mainObbFile == null) {
-            //                        return;
-            //                    }
-            //                    val obbDir = mainObbFile.getParentFile()
-            //                    if (obbDir == null) {
-            //                        return;
-            //                    }
-            //                    FileFilter filter = new WildcardFileFilter("*.obb");
-            //                    File[] obbFiles = obbDir . listFiles (filter);
-            //                    if (obbFiles == null) {
-            //                        return;
-            //                    }
-            //                    for (File f : obbFiles) {
-            //                        Timber.d("Uninstalling OBB " + f);
-            //                        FileUtils.deleteQuietly(f);
-            //                    }
-            //                }
-            //            }
-            //            thread.start()
+    // Two Types of Installers ////////////////////////////////////////////////
+
+    private val privilegedInstaller by lazy { PrivilegedInstaller(this) }
+    private val defaultInstaller by lazy { DefaultInstaller(this) }
+
+    private fun getInstaller(): Installer {
+        return if (privilegedInstaller.isReady()) {
+            privilegedInstaller
+        } else {
+            defaultInstaller
         }
     }
 }
