@@ -1,16 +1,37 @@
 package co.sodalabs.apkupdater
 
 import androidx.multidex.MultiDexApplication
+import co.sodalabs.apkupdater.di.component.AppComponent
+import co.sodalabs.apkupdater.di.component.DaggerAppComponent
+import co.sodalabs.apkupdater.di.module.ApplicationContextModule
+import co.sodalabs.apkupdater.di.module.ThreadSchedulersModule
+import co.sodalabs.apkupdater.di.module.UpdaterModule
 import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.apkupdater.utils.ConfigHelper
 import co.sodalabs.apkupdater.utils.CrashlyticsTree
 import co.sodalabs.updaterengine.ApkUpdater
+import co.sodalabs.updaterengine.AppUpdatesDownloader
+import co.sodalabs.updaterengine.AppUpdatesInstaller
+import co.sodalabs.updaterengine.AppUpdatesChecker
 import com.crashlytics.android.Crashlytics
 import com.crashlytics.android.core.CrashlyticsCore
 import io.fabric.sdk.android.Fabric
 import timber.log.Timber
+import javax.inject.Inject
 
 class UpdaterApp : MultiDexApplication() {
+
+    companion object {
+
+        lateinit var appComponent: AppComponent
+    }
+
+    @Inject
+    lateinit var appUpdatesChecker: AppUpdatesChecker
+    @Inject
+    lateinit var appUpdatesDownloader: AppUpdatesDownloader
+    @Inject
+    lateinit var appUpdatesInstaller: AppUpdatesInstaller
 
     override fun onCreate() {
         super.onCreate()
@@ -20,7 +41,16 @@ class UpdaterApp : MultiDexApplication() {
         Timber.d("App Version Code: ${BuildConfig.VERSION_CODE}")
 
         initCrashReporting()
-        ApkUpdater.install(this, ConfigHelper.getDefault(this))
+        initDI()
+
+        ApkUpdater.install(
+            app = this,
+            appUpdatesChecker = appUpdatesChecker,
+            appUpdatesDownloader = appUpdatesDownloader,
+            appUpdatesInstaller = appUpdatesInstaller,
+            // TODO: Deprecate this
+            config = ConfigHelper.generateDefault(this),
+            schedulers = schedulers)
     }
 
     private fun initLogging() {
@@ -46,5 +76,19 @@ class UpdaterApp : MultiDexApplication() {
         if (BuildUtils.isStaging() || BuildUtils.isRelease()) {
             Timber.plant(CrashlyticsTree())
         }
+    }
+
+    // Application Singletons /////////////////////////////////////////////////
+
+    private val schedulers = AppThreadSchedulers()
+
+    private fun initDI() {
+        // Application singleton(s)
+        appComponent = DaggerAppComponent.builder()
+            .applicationContextModule(ApplicationContextModule(this))
+            .threadSchedulersModule(ThreadSchedulersModule(schedulers))
+            .updaterModule(UpdaterModule(this, schedulers))
+            .build()
+        appComponent.inject(this)
     }
 }

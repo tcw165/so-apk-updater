@@ -11,6 +11,7 @@ import timber.log.Timber
 import java.io.File
 import java.io.IOException
 
+// TODO: Use LRU Disk Cache and save this complicated cache mechanism
 object ApkCache {
 
     private const val CACHE_DIR = "apks"
@@ -22,10 +23,14 @@ object ApkCache {
      * so it should still be in the RAM disk cache.
      */
     @Throws(IOException::class)
-    fun copyApkFromCacheToFiles(context: Context, apkFile: File, expectedApk: Apk): SanitizedFile {
-        val name = expectedApk.packageName
-        val apkFileName = name + "-" + expectedApk.versionName + ".apk"
-        return copyApkToFiles(context, apkFile, apkFileName, true, expectedApk.hash ?: "", expectedApk.hashType)
+    fun copyApkFromCacheToFiles(
+        context: Context,
+        apkFile: File,
+        expectedApk: Apk
+    ): SanitizedFile {
+        val name = expectedApk.fromUpdate.packageName
+        val apkFileName = name + "-" + expectedApk.fromUpdate.versionName + ".apk"
+        return copyApkToFiles(context, apkFile, apkFileName, true, expectedApk.fromUpdate.hash ?: "")
     }
 
     /**
@@ -42,8 +47,7 @@ object ApkCache {
         apkFile: File,
         destinationName: String,
         verifyHash: Boolean,
-        hash: String,
-        hashType: String
+        hash: String
     ): SanitizedFile {
         val sanitizedApkFile = SanitizedFile(context.filesDir, destinationName)
 
@@ -58,7 +62,7 @@ object ApkCache {
         FileUtils.copyFile(apkFile, sanitizedApkFile)
 
         // verify copied file's hash install expected hash from Apk class
-        if (verifyHash && !Hasher.isFileMatchingHash(sanitizedApkFile, hash, hashType)) {
+        if (verifyHash && !Hasher.isFileMatchingHash(sanitizedApkFile, hash)) {
             FileUtils.deleteQuietly(apkFile)
             throw IOException("$apkFile failed to verify!")
         }

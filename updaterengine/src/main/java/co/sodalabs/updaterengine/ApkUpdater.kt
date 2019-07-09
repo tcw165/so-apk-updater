@@ -1,19 +1,33 @@
 package co.sodalabs.updaterengine
 
 import android.app.Application
-import android.content.Context
-import android.net.Uri
-import android.os.Looper
+import android.os.Environment
 import androidx.annotation.Keep
+import co.sodalabs.updaterengine.UpdaterAction.DownloadUpdates
+import co.sodalabs.updaterengine.UpdaterAction.InstallApps
+import co.sodalabs.updaterengine.UpdaterAction.ScheduleUpdateCheck
 import co.sodalabs.updaterengine.data.Apk
 import co.sodalabs.updaterengine.data.AppUpdate
-import co.sodalabs.updaterengine.installer.InstallerService
-import co.sodalabs.updaterengine.net.ApkCache
+import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
+import co.sodalabs.updaterengine.extension.smartRetryWhen
+import com.jakewharton.rxrelay2.PublishRelay
+import io.reactivex.Completable
+import io.reactivex.Maybe
+import io.reactivex.Single
+import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.rxkotlin.addTo
+import timber.log.Timber
 import java.util.concurrent.TimeUnit
 
 class ApkUpdater private constructor(
     private val application: Application,
-    private var config: ApkUpdater.Config
+    // FIXME: Make this private!
+    private val appUpdatesChecker: AppUpdatesChecker,
+    private val appUpdatesDownloader: AppUpdatesDownloader,
+    private val appUpdatesInstaller: AppUpdatesInstaller,
+    // TODO: Deprecate the config?
+    private val config: ApkUpdaterConfig,
+    private val schedulers: IThreadSchedulers
 ) {
 
     @Keep
@@ -22,171 +36,191 @@ class ApkUpdater private constructor(
         @Volatile
         private var singleton: ApkUpdater? = null
 
-        fun install(app: Application, config: Config) {
+        fun install(
+            app: Application,
+            appUpdatesChecker: AppUpdatesChecker,
+            appUpdatesDownloader: AppUpdatesDownloader,
+            appUpdatesInstaller: AppUpdatesInstaller,
+            config: ApkUpdaterConfig,
+            schedulers: IThreadSchedulers
+        ) {
+            // Cancel everything regardless.
+            singleton?.stop()
+
             if (singleton == null) {
                 synchronized(ApkUpdater::class.java) {
                     if (singleton == null) {
-                        val instance = ApkUpdater(app, config)
-
-                        instance.callback = config.callback
-                        instance.scheduleUpdateChecks()
+                        val instance = ApkUpdater(
+                            app,
+                            appUpdatesChecker,
+                            appUpdatesDownloader,
+                            appUpdatesInstaller,
+                            config,
+                            schedulers)
                         singleton = instance
+                        singleton?.start()
+
+                        // Init the recurring update
+                        instance.run(ScheduleUpdateCheck(
+                            interval = config.interval,
+                            periodic = true
+                        ))
                     }
                 }
             }
         }
 
-        fun updateConfig(config: Config) {
-            singleton?.config = config
-            singleton?.scheduleUpdateChecks()
-        }
-
-        fun setCallback(callback: OnUpdateAvailableCallback?) {
-            singleton().callback = callback
-        }
+        // TODO: After changing the config, restart the process!
+        // fun updateConfig(config: ApkUpdaterConfig)
 
         fun checkForUpdatesNow() {
-            singleton().checkForUpdate()
-        }
-
-        fun download(apk: Apk) {
-            singleton().downloadApk(apk)
-        }
-
-        fun install(apk: Apk) {
-            singleton().installApk(apk)
+            synchronized(ApkUpdater::class.java) {
+                singleton().run(ScheduleUpdateCheck(
+                    interval = 0L,
+                    periodic = false
+                ))
+            }
         }
 
         internal fun singleton(): ApkUpdater {
-            return singleton ?: throw IllegalStateException("Must Initialize ApkUpdater before using singleton()")
-        }
-    }
-
-    private var callback: OnUpdateAvailableCallback? = null
-    private val downloader by lazy { Downloader(application) }
-
-    private fun scheduleUpdateChecks() {
-        val updateUri = constructUpdateUrl()
-        UpdaterService.schedule(application, config.interval, updateUri.toString())
-    }
-
-    private fun checkForUpdate() {
-        val updateUri = constructUpdateUrl()
-        UpdaterService.checkNow(application, updateUri.toString())
-    }
-
-    internal fun downloadApk(appUpdate: AppUpdate) {
-        val uri = Uri.parse(appUpdate.downloadUrl)
-        val apk = Apk(
-            uri,
-            appUpdate.packageName,
-            appUpdate.versionName,
-            appUpdate.versionCode,
-            appUpdate.hash,
-            apkName = appUpdate.fileName
-        )
-        downloadApk(apk)
-    }
-
-    internal fun downloadApk(apk: Apk) {
-        downloader.startDownload(apk)
-    }
-
-    internal fun installApk(apk: Apk) {
-        val uri = apk.downloadUri
-        val localApkFile = ApkCache.getApkDownloadPath(application, uri)
-
-        if (!localApkFile.exists()) {
-            downloadApk(apk)
-        } else {
-            val localApkUri = Uri.fromFile(localApkFile)
-            InstallerService.install(application, localApkUri, uri, apk)
-        }
-    }
-
-    internal fun notifyUpdateAvailable(apk: Apk, updateMessage: String): Boolean {
-        ensureMainThread()
-        return callback?.onUpdateAvailable(apk, updateMessage) ?: false
-    }
-
-    internal fun notifyUpdateDownloaded(apk: Apk): Boolean {
-        ensureMainThread()
-        return callback?.onUpdateDownloaded(apk) ?: false
-    }
-
-    internal fun notifyUpdateDownloadFailed(apk: Apk, reason: String) {
-        ensureMainThread()
-        callback?.onUpdateDownloadFailed(apk, reason)
-    }
-
-    private fun constructUpdateUrl(): Uri {
-        val builder = Uri.parse(config.baseUrl).buildUpon()
-        if (!(config.baseUrl.endsWith("/apps") || config.baseUrl.endsWith("/apps/"))) {
-            builder.appendPath("apps")
-        }
-
-        // TODO: Support multiple checks at once
-        builder.appendPath(config.packageNames.first())
-        builder.appendPath("latest")
-
-        return builder.build()
-    }
-
-    @Keep
-    class Config(
-        context: Context,
-        internal val baseUrl: String
-    ) {
-
-        internal var packageNames: Array<String> = arrayOf(context.packageName)
-            private set
-        internal var interval: Long = TimeUnit.DAYS.toMillis(1)
-            private set
-        internal var callback: OnUpdateAvailableCallback? = null
-            private set
-
-        fun setUpdateInterval(interval: Long): Config {
-            if (interval <= 0) {
-                throw IllegalArgumentException("Interval must be greater than zero.")
+            synchronized(ApkUpdater::class.java) {
+                return singleton ?: throw IllegalStateException("Must Initialize ApkUpdater before using singleton()")
             }
-
-            this.interval = interval
-            return this
-        }
-
-        fun setPackageName(packageName: String): Config {
-            // TODO: Support multiple checks at once
-            this.packageNames = arrayOf(packageName)
-            return this
-        }
-
-        fun setCallback(callback: OnUpdateAvailableCallback): Config {
-            this.callback = callback
-            return this
         }
     }
 
-    private fun ensureMainThread() {
-        if (Looper.myLooper() != Looper.getMainLooper()) {
-            throw IllegalStateException("Must be run on main thread.")
+    private val disposables = CompositeDisposable()
+
+    private val updaterActionRelay = PublishRelay.create<UpdaterAction>().toSerialized()
+    private val cancelRelay = PublishRelay.create<Unit>().toSerialized()
+
+    private fun start() {
+        observeUpdaterAction()
+        logInitInfo()
+    }
+
+    private fun stop() {
+        disposables.clear()
+    }
+
+    @Suppress("unused")
+    private fun cancelWhatsGoingOn() {
+        cancelRelay.accept(Unit)
+    }
+
+    private fun logInitInfo() {
+        println("[Init] Context file directory: ${application.applicationContext.filesDir}")
+        println("[Init] Context cache directory: ${application.applicationContext.cacheDir}")
+        println("[Init] Environment data directory: ${Environment.getDataDirectory()}")
+        println("[Init] Environment external storage directory: ${Environment.getExternalStorageDirectory()}")
+        println("[Init] Environment download cache directory: ${Environment.getDownloadCacheDirectory()}")
+    }
+
+    // Updater Action /////////////////////////////////////////////////////////
+
+    private fun observeUpdaterAction() {
+        updaterActionRelay
+            .debounce(Intervals.DEBOUNCE_VALUE_CHANGE, TimeUnit.MILLISECONDS, schedulers.computation())
+            .flatMapMaybe {
+                proceedUpdaterAction(it)
+                    .takeUntil(cancelRelay.firstElement())
+            }
+            .smartRetryWhen(ALWAYS_RETRY, 2000L, schedulers.main()) { err ->
+                Timber.e(err)
+                true
+            }
+            .observeOn(schedulers.main())
+            .subscribe({ nextAction ->
+                run(nextAction)
+            }, Timber::e)
+            .addTo(disposables)
+    }
+
+    /**
+     * Proceed the [action] and come up with the new action.
+     */
+    private fun proceedUpdaterAction(
+        action: UpdaterAction
+    ): Maybe<UpdaterAction> {
+        val sb = StringBuilder()
+        sb.appendln(".")
+        sb.appendln("[Updater] Proceed \"$action\"...")
+        sb.appendln(".")
+        Timber.v(sb.toString())
+
+        return when (action) {
+            is ScheduleUpdateCheck -> proceedUpdateCheck(action).toDownloadAction()
+            is DownloadUpdates -> downloadUpdates(action.updates).toInstallAction()
+            is InstallApps -> installUpdates(action.apps).toEmptyAction()
         }
     }
 
-    @Keep
-    interface OnUpdateAvailableCallback {
-        /**
-         * Callback when an update is available. Return true to download the file, false otherwise.
-         */
-        fun onUpdateAvailable(apk: Apk, updateMessage: String): Boolean
+    private fun run(
+        action: UpdaterAction
+    ) {
+        updaterActionRelay.accept(action)
+    }
 
-        /**
-         * Callback when an update is downloaded. Return true to install the file, false otherwise.
-         */
-        fun onUpdateDownloaded(apk: Apk): Boolean
+    // Updates (Version) Check ////////////////////////////////////////////////
 
-        /**
-         * An error has occurred during file download.
-         */
-        fun onUpdateDownloadFailed(apk: Apk, reason: String)
+    private fun proceedUpdateCheck(
+        action: ScheduleUpdateCheck
+    ): Single<List<AppUpdate>> {
+        return if (action.periodic) {
+            // FIXME
+            // appUpdatesChecker.scheduleCheck()
+            Timber.e("Hey developer, update schedule is temporarily disabled!")
+            Single.just(emptyList())
+        } else {
+            appUpdatesChecker.checkNow(config.packageNames)
+        }
+    }
+
+    @Suppress("USELESS_CAST")
+    private fun Single<List<AppUpdate>>.toDownloadAction(): Maybe<UpdaterAction> {
+        return this.flatMapMaybe { updates ->
+            if (updates.isNotEmpty()) {
+                val action = DownloadUpdates(updates) as UpdaterAction
+                Maybe.just(action)
+            } else {
+                Maybe.empty()
+            }
+        }
+    }
+
+    // Download ///////////////////////////////////////////////////////////////
+
+    private fun downloadUpdates(
+        updates: List<AppUpdate>
+    ): Single<List<Apk>> {
+        return appUpdatesDownloader.download(updates)
+    }
+
+    @Suppress("RemoveRedundantQualifierName", "USELESS_CAST")
+    private fun Single<List<Apk>>.toInstallAction(): Maybe<UpdaterAction> {
+        return this.flatMapMaybe { apks ->
+            if (apks.isNotEmpty()) {
+                val action = UpdaterAction.InstallApps(apks) as UpdaterAction
+                Maybe.just(action)
+            } else {
+                Maybe.empty()
+            }
+        }
+    }
+
+    // Install ////////////////////////////////////////////////////////////////
+
+    private fun installUpdates(
+        apks: List<Apk>
+    ): Completable {
+        val installs = apks.map { apk ->
+            appUpdatesInstaller.install(apk)
+        }
+
+        return Completable.concat(installs)
+    }
+
+    private fun Completable.toEmptyAction(): Maybe<UpdaterAction> {
+        return this.toMaybe()
     }
 }

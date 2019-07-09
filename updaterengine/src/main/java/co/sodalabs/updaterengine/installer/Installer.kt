@@ -2,9 +2,8 @@ package co.sodalabs.updaterengine.installer
 
 import android.content.Context
 import android.net.Uri
-import co.sodalabs.updaterengine.data.Apk
+import io.reactivex.Observable
 import timber.log.Timber
-import java.io.IOException
 
 /**
  * The URI where the APK was originally downloaded from. This is also used
@@ -18,14 +17,12 @@ import java.io.IOException
 Handles the actual install process.  Subclasses implement the details.
  */
 abstract class Installer(
-    protected val context: Context,
-    protected val apk: Apk
+    protected val context: Context
 ) {
 
-    companion object {
-        const val EXTRA_DOWNLOAD_URI = "co.sodalabs.apkupdater.installer.Installer.extra.DOWNLOAD_URI"
-        const val EXTRA_APK = "co.sodalabs.apkupdater.installer.Installer.extra.APK"
-    }
+    abstract fun start()
+
+    abstract fun stop()
 
     /**
     Install apk given the URI that points to the local APK file, and the
@@ -43,53 +40,55 @@ abstract class Installer(
     @see InstallManagerService
     @see <a href="https://issuetracker.google.com/issues/37091886">ACTION_INSTALL_PACKAGE Fails For Any Possible Uri</a>
      */
-    fun installPackage(localApkUri: Uri, downloadUri: Uri) {
-        val sanitizedUri: Uri
+    fun installPackage(
+        localApkUri: Uri,
+        packageName: String
+    ) {
+        // TODO: Verify
+        // try {
+        //     // verify that permissions of the apk file match the ones from the apk object
+        //     val apkVerifier = ApkVerifier(context, localApkUri, apk)
+        //     apkVerifier.verifyApk()
+        // } catch (e: ApkVerifier.ApkVerificationException) {
+        //     Timber.d(e)
+        //     sendBroadcastInstall(downloadUri, ACTION_INSTALL_INTERRUPTED, e.message)
+        //     return
+        // } catch (e: ApkVerifier.ApkPermissionUnequalException) {
+        //     // if permissions of apk are not the ones listed in the repo
+        //     // and an unattended installer is used, a wrong permission screen
+        //     // has been shown, thus fallback to AOSP DefaultInstaller!
+        //     if (isReady()) {
+        //         Timber.d(e)
+        //         Timber.d("Falling back to AOSP DefaultInstaller!")
+        //         val defaultInstaller = DefaultInstaller(context, apk)
+        //         defaultInstaller.installPackageInternal(sanitizedUri, downloadUri)
+        //         return
+        //     }
+        // }
 
         try {
-            sanitizedUri = ApkFileProvider.getSafeUri(context, localApkUri, apk)
-        } catch (e: IOException) {
-            Timber.d(e)
+            val sanitizedUri: Uri = ApkFileProvider.getSafeUri(context, localApkUri)
+            Timber.v("[Install] Install file: $sanitizedUri, package: $packageName")
+            installPackageInternal(sanitizedUri, packageName)
+        } catch (e: Throwable) {
+            Timber.e(e)
             return
         }
-
-        // TODO: Verify
-        //        try {
-        //            // verify that permissions of the apk file match the ones from the apk object
-        //            val apkVerifier = ApkVerifier(context, localApkUri, apk)
-        //            apkVerifier.verifyApk()
-        //        } catch (e: ApkVerifier.ApkVerificationException) {
-        //            Timber.d(e)
-        //            sendBroadcastInstall(downloadUri, ACTION_INSTALL_INTERRUPTED, e.message)
-        //            return
-        //        } catch (e: ApkVerifier.ApkPermissionUnequalException) {
-        //            // if permissions of apk are not the ones listed in the repo
-        //            // and an unattended installer is used, a wrong permission screen
-        //            // has been shown, thus fallback to AOSP DefaultInstaller!
-        //            if (isUnattended()) {
-        //                Timber.d(e)
-        //                Timber.d("Falling back to AOSP DefaultInstaller!")
-        //                val defaultInstaller = DefaultInstaller(context, apk)
-        //                defaultInstaller.installPackageInternal(sanitizedUri, downloadUri)
-        //                return
-        //            }
-        //        }
-
-        Timber.d("Attempt Install Package: $sanitizedUri - $downloadUri")
-        installPackageInternal(sanitizedUri, downloadUri)
     }
 
-    abstract fun installPackageInternal(localApkUri: Uri, downloadUri: Uri)
+    abstract fun installPackageInternal(localApkUri: Uri, packageName: String)
 
     /**
      * Uninstall app as defined by [Installer.apk] in
      * [Installer.Installer]
      */
-    abstract fun uninstallPackage()
+    abstract fun uninstallPackage(packageName: String)
 
     /**
      * This [Installer] instance is capable of "unattended" install and
      * uninstall activities, without the system enforcing a user prompt.
      */
-    abstract fun isUnattended(): Boolean
+    abstract fun isReady(): Boolean
+
+    abstract fun observeReady(): Observable<Boolean>
 }

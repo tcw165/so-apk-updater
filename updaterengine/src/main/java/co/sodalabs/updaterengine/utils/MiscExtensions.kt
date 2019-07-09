@@ -2,6 +2,7 @@ package co.sodalabs.updaterengine.utils
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 
@@ -17,7 +18,11 @@ val Context.versionCode: Int
 fun PackageManager.versionCodeForPackage(packageName: String): Int {
     return try {
         val packageInfo = this.getPackageInfo(packageName, 0)
-        packageInfo.versionCode
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+            packageInfo.versionCode
+        } else {
+            (packageInfo.longVersionCode and 0x0FFFFFFFF).toInt()
+        }
     } catch (ignored: PackageManager.NameNotFoundException) {
         0
     }

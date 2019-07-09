@@ -19,7 +19,7 @@ class Hasher(
         /**
          * Checks the file against the provided hash, returning whether it is a match.
          */
-        fun isFileMatchingHash(file: File, hash: String, hashType: String): Boolean {
+        fun isFileMatchingHash(file: File, hash: String): Boolean {
             // TODO: Implement hash check when server supports it
             return true
 

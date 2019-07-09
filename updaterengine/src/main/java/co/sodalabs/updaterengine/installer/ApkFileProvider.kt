@@ -6,11 +6,11 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
-import co.sodalabs.updaterengine.data.Apk
-import co.sodalabs.updaterengine.data.SanitizedFile
-import co.sodalabs.updaterengine.net.ApkCache
+import co.sodalabs.updaterengine.Packages
 import java.io.File
 import java.io.IOException
+
+private const val AUTHORITY_SUFFIX = ".installer.ApkFileProvider"
 
 /**
  * Helper methods for preparing APKs and arbitrary files for installation,
@@ -34,8 +34,6 @@ class ApkFileProvider : FileProvider() {
 
     companion object {
 
-        private const val AUTHORITY_SUFFIX = ".installer.ApkFileProvider"
-
         /**
          * Copies the APK into private data directory of F-Droid and returns a
          * {@code file://} or {@code content://} URI to be used for the
@@ -44,12 +42,15 @@ class ApkFileProvider : FileProvider() {
          * itself handles their whole installation process.
          */
         @Throws(IOException::class)
-        fun getSafeUri(context: Context, localApkUri: Uri, expectedApk: Apk): Uri {
+        fun getSafeUri(
+            context: Context,
+            localApkUri: Uri
+        ): Uri {
             val apkFile = File(localApkUri.path)
-            val tempApkFile = ApkCache.copyApkFromCacheToFiles(context, apkFile, expectedApk)
             return getSafeUri(
-                context, tempApkFile,
-                Build.VERSION.SDK_INT >= 24 && expectedApk.isApk()
+                context,
+                apkFile,
+                Build.VERSION.SDK_INT >= 24
             )
         }
 
@@ -66,19 +67,23 @@ class ApkFileProvider : FileProvider() {
          * it to be installed and the installer actually installing it.
          */
         @SuppressLint("SetWorldReadable")
-        private fun getSafeUri(context: Context, tempFile: SanitizedFile, useContentUri: Boolean): Uri {
+        private fun getSafeUri(
+            context: Context,
+            apkFile: File,
+            useContentUri: Boolean
+        ): Uri {
             return if (useContentUri) {
                 // TODO: Research if we need to inject
                 val authority = context.packageName + AUTHORITY_SUFFIX
-                val apkUri = getUriForFile(context, authority, tempFile)
+                val apkUri = getUriForFile(context, authority, apkFile)
                 context.grantUriPermission(
-                    PrivilegedInstaller.PRIVILEGED_EXTENSION_PACKAGE_NAME,
+                    Packages.PRIVILEGED_EXTENSION_PACKAGE_NAME,
                     apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
                 apkUri
             } else {
-                tempFile.setReadable(true, false)
-                Uri.fromFile(tempFile)
+                apkFile.setReadable(true, false)
+                Uri.fromFile(apkFile)
             }
         }
     }

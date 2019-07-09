@@ -60,19 +60,9 @@ android {
     productFlavors {
         sparkpoint {
             dimension "PRODUCT"
-            buildConfigField "String", "BASE_URL", "\"https://sparkpoint-func.azurewebsites.net/api/\""
+            buildConfigField "String", "BASE_URL", "\"https://spark-api-v0-prod.azurewebsites.net/api/v0/apks/\""
             buildConfigField "String[]", "PACKAGES_TO_CHECK", "{" +
-                "\"co.sodalabs.sparkpoint\"," +
-                "\"todo.example.sodalabs\"" +
-                "}"
-        }
-
-        nimble {
-            dimension "PRODUCT"
-            buildConfigField "String", "BASE_URL", "\"https://nimble-func.azurewebsites.net/api/\""
-            buildConfigField "String[]", "PACKAGES_TO_CHECK", "{" +
-                "\"com.foxconn.slid\"," +
-                "\"todo.example.sodalabs\"" +
+                "\"co.sodalabs.sparkpoint\"" +
                 "}"
         }
     }
@@ -146,6 +136,10 @@ dependencies {
     // Kotlin STD Library.
     api rootProject.ext.dep.kotlinStdlibJdk7
 
+    // DI
+    implementation rootProject.ext.dep.dagger2
+    kapt rootProject.ext.dep.dagger2Compiler
+
     // RxAndroid
     api rootProject.ext.dep.rxAndroid
     // RxJava
@@ -154,6 +148,17 @@ dependencies {
     api rootProject.ext.dep.rxRelay
     // RxView
     api rootProject.ext.dep.rxBinding
+
+    // Networking
+    implementation rootProject.ext.dep.retrofit2
+    implementation rootProject.ext.dep.retrofit2ConverterScalar
+    implementation rootProject.ext.dep.retrofit2ConverterMoshi
+    implementation rootProject.ext.dep.retrofit2AdapterRxJava2
+    implementation rootProject.ext.dep.okhttpLoggingInterceptor
+
+    // Moshi for Serialization/Deserialization
+    implementation rootProject.ext.dep.moshi
+    kapt rootProject.ext.dep.moshiKotlinCodegen
 
     implementation project(":updaterengine")
 
