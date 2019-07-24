@@ -4,15 +4,18 @@ package co.sodalabs.apkupdater.di.module
 
 import android.content.Context
 import co.sodalabs.apkupdater.BuildConfig
-import co.sodalabs.apkupdater.SparkPointAppUpdatesChecker
 import co.sodalabs.apkupdater.di.ApplicationScope
+import co.sodalabs.apkupdater.feature.checker.SparkPointAppUpdatesChecker
+import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
+import co.sodalabs.apkupdater.feature.heartbeat.SparkPointHeartBeater
+import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
+import co.sodalabs.updaterengine.AppUpdaterHeartBeater
 import co.sodalabs.updaterengine.AppUpdatesChecker
 import co.sodalabs.updaterengine.AppUpdatesDownloader
 import co.sodalabs.updaterengine.AppUpdatesInstaller
 import co.sodalabs.updaterengine.IThreadSchedulers
-import co.sodalabs.updaterengine.downloader.DefaultUpdatesDownloader
-import co.sodalabs.updaterengine.installer.DefaultAppUpdatesInstaller
-import co.sodalabs.updaterengine.net.CommonAppUpdatesApi
+import co.sodalabs.updaterengine.feature.downloader.DefaultUpdatesDownloader
+import co.sodalabs.updaterengine.feature.installer.DefaultAppUpdatesInstaller
 import com.squareup.moshi.Moshi
 import dagger.Module
 import dagger.Provides
@@ -32,22 +35,28 @@ class UpdaterModule constructor(
     private val schedulers: IThreadSchedulers
 ) {
 
+    // FIXME: Use @Bind or DaggerAndroid way to avoid boilerplate code.
     private val checker by lazy { SparkPointAppUpdatesChecker(context, schedulers) }
     // Use default download and installer from the update engine.
     private val downloader by lazy { DefaultUpdatesDownloader(context, schedulers) }
     private val installer by lazy { DefaultAppUpdatesInstaller(context, schedulers) }
+    private val heartBeater by lazy { SparkPointHeartBeater(context, schedulers) }
 
     @Provides
     @ApplicationScope
-    fun getAppUpdatesChecker(): AppUpdatesChecker = checker
+    fun provideAppUpdatesChecker(): AppUpdatesChecker = checker
 
     @Provides
     @ApplicationScope
-    fun getAppUpdatesDownloader(): AppUpdatesDownloader = downloader
+    fun provideAppUpdatesDownloader(): AppUpdatesDownloader = downloader
 
     @Provides
     @ApplicationScope
-    fun getAppUpdatesInstaller(): AppUpdatesInstaller = installer
+    fun provideAppUpdatesInstaller(): AppUpdatesInstaller = installer
+
+    @Provides
+    @ApplicationScope
+    fun provideHeartBeater(): AppUpdaterHeartBeater = heartBeater
 
     private val okHttpClient by lazy {
         val logging = HttpLoggingInterceptor()
@@ -62,9 +71,9 @@ class UpdaterModule constructor(
             .followSslRedirects(true)
             .retryOnConnectionFailure(true)
             .cache(null)
+            .connectTimeout(HTTP_CONNECT_TIMEOUT, TimeUnit.SECONDS)
             .writeTimeout(HTTP_READ_WRITE_TIMEOUT, TimeUnit.SECONDS)
             .readTimeout(HTTP_READ_WRITE_TIMEOUT, TimeUnit.SECONDS)
-            .connectTimeout(HTTP_CONNECT_TIMEOUT, TimeUnit.SECONDS)
             .addInterceptor(logging)
             .build()
     }
@@ -86,5 +95,9 @@ class UpdaterModule constructor(
 
     @Provides
     @ApplicationScope
-    fun getAppUpdatesAPI(): CommonAppUpdatesApi = retrofit.create(CommonAppUpdatesApi::class.java)
+    fun provideAppUpdateCheckAPI(): ISparkPointUpdateCheckApi = retrofit.create(ISparkPointUpdateCheckApi::class.java)
+
+    @Provides
+    @ApplicationScope
+    fun provideHeartBeatAPI(): ISparkPointHeartBeatApi = retrofit.create(ISparkPointHeartBeatApi::class.java)
 }

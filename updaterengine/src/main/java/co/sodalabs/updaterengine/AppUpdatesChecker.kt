@@ -11,7 +11,6 @@ interface AppUpdatesChecker {
     ): Single<List<AppUpdate>>
 
     fun scheduleCheck(
-        beginClock24H: Int,
-        endClock24H: Int
+        interval: Long
     ): Observable<List<AppUpdate>>
 }

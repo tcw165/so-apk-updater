@@ -32,6 +32,17 @@ android {
         versionName versionProperties.artifact_version
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        buildConfigField "String", "BASE_URL", "\"make sure update this, please!\""
+
+        buildConfigField "int", "HEART_BEAT_INTERVAL_SECONDS", "15"
+        buildConfigField "int", "UPDATE_CHECK_INTERVAL_MINUTES", "1440"
+
+        buildConfigField "int", "CONNECT_TIMEOUT_SECONDS", "45"
+        buildConfigField "int", "READ_TIMEOUT_SECONDS", "45"
+        buildConfigField "int", "WRITE_TIMEOUT_SECONDS", "45"
+        buildConfigField "int", "MAX_CONNECTIONS_PER_HOST", "10"
+        buildConfigField "int", "MAX_TOTAL_CONNECTIONS", "10"
     }
 
     buildTypes {
@@ -40,7 +51,20 @@ android {
             minifyEnabled false
             testCoverageEnabled = true
 
-            matchingFallbacks = ['debug']
+            buildConfigField "int", "HEART_BEAT_INTERVAL_SECONDS", "15"
+            buildConfigField "int", "UPDATE_CHECK_INTERVAL_MINUTES", "5"
+
+            buildConfigField "int", "CONNECT_TIMEOUT_SECONDS", "30"
+            buildConfigField "int", "READ_TIMEOUT_SECONDS", "30"
+            buildConfigField "int", "WRITE_TIMEOUT_SECONDS", "30"
+        }
+
+        staging {
+            initWith(release)
+            matchingFallbacks = ['release']
+
+            // Disables PNG crunching for the release build type.
+            crunchPngs false
         }
 
         release {
@@ -51,7 +75,12 @@ android {
             // Disables PNG crunching for the release build type.
             crunchPngs false
 
-            matchingFallbacks = ['release']
+            buildConfigField "int", "HEART_BEAT_INTERVAL_SECONDS", "300" // 5 min
+            buildConfigField "int", "UPDATE_CHECK_INTERVAL_MINUTES", "1440" // 1 day
+
+            buildConfigField "int", "CONNECT_TIMEOUT_SECONDS", "60"
+            buildConfigField "int", "READ_TIMEOUT_SECONDS", "60"
+            buildConfigField "int", "WRITE_TIMEOUT_SECONDS", "60"
         }
     }
 
@@ -60,7 +89,7 @@ android {
     productFlavors {
         sparkpoint {
             dimension "PRODUCT"
-            buildConfigField "String", "BASE_URL", "\"https://spark-api-v0-prod.azurewebsites.net/api/v0/apks/\""
+            buildConfigField "String", "BASE_URL", "\"https://spark-api-v0-prod.azurewebsites.net/api/v0/\""
             buildConfigField "String[]", "PACKAGES_TO_CHECK", "{" +
                 "\"co.sodalabs.sparkpoint\"" +
                 "}"

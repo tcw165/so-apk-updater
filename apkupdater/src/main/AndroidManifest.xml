@@ -19,7 +19,7 @@
             android:name="io.fabric.ApiKey"
             android:value="899dcee9306ec461449140c2bcf50da976c36991" />
 
-        <activity android:name=".MainActivity">
+        <activity android:name=".feature.adminui.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -28,7 +28,7 @@
         </activity>
 
         <provider
-            android:name="co.sodalabs.updaterengine.installer.ApkFileProvider"
+            android:name="co.sodalabs.updaterengine.feature.installer.ApkFileProvider"
             android:authorities="${applicationId}.installer.ApkFileProvider"
             android:exported="false"
             android:grantUriPermissions="true">

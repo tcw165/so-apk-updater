@@ -1,7 +1,8 @@
-package co.sodalabs.apkupdater
+package co.sodalabs.apkupdater.feature.adminui
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import co.sodalabs.apkupdater.R
 import co.sodalabs.updaterengine.ApkUpdater
 import io.reactivex.disposables.CompositeDisposable
 import kotlinx.android.synthetic.main.activity_main.btCheckForUpdates

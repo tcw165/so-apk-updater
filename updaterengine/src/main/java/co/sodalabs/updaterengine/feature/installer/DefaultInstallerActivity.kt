@@ -1,4 +1,4 @@
-package co.sodalabs.updaterengine.installer
+package co.sodalabs.updaterengine.feature.installer
 
 import android.annotation.SuppressLint
 import android.app.Activity

@@ -21,12 +21,11 @@ import java.util.concurrent.TimeUnit
 
 class ApkUpdater private constructor(
     private val application: Application,
-    // FIXME: Make this private!
+    private val config: ApkUpdaterConfig,
     private val appUpdatesChecker: AppUpdatesChecker,
     private val appUpdatesDownloader: AppUpdatesDownloader,
     private val appUpdatesInstaller: AppUpdatesInstaller,
-    // TODO: Deprecate the config?
-    private val config: ApkUpdaterConfig,
+    private val engineHeartBeater: AppUpdaterHeartBeater,
     private val schedulers: IThreadSchedulers
 ) {
 
@@ -38,10 +37,11 @@ class ApkUpdater private constructor(
 
         fun install(
             app: Application,
+            config: ApkUpdaterConfig,
             appUpdatesChecker: AppUpdatesChecker,
             appUpdatesDownloader: AppUpdatesDownloader,
             appUpdatesInstaller: AppUpdatesInstaller,
-            config: ApkUpdaterConfig,
+            engineHeartBeater: AppUpdaterHeartBeater,
             schedulers: IThreadSchedulers
         ) {
             // Cancel everything regardless.
@@ -50,19 +50,20 @@ class ApkUpdater private constructor(
             if (singleton == null) {
                 synchronized(ApkUpdater::class.java) {
                     if (singleton == null) {
-                        val instance = ApkUpdater(
+                        val engine = ApkUpdater(
                             app,
+                            config,
                             appUpdatesChecker,
                             appUpdatesDownloader,
                             appUpdatesInstaller,
-                            config,
+                            engineHeartBeater,
                             schedulers)
-                        singleton = instance
+                        singleton = engine
                         singleton?.start()
 
                         // Init the recurring update
-                        instance.run(ScheduleUpdateCheck(
-                            interval = config.interval,
+                        engine.run(ScheduleUpdateCheck(
+                            interval = config.checkInterval,
                             periodic = true
                         ))
                     }
@@ -95,7 +96,8 @@ class ApkUpdater private constructor(
     private val cancelRelay = PublishRelay.create<Unit>().toSerialized()
 
     private fun start() {
-        observeUpdaterAction()
+        observeUpdateStates()
+        observeHeartBeat()
         logInitInfo()
     }
 
@@ -118,7 +120,7 @@ class ApkUpdater private constructor(
 
     // Updater Action /////////////////////////////////////////////////////////
 
-    private fun observeUpdaterAction() {
+    private fun observeUpdateStates() {
         updaterActionRelay
             .debounce(Intervals.DEBOUNCE_VALUE_CHANGE, TimeUnit.MILLISECONDS, schedulers.computation())
             .flatMapMaybe {
@@ -159,6 +161,21 @@ class ApkUpdater private constructor(
         action: UpdaterAction
     ) {
         updaterActionRelay.accept(action)
+    }
+
+    // Heart Beat /////////////////////////////////////////////////////////////
+
+    private fun observeHeartBeat() {
+        val interval = config.heartBeatInterval
+        engineHeartBeater.scheduleEvery(interval, true)
+            .smartRetryWhen(ALWAYS_RETRY, interval, schedulers.main()) { err ->
+                Timber.e(err)
+                true
+            }
+            .subscribe({
+                // TODO: What should we do here?
+            }, Timber::e)
+            .addTo(disposables)
     }
 
     // Updates (Version) Check ////////////////////////////////////////////////

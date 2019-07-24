@@ -1,4 +1,4 @@
-package co.sodalabs.updaterengine.downloader
+package co.sodalabs.updaterengine.feature.downloader
 
 import android.content.Context
 import android.net.Uri

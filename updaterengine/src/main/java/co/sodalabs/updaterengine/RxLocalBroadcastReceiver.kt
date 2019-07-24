@@ -23,14 +23,13 @@ object RxLocalBroadcastReceiver {
             val receiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
                     if (e.isDisposed) return
-
-                    Timber.d("Receive $intent from the local broadcast for $context")
+                    // Timber.d("Receive $intent from the local broadcast for $context")
                     e.onNext(intent)
                 }
             }
 
             e.setCancellable {
-                Timber.d("Unregister the local broadcast listening from $context")
+                // Timber.d("Unregister the local broadcast listening from $context")
                 try {
                     manager.unregisterReceiver(receiver)
                 } catch (err: Throwable) {

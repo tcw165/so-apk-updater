@@ -1,4 +1,4 @@
-package co.sodalabs.apkupdater
+package co.sodalabs.apkupdater.feature.checker
 
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -12,24 +12,25 @@ import android.os.PersistableBundle
 import android.os.SystemClock
 import androidx.core.app.JobIntentService
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import co.sodalabs.apkupdater.UpdaterApp
+import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterJobs.JOB_ID_CHECK_UPDATES
 import co.sodalabs.updaterengine.data.AppUpdate
-import co.sodalabs.updaterengine.net.CommonAppUpdatesApi
 import retrofit2.HttpException
 import timber.log.Timber
 import javax.inject.Inject
 
 private const val INITIAL_CHECK_DELAY = 5000L
 
-class UpdatesCheckerService : JobIntentService() {
+class CheckService : JobIntentService() {
 
     companion object {
 
         fun cancelAllPendingJobs(
             context: Context
         ) {
-            val intent = Intent(context, UpdatesCheckerService::class.java)
+            val intent = Intent(context, CheckService::class.java)
             intent.action = IntentActions.ACTION_CHECK_UPDATES
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -54,13 +55,13 @@ class UpdatesCheckerService : JobIntentService() {
         ) {
             // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Timber.v("(>= 26) Schedule an immediate version-check with Service#enqueueWork()")
-            val intent = Intent(context, UpdatesCheckerService::class.java)
+            val intent = Intent(context, CheckService::class.java)
             intent.action = IntentActions.ACTION_CHECK_UPDATES
             intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames)
-            enqueueWork(context, ComponentName(context, UpdatesCheckerService::class.java), JOB_ID_CHECK_UPDATES, intent)
+            enqueueWork(context, ComponentName(context, CheckService::class.java), JOB_ID_CHECK_UPDATES, intent)
             // } else {
             //     Timber.v("(< 26) Schedule an immediate version-check with Context#startService()")
-            //     val intent = Intent(context, UpdatesCheckerService::class.java)
+            //     val intent = Intent(context, CheckService::class.java)
             //     intent.action = IntentActions.ACTION_CHECK_UPDATES
             //     intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames)
             //     context.startService(intent)
@@ -75,7 +76,7 @@ class UpdatesCheckerService : JobIntentService() {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
                 Timber.v("(< 21) Schedule a recurring update, using AlarmManager")
 
-                val intent = Intent(context, UpdatesCheckerService::class.java)
+                val intent = Intent(context, CheckService::class.java)
                 intent.action = IntentActions.ACTION_CHECK_UPDATES
                 intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames)
 
@@ -94,7 +95,7 @@ class UpdatesCheckerService : JobIntentService() {
                 Timber.v("(>= 21) Schedule a recurring update, using android-21 JobScheduler")
 
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-                val componentName = ComponentName(context, UpdatesJobService::class.java)
+                val componentName = ComponentName(context, CheckJobService::class.java)
                 val bundle = PersistableBundle()
                 bundle.putStringArray(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames)
 
@@ -110,7 +111,7 @@ class UpdatesCheckerService : JobIntentService() {
 
                 builder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
 
-                // Note: The job would be consumed by UpdatesJobService and translated
+                // Note: The job would be consumed by CheckJobService and translated
                 // to an Intent. Then the Intent is handled here in onHandleWork()!
                 jobScheduler.cancel(JOB_ID_CHECK_UPDATES)
                 jobScheduler.schedule(builder.build())
@@ -119,7 +120,7 @@ class UpdatesCheckerService : JobIntentService() {
     }
 
     @Inject
-    lateinit var apiClient: CommonAppUpdatesApi
+    lateinit var apiClient: ISparkPointUpdateCheckApi
 
     override fun onCreate() {
         super.onCreate()

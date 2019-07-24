@@ -10,9 +10,10 @@ import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.apkupdater.utils.ConfigHelper
 import co.sodalabs.apkupdater.utils.CrashlyticsTree
 import co.sodalabs.updaterengine.ApkUpdater
+import co.sodalabs.updaterengine.AppUpdaterHeartBeater
+import co.sodalabs.updaterengine.AppUpdatesChecker
 import co.sodalabs.updaterengine.AppUpdatesDownloader
 import co.sodalabs.updaterengine.AppUpdatesInstaller
-import co.sodalabs.updaterengine.AppUpdatesChecker
 import com.crashlytics.android.Crashlytics
 import com.crashlytics.android.core.CrashlyticsCore
 import io.fabric.sdk.android.Fabric
@@ -32,6 +33,8 @@ class UpdaterApp : MultiDexApplication() {
     lateinit var appUpdatesDownloader: AppUpdatesDownloader
     @Inject
     lateinit var appUpdatesInstaller: AppUpdatesInstaller
+    @Inject
+    lateinit var heartBeater: AppUpdaterHeartBeater
 
     override fun onCreate() {
         super.onCreate()
@@ -45,11 +48,12 @@ class UpdaterApp : MultiDexApplication() {
 
         ApkUpdater.install(
             app = this,
+            config = ConfigHelper.generateDefault(this),
             appUpdatesChecker = appUpdatesChecker,
             appUpdatesDownloader = appUpdatesDownloader,
             appUpdatesInstaller = appUpdatesInstaller,
+            engineHeartBeater = heartBeater,
             // TODO: Deprecate this
-            config = ConfigHelper.generateDefault(this),
             schedulers = schedulers)
     }
 

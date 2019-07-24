@@ -1,4 +1,4 @@
-package co.sodalabs.apkupdater
+package co.sodalabs.apkupdater.feature.checker
 
 import android.content.Context
 import android.content.Intent
@@ -21,7 +21,7 @@ class SparkPointAppUpdatesChecker @Inject constructor(
     private val schedulers: IThreadSchedulers
 ) : AppUpdatesChecker {
 
-    // TODO: Call the UpdatesCheckerService and get result from the broadcast!
+    // TODO: Call the CheckService and get result from the broadcast!
     override fun checkNow(
         packageNames: List<String>
     ): Single<List<AppUpdate>> {
@@ -41,8 +41,7 @@ class SparkPointAppUpdatesChecker @Inject constructor(
     }
 
     override fun scheduleCheck(
-        beginClock24H: Int,
-        endClock24H: Int
+        interval: Long
     ): Observable<List<AppUpdate>> {
         TODO("not implemented")
     }
@@ -52,7 +51,7 @@ class SparkPointAppUpdatesChecker @Inject constructor(
     ): Completable {
         return Completable
             .fromAction {
-                UpdatesCheckerService.checkUpdatesNow(
+                CheckService.checkUpdatesNow(
                     context,
                     packageNames.toTypedArray())
             }

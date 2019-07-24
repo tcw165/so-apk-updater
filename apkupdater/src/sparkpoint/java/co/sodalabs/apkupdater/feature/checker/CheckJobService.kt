@@ -1,4 +1,4 @@
-package co.sodalabs.apkupdater
+package co.sodalabs.apkupdater.feature.checker
 
 import android.annotation.TargetApi
 import android.app.job.JobParameters
@@ -15,7 +15,7 @@ import timber.log.Timber
  * @see <a href="https://developer.android.com/about/versions/android-5.0.html#Power">Project Volta: Scheduling jobs</a>
  */
 @TargetApi(21)
-class UpdatesJobService : JobService() {
+class CheckJobService : JobService() {
 
     override fun onStartJob(params: JobParameters): Boolean {
         val extras = params.extras
@@ -39,7 +39,7 @@ class UpdatesJobService : JobService() {
         val packageNames = extras.getStringArray(IntentActions.PROP_APP_PACKAGE_NAMES)
             ?: throw IllegalArgumentException("Must provide a package name list.")
 
-        UpdatesCheckerService.checkUpdatesNow(
+        CheckService.checkUpdatesNow(
             context = this,
             packageNames = packageNames)
     }

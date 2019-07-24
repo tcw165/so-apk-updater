@@ -9,11 +9,11 @@
 
     <application>
         <activity
-            android:name=".installer.DefaultInstallerActivity"
+            android:name="co.sodalabs.updaterengine.feature.installer.DefaultInstallerActivity"
             android:theme="@style/AppThemeTransparent" />
 
         <service
-            android:name=".installer.InstallerService"
+            android:name="co.sodalabs.updaterengine.feature.installer.InstallerService"
             android:enabled="true"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
