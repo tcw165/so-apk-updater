@@ -2,17 +2,18 @@
 
 package co.sodalabs.apkupdater.di.module
 
-import android.content.Context
+import co.sodalabs.apkupdater.AppSharedPreference
+import co.sodalabs.apkupdater.IAppPreference
 import co.sodalabs.apkupdater.di.ApplicationScope
 import dagger.Module
 import dagger.Provides
 
 @Module
 class SharedPreferenceModule(
-    private val context: Context
+    private val preferences: AppSharedPreference
 ) {
 
     @Provides
     @ApplicationScope
-    fun getApplicationContext(): Context = context
+    fun getApplicationPreference(): IAppPreference = preferences
 }

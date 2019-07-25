@@ -185,6 +185,9 @@ dependencies {
     implementation rootProject.ext.dep.retrofit2AdapterRxJava2
     implementation rootProject.ext.dep.okhttpLoggingInterceptor
 
+    // Process
+    implementation rootProject.ext.dep.processPhoenix
+
     // Moshi for Serialization/Deserialization
     implementation rootProject.ext.dep.moshi
     kapt rootProject.ext.dep.moshiKotlinCodegen
