@@ -106,7 +106,7 @@ class UpdaterApp : MultiDexApplication() {
             .applicationContextModule(ApplicationContextModule(this))
             .threadSchedulersModule(ThreadSchedulersModule(schedulers))
             .sharedPreferenceModule(SharedPreferenceModule(appPreferences))
-            .updaterModule(UpdaterModule(this, schedulers))
+            .updaterModule(UpdaterModule(this, appPreferences, schedulers))
             .build()
         appComponent.inject(this)
     }

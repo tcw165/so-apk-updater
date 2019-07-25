@@ -4,6 +4,8 @@ package co.sodalabs.apkupdater.di.module
 
 import android.content.Context
 import co.sodalabs.apkupdater.BuildConfig
+import co.sodalabs.apkupdater.IAppPreference
+import co.sodalabs.apkupdater.data.PreferenceProps
 import co.sodalabs.apkupdater.di.ApplicationScope
 import co.sodalabs.apkupdater.feature.checker.SparkPointAppUpdatesChecker
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
@@ -25,13 +27,15 @@ import retrofit2.Retrofit
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
 private const val HTTP_READ_WRITE_TIMEOUT = 25L
 private const val HTTP_CONNECT_TIMEOUT = 15L
 
 @Module
-class UpdaterModule constructor(
+class UpdaterModule @Inject constructor(
     private val context: Context,
+    private val appPreferences: IAppPreference,
     private val schedulers: IThreadSchedulers
 ) {
 
@@ -66,14 +70,18 @@ class UpdaterModule constructor(
             HttpLoggingInterceptor.Level.NONE
         }
 
+        val timeoutConnect = appPreferences.getInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT, BuildConfig.CONNECT_TIMEOUT_SECONDS).toLong()
+        val timeoutRead = appPreferences.getInt(PreferenceProps.NETWORK_READ_TIMEOUT, BuildConfig.READ_TIMEOUT_SECONDS).toLong()
+        val timeoutWrite = appPreferences.getInt(PreferenceProps.NETWORK_WRITE_TIMEOUT, BuildConfig.WRITE_TIMEOUT_SECONDS).toLong()
+
         OkHttpClient.Builder()
             .followRedirects(true)
             .followSslRedirects(true)
             .retryOnConnectionFailure(true)
             .cache(null)
-            .connectTimeout(HTTP_CONNECT_TIMEOUT, TimeUnit.SECONDS)
-            .writeTimeout(HTTP_READ_WRITE_TIMEOUT, TimeUnit.SECONDS)
-            .readTimeout(HTTP_READ_WRITE_TIMEOUT, TimeUnit.SECONDS)
+            .connectTimeout(timeoutConnect, TimeUnit.SECONDS)
+            .readTimeout(timeoutRead, TimeUnit.SECONDS)
+            .writeTimeout(timeoutWrite, TimeUnit.SECONDS)
             .addInterceptor(logging)
             .build()
     }
