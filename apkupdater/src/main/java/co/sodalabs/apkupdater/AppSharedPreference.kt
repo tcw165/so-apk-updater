@@ -5,7 +5,7 @@ import io.reactivex.Observable
 import javax.inject.Inject
 
 class AppSharedPreference @Inject constructor(
-    private val preferences: SharedPreferences
+    val preferences: SharedPreferences
 ) : IAppPreference {
 
     override fun getInt(prop: String, default: Int): Int {

@@ -26,6 +26,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
 import retrofit2.converter.moshi.MoshiConverterFactory
+import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -70,9 +71,13 @@ class UpdaterModule @Inject constructor(
             HttpLoggingInterceptor.Level.NONE
         }
 
-        val timeoutConnect = appPreferences.getInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT, BuildConfig.CONNECT_TIMEOUT_SECONDS).toLong()
-        val timeoutRead = appPreferences.getInt(PreferenceProps.NETWORK_READ_TIMEOUT, BuildConfig.READ_TIMEOUT_SECONDS).toLong()
-        val timeoutWrite = appPreferences.getInt(PreferenceProps.NETWORK_WRITE_TIMEOUT, BuildConfig.WRITE_TIMEOUT_SECONDS).toLong()
+        val timeoutConnect = appPreferences.getInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, BuildConfig.CONNECT_TIMEOUT_SECONDS).toLong()
+        val timeoutRead = appPreferences.getInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.READ_TIMEOUT_SECONDS).toLong()
+        val timeoutWrite = appPreferences.getInt(PreferenceProps.NETWORK_WRITE_TIMEOUT_SECONDS, BuildConfig.WRITE_TIMEOUT_SECONDS).toLong()
+
+        Timber.v("[Updater] Setup HTTP client with connect timeout ($timeoutConnect seconds)")
+        Timber.v("[Updater] Setup HTTP client with read timeout ($timeoutRead seconds)")
+        Timber.v("[Updater] Setup HTTP client with write timeout ($timeoutWrite seconds)")
 
         OkHttpClient.Builder()
             .followRedirects(true)

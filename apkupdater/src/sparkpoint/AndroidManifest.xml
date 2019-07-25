@@ -15,7 +15,7 @@
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
-        <!-- Updates Checker -->
+        <!-- Heart Beater -->
         <service
             android:name=".feature.heartbeat.HeartBeatJobService"
             android:enabled="true"

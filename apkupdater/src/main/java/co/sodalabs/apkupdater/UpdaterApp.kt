@@ -1,7 +1,8 @@
 package co.sodalabs.apkupdater
 
-import android.content.Context
+import android.annotation.SuppressLint
 import androidx.multidex.MultiDexApplication
+import androidx.preference.PreferenceManager
 import co.sodalabs.apkupdater.data.PreferenceProps
 import co.sodalabs.apkupdater.di.component.AppComponent
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
@@ -10,13 +11,15 @@ import co.sodalabs.apkupdater.di.module.SharedPreferenceModule
 import co.sodalabs.apkupdater.di.module.ThreadSchedulersModule
 import co.sodalabs.apkupdater.di.module.UpdaterModule
 import co.sodalabs.apkupdater.utils.BuildUtils
-import co.sodalabs.apkupdater.utils.ConfigHelper
 import co.sodalabs.apkupdater.utils.CrashlyticsTree
 import co.sodalabs.updaterengine.ApkUpdater
+import co.sodalabs.updaterengine.ApkUpdaterConfig
 import co.sodalabs.updaterengine.AppUpdaterHeartBeater
 import co.sodalabs.updaterengine.AppUpdatesChecker
 import co.sodalabs.updaterengine.AppUpdatesDownloader
 import co.sodalabs.updaterengine.AppUpdatesInstaller
+import co.sodalabs.updaterengine.Intervals
+import co.sodalabs.updaterengine.extension.toMilliseconds
 import com.crashlytics.android.Crashlytics
 import com.crashlytics.android.core.CrashlyticsCore
 import com.jakewharton.processphoenix.ProcessPhoenix
@@ -25,6 +28,7 @@ import io.reactivex.Observable
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 class UpdaterApp : MultiDexApplication() {
@@ -56,11 +60,12 @@ class UpdaterApp : MultiDexApplication() {
         injectDefaultPreferences()
         injectDependencies()
 
-        observeNetworkConfigChange()
+        observeSystemConfigChange()
 
+        // Install the updater engine after everything else is ready.
         ApkUpdater.install(
             app = this,
-            config = ConfigHelper.generateDefault(this),
+            config = generateUpdaterConfig(),
             appUpdatesChecker = appUpdatesChecker,
             appUpdatesDownloader = appUpdatesDownloader,
             appUpdatesInstaller = appUpdatesInstaller,
@@ -97,8 +102,8 @@ class UpdaterApp : MultiDexApplication() {
     // Application Singletons /////////////////////////////////////////////////
 
     private val schedulers = AppThreadSchedulers()
-    private val preferences = getSharedPreferences(BuildConfig.APPLICATION_ID, Context.MODE_PRIVATE)
-    private val appPreferences = AppSharedPreference(preferences)
+    private val preferences by lazy { PreferenceManager.getDefaultSharedPreferences(this@UpdaterApp) }
+    private val appPreferences by lazy { AppSharedPreference(preferences) }
 
     private fun injectDependencies() {
         // Application singleton(s)
@@ -111,25 +116,59 @@ class UpdaterApp : MultiDexApplication() {
         appComponent.inject(this)
     }
 
+    // Updater Engine /////////////////////////////////////////////////////////
+
+    private fun generateUpdaterConfig(): ApkUpdaterConfig {
+        val hostPackageName = packageName
+        return ApkUpdaterConfig(
+            hostPackageName = hostPackageName,
+            // packageNames = listOf(hostPackageName, *BuildUtils.PACKAGES_TO_CHECK)
+            packageNames = listOf(*BuildUtils.PACKAGES_TO_CHECK),
+            checkIntervalMs = appPreferences.getInt(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, BuildConfig.UPDATE_CHECK_INTERVAL_SECONDS).toMilliseconds(),
+            heartBeatIntervalMs = appPreferences.getInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS).toMilliseconds()
+        )
+    }
+
     // Preferences ////////////////////////////////////////////////////////////
 
     private fun injectDefaultPreferences() {
-        preferences.edit()
-            .putInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT, BuildConfig.CONNECT_TIMEOUT_SECONDS)
-            .putInt(PreferenceProps.NETWORK_WRITE_TIMEOUT, BuildConfig.READ_TIMEOUT_SECONDS)
-            .putInt(PreferenceProps.NETWORK_READ_TIMEOUT, BuildConfig.WRITE_TIMEOUT_SECONDS)
-            .apply()
+        // Timeout
+        if (-1 == appPreferences.getInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, -1)) {
+            appPreferences.putInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, BuildConfig.CONNECT_TIMEOUT_SECONDS)
+        }
+        if (-1 == appPreferences.getInt(PreferenceProps.NETWORK_WRITE_TIMEOUT_SECONDS, -1)) {
+            appPreferences.putInt(PreferenceProps.NETWORK_WRITE_TIMEOUT_SECONDS, BuildConfig.READ_TIMEOUT_SECONDS)
+        }
+        if (-1 == appPreferences.getInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, -1)) {
+            appPreferences.putInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.WRITE_TIMEOUT_SECONDS)
+        }
+        // Intervals
+        if (-1 == appPreferences.getInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, -1)) {
+            appPreferences.putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
+        }
+        if (-1 == appPreferences.getInt(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, -1)) {
+            appPreferences.putInt(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, BuildConfig.UPDATE_CHECK_INTERVAL_SECONDS)
+        }
     }
 
-    private fun observeNetworkConfigChange() {
+    @SuppressLint("ApplySharedPref")
+    private fun observeSystemConfigChange() {
         // Restart the process if the timeout is changed!
-        Observable.merge(
-            appPreferences.observeIntChange(PreferenceProps.NETWORK_CONNECTION_TIMEOUT, BuildConfig.CONNECT_TIMEOUT_SECONDS),
-            appPreferences.observeIntChange(PreferenceProps.NETWORK_WRITE_TIMEOUT, BuildConfig.READ_TIMEOUT_SECONDS),
-            appPreferences.observeIntChange(PreferenceProps.NETWORK_READ_TIMEOUT, BuildConfig.WRITE_TIMEOUT_SECONDS))
+        Observable.merge(listOf(
+            // Timeout
+            appPreferences.observeIntChange(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, BuildConfig.CONNECT_TIMEOUT_SECONDS),
+            appPreferences.observeIntChange(PreferenceProps.NETWORK_WRITE_TIMEOUT_SECONDS, BuildConfig.READ_TIMEOUT_SECONDS),
+            appPreferences.observeIntChange(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.WRITE_TIMEOUT_SECONDS),
+            // Intervals
+            appPreferences.observeIntChange(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS),
+            appPreferences.observeIntChange(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, BuildConfig.UPDATE_CHECK_INTERVAL_SECONDS)))
+            .debounce(Intervals.VALUE_CHANGE, TimeUnit.MILLISECONDS)
             .observeOn(schedulers.main())
             .subscribe({
-                Timber.v("[Updater] Network configuration changes, so restart the process!")
+                Timber.v("[Updater] System configuration changes, so restart the process!")
+                // Forcefully flush
+                preferences.edit().commit()
+                // Then restart the process
                 ProcessPhoenix.triggerRebirth(this@UpdaterApp)
             }, Timber::e)
             .addTo(globalDisposables)

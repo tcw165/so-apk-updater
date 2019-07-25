@@ -36,7 +36,7 @@ class HeartBeatService : JobIntentService() {
             TODO()
         }
 
-        fun checkUpdatesNow(
+        fun sendHeartBeatNow(
             context: Context
         ) {
             val intent = Intent(context, HeartBeatService::class.java)
@@ -44,15 +44,15 @@ class HeartBeatService : JobIntentService() {
             enqueueWork(context, ComponentName(context, HeartBeatService::class.java), UpdaterJobs.JOB_ID_HEART_BEAT, intent)
         }
 
-        fun scheduleUpdatesCheck(
+        fun scheduleRecurringHeartBeat(
             context: Context,
-            interval: Long,
+            intervalMs: Long,
             sendImmediately: Boolean,
             initialDelay: Long
         ) {
             if (sendImmediately) {
-                validateIntervalAndDelay(interval, initialDelay)
-                checkUpdatesNow(context)
+                validateIntervalAndDelay(intervalMs, initialDelay)
+                sendHeartBeatNow(context)
             }
 
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
@@ -69,7 +69,7 @@ class HeartBeatService : JobIntentService() {
                 alarmManager.setInexactRepeating(
                     AlarmManager.ELAPSED_REALTIME,
                     SystemClock.elapsedRealtime() + initialDelay,
-                    interval,
+                    intervalMs,
                     pendingIntent
                 )
             } else {
@@ -83,7 +83,7 @@ class HeartBeatService : JobIntentService() {
                 val builder = JobInfo.Builder(UpdaterJobs.JOB_ID_HEART_BEAT, componentName)
                     .setRequiresDeviceIdle(false)
                     .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
-                    .setPeriodic(interval)
+                    .setPeriodic(intervalMs)
                     .setExtras(bundle)
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -114,9 +114,7 @@ class HeartBeatService : JobIntentService() {
 
     override fun onCreate() {
         super.onCreate()
-
-        // TODO: Setup DI
-        setupDI()
+        injectDependencies()
     }
 
     override fun onHandleWork(intent: Intent) {
@@ -128,7 +126,7 @@ class HeartBeatService : JobIntentService() {
 
     // DI /////////////////////////////////////////////////////////////////////
 
-    private fun setupDI() {
+    private fun injectDependencies() {
         val appComponent = UpdaterApp.appComponent
         appComponent.inject(this)
     }

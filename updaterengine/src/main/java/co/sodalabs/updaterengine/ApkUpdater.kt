@@ -33,7 +33,7 @@ class ApkUpdater private constructor(
     companion object {
 
         @Volatile
-        private var singleton: ApkUpdater? = null
+        private var engine: ApkUpdater? = null
 
         fun install(
             app: Application,
@@ -45,11 +45,11 @@ class ApkUpdater private constructor(
             schedulers: IThreadSchedulers
         ) {
             // Cancel everything regardless.
-            singleton?.stop()
+            engine?.stop()
 
-            if (singleton == null) {
+            if (engine == null) {
                 synchronized(ApkUpdater::class.java) {
-                    if (singleton == null) {
+                    if (engine == null) {
                         val engine = ApkUpdater(
                             app,
                             config,
@@ -58,12 +58,12 @@ class ApkUpdater private constructor(
                             appUpdatesInstaller,
                             engineHeartBeater,
                             schedulers)
-                        singleton = engine
-                        singleton?.start()
+                        this.engine = engine
+                        this.engine?.start()
 
                         // Init the recurring update
                         engine.run(ScheduleUpdateCheck(
-                            interval = config.checkInterval,
+                            interval = config.checkIntervalMs,
                             periodic = true
                         ))
                     }
@@ -71,21 +71,18 @@ class ApkUpdater private constructor(
             }
         }
 
-        // TODO: After changing the config, restart the process!
-        // fun updateConfig(config: ApkUpdaterConfig)
-
-        fun checkForUpdatesNow() {
-            synchronized(ApkUpdater::class.java) {
-                singleton().run(ScheduleUpdateCheck(
-                    interval = 0L,
-                    periodic = false
-                ))
+        fun sendHeartBeatNow(): Single<Int> {
+            return synchronized(ApkUpdater::class.java) {
+                engine?.engineHeartBeater?.sendHeartBeatNow() ?: throw NullPointerException("Updater engine isn't yet installed!")
             }
         }
 
-        internal fun singleton(): ApkUpdater {
+        fun checkForUpdatesNow() {
             synchronized(ApkUpdater::class.java) {
-                return singleton ?: throw IllegalStateException("Must Initialize ApkUpdater before using singleton()")
+                engine?.run(ScheduleUpdateCheck(
+                    interval = 0L,
+                    periodic = false
+                ))
             }
         }
     }
@@ -166,8 +163,8 @@ class ApkUpdater private constructor(
     // Heart Beat /////////////////////////////////////////////////////////////
 
     private fun observeHeartBeat() {
-        val interval = config.heartBeatInterval
-        engineHeartBeater.scheduleEvery(interval, true)
+        val interval = config.heartBeatIntervalMs
+        engineHeartBeater.schedule(interval, true)
             .smartRetryWhen(ALWAYS_RETRY, interval, schedulers.main()) { err ->
                 Timber.e(err)
                 true

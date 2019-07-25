@@ -29,6 +29,6 @@ class HeartBeatJobService : JobService() {
     }
 
     private fun checkVersions() {
-        HeartBeatService.checkUpdatesNow(this)
+        HeartBeatService.sendHeartBeatNow(this)
     }
 }
