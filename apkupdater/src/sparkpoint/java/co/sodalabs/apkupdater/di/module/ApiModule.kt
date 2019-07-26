@@ -4,7 +4,7 @@ package co.sodalabs.apkupdater.di.module
 
 import android.content.Context
 import co.sodalabs.apkupdater.BuildConfig
-import co.sodalabs.updaterengine.net.CommonAppUpdatesApi
+import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
 import com.squareup.moshi.Moshi
 import dagger.Module
 import dagger.Provides
@@ -61,5 +61,5 @@ class ApiModule constructor(
     }
 
     @Provides
-    fun getAppUpdatesAPI(): CommonAppUpdatesApi = retrofit.create(CommonAppUpdatesApi::class.java)
+    fun getAppUpdatesAPI(): ISparkPointUpdateCheckApi = retrofit.create(ISparkPointUpdateCheckApi::class.java)
 }

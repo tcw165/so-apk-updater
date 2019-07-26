@@ -3,14 +3,26 @@
 
     <application>
 
-        <!--The job service for deferring job or recurring events-->
+        <!-- Updates Checker -->
         <service
-            android:name=".UpdatesJobService"
+            android:name=".feature.checker.CheckJobService"
             android:enabled="true"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
         <service
-            android:name=".UpdatesCheckerService"
+            android:name=".feature.checker.CheckService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- Heart Beater -->
+        <service
+            android:name=".feature.heartbeat.HeartBeatJobService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service
+            android:name=".feature.heartbeat.HeartBeatService"
             android:enabled="true"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />

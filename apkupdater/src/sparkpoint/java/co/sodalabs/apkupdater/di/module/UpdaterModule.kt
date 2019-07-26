@@ -4,15 +4,20 @@ package co.sodalabs.apkupdater.di.module
 
 import android.content.Context
 import co.sodalabs.apkupdater.BuildConfig
-import co.sodalabs.apkupdater.SparkPointAppUpdatesChecker
+import co.sodalabs.apkupdater.IAppPreference
+import co.sodalabs.apkupdater.data.PreferenceProps
 import co.sodalabs.apkupdater.di.ApplicationScope
+import co.sodalabs.apkupdater.feature.checker.SparkPointAppUpdatesChecker
+import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
+import co.sodalabs.apkupdater.feature.heartbeat.SparkPointHeartBeater
+import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
+import co.sodalabs.updaterengine.AppUpdaterHeartBeater
 import co.sodalabs.updaterengine.AppUpdatesChecker
 import co.sodalabs.updaterengine.AppUpdatesDownloader
 import co.sodalabs.updaterengine.AppUpdatesInstaller
 import co.sodalabs.updaterengine.IThreadSchedulers
-import co.sodalabs.updaterengine.downloader.DefaultUpdatesDownloader
-import co.sodalabs.updaterengine.installer.DefaultAppUpdatesInstaller
-import co.sodalabs.updaterengine.net.CommonAppUpdatesApi
+import co.sodalabs.updaterengine.feature.downloader.DefaultUpdatesDownloader
+import co.sodalabs.updaterengine.feature.installer.DefaultAppUpdatesInstaller
 import com.squareup.moshi.Moshi
 import dagger.Module
 import dagger.Provides
@@ -21,33 +26,42 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory
 import retrofit2.converter.moshi.MoshiConverterFactory
+import timber.log.Timber
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
 private const val HTTP_READ_WRITE_TIMEOUT = 25L
 private const val HTTP_CONNECT_TIMEOUT = 15L
 
 @Module
-class UpdaterModule constructor(
+class UpdaterModule @Inject constructor(
     private val context: Context,
+    private val appPreferences: IAppPreference,
     private val schedulers: IThreadSchedulers
 ) {
 
+    // FIXME: Use @Bind or DaggerAndroid way to avoid boilerplate code.
     private val checker by lazy { SparkPointAppUpdatesChecker(context, schedulers) }
     // Use default download and installer from the update engine.
     private val downloader by lazy { DefaultUpdatesDownloader(context, schedulers) }
     private val installer by lazy { DefaultAppUpdatesInstaller(context, schedulers) }
+    private val heartBeater by lazy { SparkPointHeartBeater(context, schedulers) }
 
     @Provides
     @ApplicationScope
-    fun getAppUpdatesChecker(): AppUpdatesChecker = checker
+    fun provideAppUpdatesChecker(): AppUpdatesChecker = checker
 
     @Provides
     @ApplicationScope
-    fun getAppUpdatesDownloader(): AppUpdatesDownloader = downloader
+    fun provideAppUpdatesDownloader(): AppUpdatesDownloader = downloader
 
     @Provides
     @ApplicationScope
-    fun getAppUpdatesInstaller(): AppUpdatesInstaller = installer
+    fun provideAppUpdatesInstaller(): AppUpdatesInstaller = installer
+
+    @Provides
+    @ApplicationScope
+    fun provideHeartBeater(): AppUpdaterHeartBeater = heartBeater
 
     private val okHttpClient by lazy {
         val logging = HttpLoggingInterceptor()
@@ -57,14 +71,22 @@ class UpdaterModule constructor(
             HttpLoggingInterceptor.Level.NONE
         }
 
+        val timeoutConnect = appPreferences.getInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, BuildConfig.CONNECT_TIMEOUT_SECONDS).toLong()
+        val timeoutRead = appPreferences.getInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.READ_TIMEOUT_SECONDS).toLong()
+        val timeoutWrite = appPreferences.getInt(PreferenceProps.NETWORK_WRITE_TIMEOUT_SECONDS, BuildConfig.WRITE_TIMEOUT_SECONDS).toLong()
+
+        Timber.v("[Updater] Setup HTTP client with connect timeout ($timeoutConnect seconds)")
+        Timber.v("[Updater] Setup HTTP client with read timeout ($timeoutRead seconds)")
+        Timber.v("[Updater] Setup HTTP client with write timeout ($timeoutWrite seconds)")
+
         OkHttpClient.Builder()
             .followRedirects(true)
             .followSslRedirects(true)
             .retryOnConnectionFailure(true)
             .cache(null)
-            .writeTimeout(HTTP_READ_WRITE_TIMEOUT, TimeUnit.SECONDS)
-            .readTimeout(HTTP_READ_WRITE_TIMEOUT, TimeUnit.SECONDS)
-            .connectTimeout(HTTP_CONNECT_TIMEOUT, TimeUnit.SECONDS)
+            .connectTimeout(timeoutConnect, TimeUnit.SECONDS)
+            .readTimeout(timeoutRead, TimeUnit.SECONDS)
+            .writeTimeout(timeoutWrite, TimeUnit.SECONDS)
             .addInterceptor(logging)
             .build()
     }
@@ -86,5 +108,9 @@ class UpdaterModule constructor(
 
     @Provides
     @ApplicationScope
-    fun getAppUpdatesAPI(): CommonAppUpdatesApi = retrofit.create(CommonAppUpdatesApi::class.java)
+    fun provideAppUpdateCheckAPI(): ISparkPointUpdateCheckApi = retrofit.create(ISparkPointUpdateCheckApi::class.java)
+
+    @Provides
+    @ApplicationScope
+    fun provideHeartBeatAPI(): ISparkPointHeartBeatApi = retrofit.create(ISparkPointHeartBeatApi::class.java)
 }

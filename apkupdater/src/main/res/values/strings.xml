@@ -1,6 +1,22 @@
 <resources>
-    <string name="app_name">ApkUpdater</string>
+    <string name="app_name">App Updater</string>
+
+    <string name="configuration_change_countdown">Configuration change detected …</string>
+
     <string name="auto_install">Auto Install</string>
     <string name="auto_download">Auto Download</string>
     <string name="check_for_updates">Check for Updates</string>
+
+    <string name="network_category">Network</string>
+    <string name="network_connection_timeout">Connection Timeout</string>
+    <string name="network_read_timeout">Read Timeout</string>
+    <string name="network_write_timeout">Write Timeout</string>
+
+    <string name="heartbeat_category">Heartbeat</string>
+    <string name="heartbeat_interval">Heartbeat Interval</string>
+
+    <string name="update_category">Updater</string>
+    <string name="update_check_interval">Check Interval</string>
+
+    <string name="other_category">Other</string>
 </resources>

@@ -39,22 +39,17 @@ android {
     }
 
     buildTypes {
-        all {
-            minifyEnabled false
-        }
-
         debug {
             debuggable true
-            testCoverageEnabled = true
-            matchingFallbacks = ['debug']
+        }
+
+        staging {
+            initWith(release)
+            matchingFallbacks = ['release']
         }
 
         release {
             debuggable false
-
-            // Disables PNG crunching for the release build type.
-            crunchPngs false
-            matchingFallbacks = ['release']
         }
     }
 
@@ -117,16 +112,16 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
     // Google Support Library.
-    implementation rootProject.ext.dep.xCompat
-    implementation rootProject.ext.dep.xConstraintLayout
+    api rootProject.ext.dep.xCompat
+    api rootProject.ext.dep.xConstraintLayout
     // Multi-dex.
-    implementation rootProject.ext.dep.xMultidex
+    api rootProject.ext.dep.xMultidex
 
     // Kotlin STD Library.
     api rootProject.ext.dep.kotlinStdlibJdk7
 
     // Log
-    implementation rootProject.ext.dep.timber
+    api rootProject.ext.dep.timber
 
     // RxAndroid
     api rootProject.ext.dep.rxAndroid
@@ -138,21 +133,21 @@ dependencies {
     api rootProject.ext.dep.rxBinding
 
     // Networking
-    implementation rootProject.ext.dep.retrofit2
-    implementation rootProject.ext.dep.retrofit2ConverterScalar
-    implementation rootProject.ext.dep.retrofit2ConverterMoshi
-    implementation rootProject.ext.dep.retrofit2AdapterRxJava2
-    implementation rootProject.ext.dep.okhttpLoggingInterceptor
+    api rootProject.ext.dep.retrofit2
+    api rootProject.ext.dep.retrofit2ConverterScalar
+    api rootProject.ext.dep.retrofit2ConverterMoshi
+    api rootProject.ext.dep.retrofit2AdapterRxJava2
+    api rootProject.ext.dep.okhttpLoggingInterceptor
 
     // Moshi for Serialization/Deserialization
-    implementation rootProject.ext.dep.moshi
+    api rootProject.ext.dep.moshi
     kapt rootProject.ext.dep.moshiKotlinCodegen
 
     // Better File Downloader
-    implementation rootProject.ext.dep.thinkDownloadManager
+    api rootProject.ext.dep.thinkDownloadManager
 
     // File Utils
-    implementation rootProject.ext.dep.apacheCommonIo
+    api rootProject.ext.dep.apacheCommonIo
 
     // Unit tests.
     testImplementation rootProject.ext.dep.testJunit

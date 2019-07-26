@@ -19,6 +19,7 @@ ext {
         xCompat                   : "androidx.appcompat:appcompat:1.0.2",
         xMultidex                 : "androidx.multidex:multidex:2.0.0",
         xTransition               : "androidx.transition:transition:1.0.0",
+        xPreference               : "androidx.preference:preference:1.1.0-rc01",
         xConstraintLayout         : "androidx.constraintlayout:constraintlayout:1.1.3",
         xRecyclerView             : "androidx.recyclerview:recyclerview:1.0.0",
         xVectorDrawable           : "androidx.vectordrawable:vectordrawable-animated:1.0.0",

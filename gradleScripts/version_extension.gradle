@@ -36,4 +36,8 @@ rootProject.ext {
         }
         return stdout.toString().trim()
     }
+
+    getDateOfBuild = { -> // ISO 8601 time format
+        return new Date().format("yyyy-MM-dd'T'HH:mm'Z'").toString().trim()
+    }
 }

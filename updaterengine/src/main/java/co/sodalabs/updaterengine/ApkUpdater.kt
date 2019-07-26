@@ -13,6 +13,7 @@ import co.sodalabs.updaterengine.extension.smartRetryWhen
 import com.jakewharton.rxrelay2.PublishRelay
 import io.reactivex.Completable
 import io.reactivex.Maybe
+import io.reactivex.Observable
 import io.reactivex.Single
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
@@ -21,12 +22,11 @@ import java.util.concurrent.TimeUnit
 
 class ApkUpdater private constructor(
     private val application: Application,
-    // FIXME: Make this private!
+    private val config: ApkUpdaterConfig,
     private val appUpdatesChecker: AppUpdatesChecker,
     private val appUpdatesDownloader: AppUpdatesDownloader,
     private val appUpdatesInstaller: AppUpdatesInstaller,
-    // TODO: Deprecate the config?
-    private val config: ApkUpdaterConfig,
+    private val engineHeartBeater: AppUpdaterHeartBeater,
     private val schedulers: IThreadSchedulers
 ) {
 
@@ -34,35 +34,37 @@ class ApkUpdater private constructor(
     companion object {
 
         @Volatile
-        private var singleton: ApkUpdater? = null
+        private var engine: ApkUpdater? = null
 
         fun install(
             app: Application,
+            config: ApkUpdaterConfig,
             appUpdatesChecker: AppUpdatesChecker,
             appUpdatesDownloader: AppUpdatesDownloader,
             appUpdatesInstaller: AppUpdatesInstaller,
-            config: ApkUpdaterConfig,
+            engineHeartBeater: AppUpdaterHeartBeater,
             schedulers: IThreadSchedulers
         ) {
             // Cancel everything regardless.
-            singleton?.stop()
+            engine?.stop()
 
-            if (singleton == null) {
+            if (engine == null) {
                 synchronized(ApkUpdater::class.java) {
-                    if (singleton == null) {
-                        val instance = ApkUpdater(
+                    if (engine == null) {
+                        val engine = ApkUpdater(
                             app,
+                            config,
                             appUpdatesChecker,
                             appUpdatesDownloader,
                             appUpdatesInstaller,
-                            config,
+                            engineHeartBeater,
                             schedulers)
-                        singleton = instance
-                        singleton?.start()
+                        this.engine = engine
+                        this.engine?.start()
 
                         // Init the recurring update
-                        instance.run(ScheduleUpdateCheck(
-                            interval = config.interval,
+                        engine.run(ScheduleUpdateCheck(
+                            interval = config.checkIntervalMs,
                             periodic = true
                         ))
                     }
@@ -70,21 +72,24 @@ class ApkUpdater private constructor(
             }
         }
 
-        // TODO: After changing the config, restart the process!
-        // fun updateConfig(config: ApkUpdaterConfig)
-
-        fun checkForUpdatesNow() {
-            synchronized(ApkUpdater::class.java) {
-                singleton().run(ScheduleUpdateCheck(
-                    interval = 0L,
-                    periodic = false
-                ))
+        fun sendHeartBeatNow(): Single<Int> {
+            return synchronized(ApkUpdater::class.java) {
+                engine?.engineHeartBeater?.sendHeartBeatNow() ?: throw NullPointerException("Updater engine isn't yet installed!")
             }
         }
 
-        internal fun singleton(): ApkUpdater {
+        fun observeHeartBeat(): Observable<Int> {
+            return synchronized(ApkUpdater::class.java) {
+                engine?.engineHeartBeater?.observeRecurringHeartBeat() ?: throw NullPointerException("Updater engine isn't yet installed!")
+            }
+        }
+
+        fun checkForUpdatesNow() {
             synchronized(ApkUpdater::class.java) {
-                return singleton ?: throw IllegalStateException("Must Initialize ApkUpdater before using singleton()")
+                engine?.run(ScheduleUpdateCheck(
+                    interval = 0L,
+                    periodic = false
+                ))
             }
         }
     }
@@ -95,7 +100,8 @@ class ApkUpdater private constructor(
     private val cancelRelay = PublishRelay.create<Unit>().toSerialized()
 
     private fun start() {
-        observeUpdaterAction()
+        observeUpdateStates()
+        observeHeartBeat()
         logInitInfo()
     }
 
@@ -118,14 +124,14 @@ class ApkUpdater private constructor(
 
     // Updater Action /////////////////////////////////////////////////////////
 
-    private fun observeUpdaterAction() {
+    private fun observeUpdateStates() {
         updaterActionRelay
             .debounce(Intervals.DEBOUNCE_VALUE_CHANGE, TimeUnit.MILLISECONDS, schedulers.computation())
             .flatMapMaybe {
                 proceedUpdaterAction(it)
                     .takeUntil(cancelRelay.firstElement())
             }
-            .smartRetryWhen(ALWAYS_RETRY, 2000L, schedulers.main()) { err ->
+            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.main()) { err ->
                 Timber.e(err)
                 true
             }
@@ -159,6 +165,21 @@ class ApkUpdater private constructor(
         action: UpdaterAction
     ) {
         updaterActionRelay.accept(action)
+    }
+
+    // Heart Beat /////////////////////////////////////////////////////////////
+
+    private fun observeHeartBeat() {
+        val interval = config.heartBeatIntervalMs
+        engineHeartBeater.schedule(interval, true)
+            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.main()) { err ->
+                Timber.e(err)
+                true
+            }
+            .subscribe({
+                // TODO: What should we do here?
+            }, Timber::e)
+            .addTo(disposables)
     }
 
     // Updates (Version) Check ////////////////////////////////////////////////

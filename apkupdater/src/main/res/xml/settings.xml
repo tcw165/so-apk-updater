@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        app:title="@string/heartbeat_category">
+
+        <!--suppress AndroidElementNotAllowed -->
+        <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
+            app:key="co.sodalabs.apkupdater.heartbeat_interval"
+            app:summary="Engine reports the heart-beat every this interval in seconds."
+            app:title="@string/heartbeat_interval" />
+
+        <Preference
+            app:enabled="false"
+            app:key="heartbeat_watcher"
+            app:title="Heart-beat was sent" />
+
+        <Preference
+            app:icon="@drawable/bt_heartbeat"
+            app:key="report_heartbeat_now"
+            app:title="Send Heart-Beat Now" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:title="@string/update_category">
+
+        <!--suppress AndroidElementNotAllowed -->
+        <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
+            app:key="co.sodalabs.apkupdater.update_check_interval"
+            app:summary="Interval in seconds that the recurring update check happens"
+            app:title="@string/update_check_interval" />
+
+        <Preference
+            app:icon="@drawable/bt_meteor"
+            app:key="update_now"
+            app:title="Update Now" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:title="@string/network_category">
+
+        <!--suppress AndroidElementNotAllowed -->
+        <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
+            app:key="co.sodalabs.apkupdater.network_connection_timeout"
+            app:summary="HTTP/HTTPS connection timeout in seconds."
+            app:title="@string/network_connection_timeout" />
+
+        <!--suppress AndroidElementNotAllowed -->
+        <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
+            app:key="co.sodalabs.apkupdater.network_read_timeout"
+            app:summary="HTTP/HTTPS read timeout in seconds."
+            app:title="@string/network_read_timeout" />
+
+        <!--suppress AndroidElementNotAllowed -->
+        <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
+            app:key="co.sodalabs.apkupdater.network_write_timeout"
+            app:summary="HTTP/HTTPS write timeout in seconds."
+            app:title="@string/network_write_timeout" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:title="@string/other_category">
+
+        <Preference
+            app:key="feedback"
+            app:summary="Report technical issues or suggest new features"
+            app:title="Send feedback" />
+    </PreferenceCategory>
+</PreferenceScreen>

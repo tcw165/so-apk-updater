@@ -10,7 +10,7 @@ class SelfUpdatedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == ACTION_MY_PACKAGE_REPLACED) {
             // FIXME
-            // ApkUpdater.updateConfig(ConfigHelper.generateDefault(context))
+            // ApkUpdater.updateConfig(ConfigHelper.generateUpdaterConfig(context))
         }
     }
 }
