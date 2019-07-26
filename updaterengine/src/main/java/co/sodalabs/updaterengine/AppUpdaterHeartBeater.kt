@@ -14,4 +14,9 @@ interface AppUpdaterHeartBeater {
      * Schedule a recurring heart beat and return a sequence of response code over time.
      */
     fun schedule(intervalMs: Long, sendImmediately: Boolean): Observable<Int>
+
+    /**
+     * Observe the heart beat response code over time.
+     */
+    fun observeRecurringHeartBeat(): Observable<Int>
 }

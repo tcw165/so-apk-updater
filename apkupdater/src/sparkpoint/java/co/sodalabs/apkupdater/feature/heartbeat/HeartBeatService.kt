@@ -16,11 +16,10 @@ import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterJobs
+import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.extension.benchmark
+import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import timber.log.Timber
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
 import javax.inject.Inject
 
 // FIXME: Create interface for device ID
@@ -78,7 +77,7 @@ class HeartBeatService : JobIntentService() {
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
                 val componentName = ComponentName(context, HeartBeatService::class.java)
                 val bundle = PersistableBundle()
-                // You could append data to it here.
+                // < You could append data to it here
 
                 val builder = JobInfo.Builder(UpdaterJobs.JOB_ID_HEART_BEAT, componentName)
                     .setRequiresDeviceIdle(false)
@@ -119,7 +118,7 @@ class HeartBeatService : JobIntentService() {
 
     override fun onHandleWork(intent: Intent) {
         when (intent.action) {
-            IntentActions.ACTION_SEND_HEART_BEAT_NOW -> poke()
+            IntentActions.ACTION_SEND_HEART_BEAT_NOW -> sendHeartBeat()
             else -> throw IllegalArgumentException("Hey develop, HeartBeatService is for checking version only!")
         }
     }
@@ -133,9 +132,12 @@ class HeartBeatService : JobIntentService() {
 
     // Heart Beat /////////////////////////////////////////////////////////////
 
+    /**
+     * We use local broadcast to notify the async result.
+     */
     private val broadcastManager by lazy { LocalBroadcastManager.getInstance(this) }
 
-    private fun poke() {
+    private fun sendHeartBeat() {
         val now = getPrettyDateNow()
         Timber.v("[HeartBeat] Health check at $now")
 
@@ -144,12 +146,11 @@ class HeartBeatService : JobIntentService() {
                 val apiRequest = apiClient.poke(DEVICE_ID)
                 val apiResponse = apiRequest.execute()
                 if (apiResponse.isSuccessful) {
-                    // TODO
-                    val successIntent = Intent(IntentActions.ACTION_SEND_HEART_BEAT_NOW)
+                    val successIntent = generateHeartBeatIntent(apiResponse.code())
                     broadcastManager.sendBroadcast(successIntent)
                 } else {
-                    // TODO
-                    val failureIntent = Intent(IntentActions.ACTION_SEND_HEART_BEAT_NOW)
+                    val code = apiResponse.code()
+                    val failureIntent = generateHeartBeatIntent(code)
                     broadcastManager.sendBroadcast(failureIntent)
                 }
             }
@@ -158,15 +159,19 @@ class HeartBeatService : JobIntentService() {
                 Timber.e("Hey, heart-beat API call for device(ID: $DEVICE_ID) took $timeMs milliseconds!")
             }
         } catch (error: Throwable) {
-            // TODO
-            val failureIntent = Intent(IntentActions.ACTION_SEND_HEART_BEAT_NOW)
+            Timber.e(error)
+
+            val failureIntent = generateHeartBeatIntent(HTTPResponseCode.Unknown.code)
+            failureIntent.putExtra(IntentActions.PROP_ERROR, error)
             broadcastManager.sendBroadcast(failureIntent)
         }
     }
 
-    private fun getPrettyDateNow(): String {
-        val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.US)
-        val cal = Calendar.getInstance()
-        return dateFormat.format(cal.time)
+    private fun generateHeartBeatIntent(
+        responseCode: Int
+    ): Intent {
+        val intent = Intent(IntentActions.ACTION_SEND_HEART_BEAT_NOW)
+        intent.putExtra(IntentActions.PROP_HTTP_RESPONSE_CODE, responseCode)
+        return intent
     }
 }

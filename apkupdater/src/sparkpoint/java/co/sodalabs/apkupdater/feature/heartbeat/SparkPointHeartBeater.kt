@@ -7,6 +7,7 @@ import co.sodalabs.privilegedinstaller.RxLocalBroadcastReceiver
 import co.sodalabs.updaterengine.AppUpdaterHeartBeater
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.IntentActions
+import co.sodalabs.updaterengine.data.HTTPResponseCode
 import io.reactivex.Observable
 import io.reactivex.Single
 
@@ -18,11 +19,7 @@ class SparkPointHeartBeater constructor(
     override fun sendHeartBeatNow(): Single<Int> {
         HeartBeatService.sendHeartBeatNow(context)
 
-        // Observe the result via the local broadcast
-        val intentFilter = IntentFilter(IntentActions.ACTION_SEND_HEART_BEAT_NOW)
-        return RxLocalBroadcastReceiver.bind(context, intentFilter)
-            .map { intent -> validateApiResponse(intent) }
-            .firstOrError()
+        return observeRecurringHeartBeat().firstOrError()
     }
 
     override fun schedule(
@@ -33,6 +30,10 @@ class SparkPointHeartBeater constructor(
         val initialDelay = if (sendImmediately) intervalMs / 10 else 0
         HeartBeatService.scheduleRecurringHeartBeat(context, intervalMs, sendImmediately, initialDelay)
 
+        return observeRecurringHeartBeat()
+    }
+
+    override fun observeRecurringHeartBeat(): Observable<Int> {
         // Observe the result via the local broadcast
         val intentFilter = IntentFilter(IntentActions.ACTION_SEND_HEART_BEAT_NOW)
         return RxLocalBroadcastReceiver.bind(context, intentFilter)
@@ -42,7 +43,15 @@ class SparkPointHeartBeater constructor(
     private fun validateApiResponse(
         intent: Intent
     ): Int {
-        // TODO
-        return 200
+        val code = intent.getIntExtra(IntentActions.PROP_HTTP_RESPONSE_CODE, HTTPResponseCode.Unknown.code)
+        if (code == HTTPResponseCode.Unknown.code) {
+            val error = intent.getSerializableExtra(IntentActions.PROP_ERROR) as? Throwable
+            error?.let {
+                // Throw the error in client
+                throw it
+            }
+        }
+
+        return code
     }
 }

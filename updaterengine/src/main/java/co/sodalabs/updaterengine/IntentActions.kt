@@ -27,4 +27,7 @@ object IntentActions {
     const val PROP_APP_PACKAGE_NAME = "$EXTRA_PREFIX.app_package_name"
     const val PROP_APP_PACKAGE_NAMES = "$EXTRA_PREFIX.app_package_names"
     const val PROP_APP_UPDATES = "$EXTRA_PREFIX.app_updates"
+
+    const val PROP_HTTP_RESPONSE_CODE = "$EXTRA_PREFIX.http_response_code"
+    const val PROP_ERROR = "$EXTRA_PREFIX.error"
 }

@@ -31,6 +31,8 @@ import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
+private const val INT_NOT_FOUND = -1
+
 class UpdaterApp : MultiDexApplication() {
 
     companion object {
@@ -51,12 +53,15 @@ class UpdaterApp : MultiDexApplication() {
 
     override fun onCreate() {
         super.onCreate()
+
+        Timber.v("App Version Name: ${BuildConfig.VERSION_NAME}")
+        Timber.v("App Version Code: ${BuildConfig.VERSION_CODE}")
+
         initLogging()
-
-        Timber.d("App Version Name: ${BuildConfig.VERSION_NAME}")
-        Timber.d("App Version Code: ${BuildConfig.VERSION_CODE}")
-
         initCrashReporting()
+
+        // Note: Injection of default preference must be prior than dependencies
+        // injection!
         injectDefaultPreferences()
         injectDependencies()
 
@@ -70,7 +75,6 @@ class UpdaterApp : MultiDexApplication() {
             appUpdatesDownloader = appUpdatesDownloader,
             appUpdatesInstaller = appUpdatesInstaller,
             engineHeartBeater = heartBeater,
-            // TODO: Deprecate this
             schedulers = schedulers)
     }
 
@@ -84,11 +88,9 @@ class UpdaterApp : MultiDexApplication() {
         val crashlyticsCore = CrashlyticsCore.Builder()
             .disabled(BuildUtils.isDebug())
             .build()
-
         val crashlytics = Crashlytics.Builder()
             .core(crashlyticsCore)
             .build()
-
         val builder = Fabric.Builder(this)
             .kits(crashlytics)
 
@@ -120,12 +122,15 @@ class UpdaterApp : MultiDexApplication() {
 
     private fun generateUpdaterConfig(): ApkUpdaterConfig {
         val hostPackageName = packageName
+        val checkInterval = appPreferences.getInt(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, BuildConfig.UPDATE_CHECK_INTERVAL_SECONDS).toMilliseconds()
+        val heartbeatInterval = appPreferences.getInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS).toMilliseconds()
+
         return ApkUpdaterConfig(
             hostPackageName = hostPackageName,
             // packageNames = listOf(hostPackageName, *BuildUtils.PACKAGES_TO_CHECK)
             packageNames = listOf(*BuildUtils.PACKAGES_TO_CHECK),
-            checkIntervalMs = appPreferences.getInt(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, BuildConfig.UPDATE_CHECK_INTERVAL_SECONDS).toMilliseconds(),
-            heartBeatIntervalMs = appPreferences.getInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS).toMilliseconds()
+            checkIntervalMs = checkInterval,
+            heartBeatIntervalMs = heartbeatInterval
         )
     }
 
@@ -133,20 +138,20 @@ class UpdaterApp : MultiDexApplication() {
 
     private fun injectDefaultPreferences() {
         // Timeout
-        if (-1 == appPreferences.getInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, -1)) {
+        if (INT_NOT_FOUND == appPreferences.getInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, INT_NOT_FOUND)) {
             appPreferences.putInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, BuildConfig.CONNECT_TIMEOUT_SECONDS)
         }
-        if (-1 == appPreferences.getInt(PreferenceProps.NETWORK_WRITE_TIMEOUT_SECONDS, -1)) {
+        if (INT_NOT_FOUND == appPreferences.getInt(PreferenceProps.NETWORK_WRITE_TIMEOUT_SECONDS, INT_NOT_FOUND)) {
             appPreferences.putInt(PreferenceProps.NETWORK_WRITE_TIMEOUT_SECONDS, BuildConfig.READ_TIMEOUT_SECONDS)
         }
-        if (-1 == appPreferences.getInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, -1)) {
+        if (INT_NOT_FOUND == appPreferences.getInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, INT_NOT_FOUND)) {
             appPreferences.putInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.WRITE_TIMEOUT_SECONDS)
         }
         // Intervals
-        if (-1 == appPreferences.getInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, -1)) {
+        if (INT_NOT_FOUND == appPreferences.getInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, INT_NOT_FOUND)) {
             appPreferences.putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
         }
-        if (-1 == appPreferences.getInt(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, -1)) {
+        if (INT_NOT_FOUND == appPreferences.getInt(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, INT_NOT_FOUND)) {
             appPreferences.putInt(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, BuildConfig.UPDATE_CHECK_INTERVAL_SECONDS)
         }
     }

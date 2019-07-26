@@ -13,6 +13,7 @@ import co.sodalabs.updaterengine.extension.smartRetryWhen
 import com.jakewharton.rxrelay2.PublishRelay
 import io.reactivex.Completable
 import io.reactivex.Maybe
+import io.reactivex.Observable
 import io.reactivex.Single
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
@@ -77,6 +78,12 @@ class ApkUpdater private constructor(
             }
         }
 
+        fun observeHeartBeat(): Observable<Int> {
+            return synchronized(ApkUpdater::class.java) {
+                engine?.engineHeartBeater?.observeRecurringHeartBeat() ?: throw NullPointerException("Updater engine isn't yet installed!")
+            }
+        }
+
         fun checkForUpdatesNow() {
             synchronized(ApkUpdater::class.java) {
                 engine?.run(ScheduleUpdateCheck(
@@ -124,7 +131,7 @@ class ApkUpdater private constructor(
                 proceedUpdaterAction(it)
                     .takeUntil(cancelRelay.firstElement())
             }
-            .smartRetryWhen(ALWAYS_RETRY, 2000L, schedulers.main()) { err ->
+            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.main()) { err ->
                 Timber.e(err)
                 true
             }
@@ -165,7 +172,7 @@ class ApkUpdater private constructor(
     private fun observeHeartBeat() {
         val interval = config.heartBeatIntervalMs
         engineHeartBeater.schedule(interval, true)
-            .smartRetryWhen(ALWAYS_RETRY, interval, schedulers.main()) { err ->
+            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.main()) { err ->
                 Timber.e(err)
                 true
             }
