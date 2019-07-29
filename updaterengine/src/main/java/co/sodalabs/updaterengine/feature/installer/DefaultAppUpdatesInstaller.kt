@@ -20,13 +20,13 @@ class DefaultAppUpdatesInstaller constructor(
         apk: Apk
     ): Completable {
         // Install action.
-        val installAction = launchInstallerService(apk)
+        val installCompletable = launchInstallerService(apk)
         // Install result.
         val intentFilter = IntentFilter()
         intentFilter.addAction(IntentActions.ACTION_INSTALL_SUCCESSFULLY)
         intentFilter.addAction(IntentActions.ACTION_INSTALL_CANCELLED)
         intentFilter.addAction(IntentActions.ACTION_INSTALL_FAILED)
-        val installResultReceiver = RxLocalBroadcastReceiver.bind(context, intentFilter)
+        val installResultCompletable = RxLocalBroadcastReceiver.bind(context, intentFilter)
             .filter {
                 val expectPackageName = apk.fromUpdate.packageName
                 val givenPackageName = it.getStringExtra(IntentActions.PROP_APP_PACKAGE_NAME)
@@ -36,8 +36,8 @@ class DefaultAppUpdatesInstaller constructor(
             .ignoreElements()
 
         return Completable.mergeArray(
-            installResultReceiver,
-            installAction)
+            installResultCompletable,
+            installCompletable)
     }
 
     private fun launchInstallerService(

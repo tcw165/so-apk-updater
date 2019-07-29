@@ -37,9 +37,7 @@ class PrivilegedService : Service() {
 
     private var privilegedCallback: IPrivilegedCallback? = null
 
-    private val accessProtectionHelper by lazy {
-        AccessProtectionHelper(this)
-    }
+    private val accessProtectionHelper by lazy { AccessProtectionHelper(this.packageManager) }
 
     companion object {
         private const val BROADCAST_ACTION_INSTALL = "org.fdroid.fdroid.PrivilegedExtension.ACTION_INSTALL_COMMIT"
@@ -86,7 +84,7 @@ class PrivilegedService : Service() {
 
         // DEBUG
         if (BuildConfig.DEBUG) {
-            hasPrivilegedPermissionsImpl()
+            hasPrivilegedPermissions()
         }
     }
 
@@ -112,7 +110,7 @@ class PrivilegedService : Service() {
         return manager.isDeviceOwnerApp(packageName)
     }
 
-    private fun hasPrivilegedPermissionsImpl(): Boolean {
+    private fun hasPrivilegedPermissions(): Boolean {
         val hasInstallPermission = packageManager.checkPermission(
             Manifest.permission.INSTALL_PACKAGES,
             packageName
@@ -208,9 +206,11 @@ class PrivilegedService : Service() {
     }
 
     private val binder = object : IPrivilegedService.Stub() {
+
         override fun hasPrivilegedPermissions(): Boolean {
-            // val callerIsAllowed = accessProtectionHelper.isCallerAllowed()
-            return hasPrivilegedPermissionsImpl()
+            val isCallerAllowed = accessProtectionHelper.isCallerAllowed()
+            val hasPrivilegedPermissions = this@PrivilegedService.hasPrivilegedPermissions()
+            return isCallerAllowed && hasPrivilegedPermissions
         }
 
         override fun installPackage(
@@ -219,9 +219,9 @@ class PrivilegedService : Service() {
             installerPackageName: String?,
             callback: IPrivilegedCallback?
         ) {
-            // if (!accessProtectionHelper.isCallerAllowed()) {
-            //     return
-            // }
+            if (!accessProtectionHelper.isCallerAllowed()) {
+                return
+            }
 
             if (Build.VERSION.SDK_INT >= 24) {
                 doPackageStage(packageURI)
@@ -232,9 +232,9 @@ class PrivilegedService : Service() {
         }
 
         override fun deletePackage(packageName: String, flags: Int, callback: IPrivilegedCallback?) {
-            // if (!accessProtectionHelper.isCallerAllowed()) {
-            //     return
-            // }
+            if (!accessProtectionHelper.isCallerAllowed()) {
+                return
+            }
 
             if (Build.VERSION.SDK_INT >= 24) {
                 privilegedCallback = callback
@@ -280,7 +280,7 @@ class PrivilegedService : Service() {
             val outStream = session.openWrite("PackageInstaller", 0, -1 /* sizeBytes, unknown */)
 
             try {
-                inStream.copyTo(outStream, 65536)
+                inStream?.copyTo(outStream, 65536)
                 session.fsync(outStream)
             } finally {
                 inStream.closeQuietly()

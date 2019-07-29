@@ -45,10 +45,21 @@ android {
         buildConfigField "int", "MAX_TOTAL_CONNECTIONS", "10"
     }
 
+    signingConfigs {
+        platform {
+            keyAlias keystoreProperties['releaseKeyAlias']
+            keyPassword keystoreProperties['releaseKeyPassword']
+            storeFile rootProject.file(keystoreProperties['releaseKeyStore'])
+            storePassword keystoreProperties['releaseStorePassword']
+        }
+    }
+
     buildTypes {
         debug {
             debuggable true
             minifyEnabled false
+
+            signingConfig signingConfigs.platform
 
             buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "15"
             buildConfigField "int", "UPDATE_CHECK_INTERVAL_SECONDS", "300" // 5 min
@@ -70,6 +81,8 @@ android {
             debuggable false
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+
+            signingConfig signingConfigs.platform
 
             // Disables PNG crunching for the release build type.
             crunchPngs false
