@@ -32,6 +32,12 @@ android {
         multiDexEnabled true
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        // Command to extract the public key hash:
+        // keytool -printcert -jarfile your.apk | sed -n 's,SHA256:\s*\([A-F0-9:]*\),\1,p' | sed 's,:,,g' | tr A-f a-f
+        buildConfigField "String[]", "CLIENT_WHITELIST", "{" +
+            "\"c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8\"" +
+            "}"
     }
 
     signingConfigs {

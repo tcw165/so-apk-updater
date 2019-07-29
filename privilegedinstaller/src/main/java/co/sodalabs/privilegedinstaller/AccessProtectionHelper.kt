@@ -1,7 +1,6 @@
 package co.sodalabs.privilegedinstaller
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Binder
 import timber.log.Timber
@@ -13,11 +12,8 @@ import java.security.NoSuchAlgorithmException
 import java.util.Arrays
 
 class AccessProtectionHelper(
-    context: Context,
-    private val whitelist: Set<Pair<String, String>> = ClientWhitelist.whitelist
+    private val pm: PackageManager
 ) {
-
-    private val pm = context.packageManager
 
     /**
      * Checks if process that binds to this service (i.e. the package name corresponding to the
@@ -43,10 +39,8 @@ class AccessProtectionHelper(
     }
 
     private fun isPackageAllowed(packageName: String): Boolean {
-        Timber.d("Checking if package is allowed to access privileged extension: $packageName")
-
         if (packageName == BuildConfig.APPLICATION_ID) {
-            Timber.v("Package $packageName is allowed to access the privileged extension!")
+            Timber.v("Caller (package name: \"$packageName\") is allowed to access the privileged extension!")
             return true
         }
 
@@ -54,26 +48,28 @@ class AccessProtectionHelper(
             val currentPackageCert = getPackageCertificate(packageName)
             val digest = MessageDigest.getInstance("SHA-256")
             val packageHash = digest.digest(currentPackageCert)
+            val packageHashString = BigInteger(1, packageHash).toString(16)
+            Timber.v("Compare caller's package cert hash: \"$packageHashString\" with...")
 
-            whitelist.forEach { (whitelistPackageName, whitelistHashString) ->
-                val whitelistHash = whitelistHashString.hexStringToByteArray()
-                val packageHashString = BigInteger(1, packageHash).toString(16)
+            val whitelist = BuildConfig.CLIENT_WHITELIST
+            for (i in 0 until whitelist.size) {
+                val hash = whitelist[i]
+                val whitelistHash = hash.hexStringToByteArray()
 
-                Timber.d("Allowed cert hash: $whitelistHashString")
-                Timber.d("Package cert hash: $packageHashString")
-
-                val packageNameMatches = packageName == whitelistPackageName
                 val packageCertMatches = Arrays.equals(whitelistHash, packageHash)
-                if (packageNameMatches && packageCertMatches) {
-                    Timber.d("Package is allowed to access the privileged extension!")
+                if (packageCertMatches) {
+                    Timber.v("....\"$hash\" ==> matched")
+                    Timber.v("Caller (package name: \"$packageName\") is allowed to access the privileged extension!")
                     return true
+                } else {
+                    Timber.v("....\"$hash\"")
                 }
             }
         } catch (e: NoSuchAlgorithmException) {
             throw RuntimeException(e.message)
         }
 
-        Timber.e("Package is NOT allowed to access the privileged extension!")
+        Timber.v("Caller (package name: \"$packageName\") is NOT allowed to access the privileged extension!")
         return false
     }
 
