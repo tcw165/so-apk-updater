@@ -12,18 +12,20 @@ import android.os.PersistableBundle
 import android.os.SystemClock
 import androidx.core.app.JobIntentService
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import co.sodalabs.apkupdater.SparkPointProps
 import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
+import co.sodalabs.apkupdater.feature.settings.ISharedSettings
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.data.HTTPResponseCode
+import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.benchmark
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import timber.log.Timber
 import javax.inject.Inject
 
-// FIXME: Create interface for device ID
-private const val DEVICE_ID = "42QJ"
+private const val DEBUG_DEVICE_ID = "42QJ"
 
 class HeartBeatService : JobIntentService() {
 
@@ -110,6 +112,8 @@ class HeartBeatService : JobIntentService() {
 
     @Inject
     lateinit var apiClient: ISparkPointHeartBeatApi
+    @Inject
+    lateinit var settingsRepository: ISharedSettings
 
     override fun onCreate() {
         super.onCreate()
@@ -138,33 +142,36 @@ class HeartBeatService : JobIntentService() {
     private val broadcastManager by lazy { LocalBroadcastManager.getInstance(this) }
 
     private fun sendHeartBeat() {
-        val now = getPrettyDateNow()
-        Timber.v("[HeartBeat] Health check at $now")
-
         try {
+            val deviceID = getDeviceID()
+            val now = getPrettyDateNow()
+            Timber.v("[HeartBeat] Health check at $now for device, \"$deviceID\"")
+
+            val provisioned = settingsRepository.isDeviceProvisioned()
+            val userSetupComplete = settingsRepository.isUserSetupComplete()
+            Timber.v("[HeartBeat] provisioned: $provisioned, user setup complete: $userSetupComplete")
+            if (!provisioned || !userSetupComplete) {
+                reportDeviceNotSetup(deviceID)
+                return
+            }
+
             val timeMs = benchmark {
-                val apiRequest = apiClient.poke(DEVICE_ID)
+                val apiRequest = apiClient.poke(deviceID)
                 val apiResponse = apiRequest.execute()
-                if (apiResponse.isSuccessful) {
-                    val successIntent = generateHeartBeatIntent(apiResponse.code())
-                    broadcastManager.sendBroadcast(successIntent)
-                } else {
-                    val code = apiResponse.code()
-                    val failureIntent = generateHeartBeatIntent(code)
-                    broadcastManager.sendBroadcast(failureIntent)
-                }
+                reportAPIResponse(apiResponse.code())
             }
 
             if (timeMs >= 15000) {
-                Timber.e("Hey, heart-beat API call for device(ID: $DEVICE_ID) took $timeMs milliseconds!")
+                Timber.e("Hey, heart-beat API call for device(ID: $DEBUG_DEVICE_ID) took $timeMs milliseconds!")
             }
         } catch (error: Throwable) {
-            Timber.e(error)
-
-            val failureIntent = generateHeartBeatIntent(HTTPResponseCode.Unknown.code)
-            failureIntent.putExtra(IntentActions.PROP_ERROR, error)
-            broadcastManager.sendBroadcast(failureIntent)
+            Timber.w(error)
+            reportAPINoResponse(error)
         }
+    }
+
+    private fun getDeviceID(): String {
+        return settingsRepository.getSecureString(SparkPointProps.DEVICE_ID) ?: DEBUG_DEVICE_ID
     }
 
     private fun generateHeartBeatIntent(
@@ -173,5 +180,28 @@ class HeartBeatService : JobIntentService() {
         val intent = Intent(IntentActions.ACTION_SEND_HEART_BEAT_NOW)
         intent.putExtra(IntentActions.PROP_HTTP_RESPONSE_CODE, responseCode)
         return intent
+    }
+
+    private fun reportDeviceNotSetup(
+        deviceID: String
+    ) {
+        val failureIntent = generateHeartBeatIntent(HTTPResponseCode.Unknown.code)
+        failureIntent.putExtra(IntentActions.PROP_ERROR, DeviceNotSetupException(deviceID))
+        broadcastManager.sendBroadcast(failureIntent)
+    }
+
+    private fun reportAPIResponse(
+        code: Int
+    ) {
+        val successIntent = generateHeartBeatIntent(code)
+        broadcastManager.sendBroadcast(successIntent)
+    }
+
+    private fun reportAPINoResponse(
+        error: Throwable
+    ) {
+        val failureIntent = generateHeartBeatIntent(HTTPResponseCode.Unknown.code)
+        failureIntent.putExtra(IntentActions.PROP_ERROR, error)
+        broadcastManager.sendBroadcast(failureIntent)
     }
 }

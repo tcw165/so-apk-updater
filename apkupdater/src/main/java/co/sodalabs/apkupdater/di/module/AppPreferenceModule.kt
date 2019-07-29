@@ -10,7 +10,7 @@ import dagger.Module
 import dagger.Provides
 
 @Module
-class SharedPreferenceModule(
+class AppPreferenceModule(
     private val appPreference: AppSharedPreference
 ) {
 

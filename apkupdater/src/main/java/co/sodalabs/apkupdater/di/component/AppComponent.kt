@@ -8,12 +8,14 @@ import co.sodalabs.apkupdater.IAppPreference
 import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.di.ApplicationScope
 import co.sodalabs.apkupdater.di.module.ApplicationContextModule
-import co.sodalabs.apkupdater.di.module.SharedPreferenceModule
+import co.sodalabs.apkupdater.di.module.SharedSettingsModule
+import co.sodalabs.apkupdater.di.module.AppPreferenceModule
 import co.sodalabs.apkupdater.di.module.ThreadSchedulersModule
 import co.sodalabs.apkupdater.di.module.UpdaterModule
 import co.sodalabs.apkupdater.feature.adminui.SettingsActivity
 import co.sodalabs.apkupdater.feature.checker.CheckService
 import co.sodalabs.apkupdater.feature.heartbeat.HeartBeatService
+import co.sodalabs.apkupdater.feature.settings.ISharedSettings
 import co.sodalabs.updaterengine.IThreadSchedulers
 import dagger.Component
 
@@ -22,7 +24,8 @@ import dagger.Component
     modules = [
         ApplicationContextModule::class,
         ThreadSchedulersModule::class,
-        SharedPreferenceModule::class,
+        AppPreferenceModule::class,
+        SharedSettingsModule::class,
         UpdaterModule::class
     ]
 )
@@ -36,5 +39,6 @@ interface AppComponent {
     fun provideApplicationContext(): Context
     fun provideSchedulers(): IThreadSchedulers
     fun provideSharedPreference(): SharedPreferences
+    fun provideSettingsRepository(): ISharedSettings
     fun provideAppPreference(): IAppPreference
 }

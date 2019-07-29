@@ -172,10 +172,7 @@ class ApkUpdater private constructor(
     private fun observeHeartBeat() {
         val interval = config.heartBeatIntervalMs
         engineHeartBeater.schedule(interval, true)
-            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.main()) { err ->
-                Timber.e(err)
-                true
-            }
+            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.main()) { true }
             .subscribe({
                 // TODO: What should we do here?
             }, Timber::e)
