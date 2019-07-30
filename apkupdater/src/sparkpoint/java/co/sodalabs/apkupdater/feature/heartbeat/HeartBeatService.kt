@@ -25,7 +25,7 @@ import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import timber.log.Timber
 import javax.inject.Inject
 
-private const val DEBUG_DEVICE_ID = "42QJ"
+private const val DEBUG_DEVICE_ID = "660112"
 
 class HeartBeatService : JobIntentService() {
 
