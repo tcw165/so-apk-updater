@@ -2,6 +2,18 @@ package co.sodalabs.updaterengine.feature.downloader
 
 import android.content.Context
 import android.net.Uri
+import co.sodalabs.fitdownloadmanager.DefaultRetryPolicy
+import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_CONNECTION_TIMEOUT_AFTER_RETRIES
+import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_DOWNLOAD_CANCELLED
+import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_DOWNLOAD_SIZE_UNKNOWN
+import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_FILE_ERROR
+import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_HTTP_DATA_ERROR
+import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_MALFORMED_URI
+import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_TOO_MANY_REDIRECTS
+import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_UNHANDLED_HTTP_CODE
+import co.sodalabs.fitdownloadmanager.DownloadRequest
+import co.sodalabs.fitdownloadmanager.DownloadStatusListenerV1
+import co.sodalabs.fitdownloadmanager.FitDownloadManager
 import co.sodalabs.updaterengine.AppUpdatesDownloader
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.data.Apk
@@ -16,18 +28,6 @@ import co.sodalabs.updaterengine.exception.HttpMalformedURIException
 import co.sodalabs.updaterengine.exception.HttpTooManyRedirectsException
 import co.sodalabs.updaterengine.net.ApkCache
 import co.sodalabs.updaterengine.utils.BuildUtils
-import com.thin.downloadmanager.DefaultRetryPolicy
-import com.thin.downloadmanager.DownloadManager.ERROR_CONNECTION_TIMEOUT_AFTER_RETRIES
-import com.thin.downloadmanager.DownloadManager.ERROR_DOWNLOAD_CANCELLED
-import com.thin.downloadmanager.DownloadManager.ERROR_DOWNLOAD_SIZE_UNKNOWN
-import com.thin.downloadmanager.DownloadManager.ERROR_FILE_ERROR
-import com.thin.downloadmanager.DownloadManager.ERROR_HTTP_DATA_ERROR
-import com.thin.downloadmanager.DownloadManager.ERROR_MALFORMED_URI
-import com.thin.downloadmanager.DownloadManager.ERROR_TOO_MANY_REDIRECTS
-import com.thin.downloadmanager.DownloadManager.ERROR_UNHANDLED_HTTP_CODE
-import com.thin.downloadmanager.DownloadRequest
-import com.thin.downloadmanager.DownloadStatusListenerV1
-import com.thin.downloadmanager.ThinDownloadManager
 import io.reactivex.Single
 import io.reactivex.SingleEmitter
 import timber.log.Timber
@@ -43,7 +43,7 @@ class DefaultUpdatesDownloader constructor(
 
     private val downloadManager by lazy {
         val loggingEnabled = BuildUtils.isDebug()
-        ThinDownloadManager(loggingEnabled)
+        FitDownloadManager(loggingEnabled)
     }
 
     override fun download(

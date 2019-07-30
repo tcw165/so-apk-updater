@@ -9,7 +9,6 @@
 def build = [
     buildToolsVersion: '28.0.3',
     compileSdkVersion: 28,
-    ci               : 'true' == System.getenv('CI'),
     minSdkVersion    : 19,
     targetSdkVersion : 28
 ]
@@ -47,7 +46,8 @@ def androidx = [
     recyclerView     : "androidx.recyclerview:recyclerview:1.0.0",
     vectorDrawable   : "androidx.vectordrawable:vectordrawable-animated:1.0.0",
     customTabs       : 'androidx.browser:browser:1.0.0',
-    design           : 'com.google.android.material:material:1.0.0-rc01'
+    design           : 'com.google.android.material:material:1.0.0-rc01',
+    preference       : "androidx.preference:preference:1.1.0-rc01"
 ]
 
 def support = [
@@ -71,6 +71,10 @@ def dagger = [
     android        : 'com.google.dagger:dagger-android:2.23.2',
     androidSupport : 'com.google.dagger:dagger-android-support:2.23.2',
     androidCompiler: 'com.google.dagger:dagger-android-processor:2.23.2'
+]
+
+def process = [
+    phoenix: 'com.jakewharton:process-phoenix:2.0.0'
 ]
 
 def butterknife = [
@@ -115,6 +119,10 @@ def retrofit = [
     converterMoshi    : "com.squareup.retrofit2:converter-moshi:2.4.0",
     okhttp            : 'com.squareup.okhttp3:okhttp:3.9.0',
     interceptorLogging: 'com.squareup.okhttp3:logging-interceptor:3.9.0',
+]
+
+def fileio = [
+    apacheCommonIo: 'commons-io:commons-io:2.6'
 ]
 
 def leakcanary = [
@@ -188,6 +196,7 @@ ext.deps = [
     androidx   : androidx,
     support    : support,
     kotlin     : kotlin,
+    process    : process,
     dagger     : dagger,
     rx         : rx,
     permissions: permissions,
@@ -202,6 +211,7 @@ ext.deps = [
     butterknife: butterknife,
     scaleDimen : scaleDimension,
     sodalabs   : sodalabs,
+    fileio     : fileio,
     socket     : 'io.socket:socket.io-client:1.0.0',
     fontawesome: "com.joanzapata.iconify:android-iconify-fontawesome:2.2.2",
     findbugs   : 'com.google.code.findbugs:jsr305:3.0.2',

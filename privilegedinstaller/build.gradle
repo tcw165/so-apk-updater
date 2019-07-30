@@ -17,14 +17,14 @@ def versionProperties = new Properties()
 versionProperties.load(new FileInputStream(versionPropertiesFile))
 
 android {
-    compileSdkVersion rootProject.ext.compileSdkVersion
-    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdkVersion deps.build.compileSdkVersion
+    buildToolsVersion deps.build.buildToolsVersion
 
     defaultConfig {
         applicationId "co.sodalabs.privilegedinstaller"
 
-        minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
+        minSdkVersion deps.build.minSdkVersion
+        targetSdkVersion deps.build.targetSdkVersion
 
         versionCode buildVersionCode(versionProperties.artifact_version)
         versionName versionProperties.artifact_version
@@ -148,37 +148,35 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    // Google Support Library.
-    implementation rootProject.ext.dep.xCompat
-    implementation rootProject.ext.dep.xConstraintLayout
+    // Android
+    implementation deps.androidx.appcompat
+    implementation deps.androidx.annotations
+    implementation deps.androidx.constraintLayout
+    implementation deps.androidx.coreKtx
     // Multi-dex.
-    implementation rootProject.ext.dep.xMultidex
+    implementation deps.androidx.multidex
 
     // Kotlin STD Library.
-    api rootProject.ext.dep.kotlinStdlibJdk7
+    implementation deps.kotlin.stdlibJdk7
 
     // RxAndroid
-    api rootProject.ext.dep.rxAndroid
-    // RxJava
-    api rootProject.ext.dep.rxJava
-    api rootProject.ext.dep.rxKotlin
-    api rootProject.ext.dep.rxRelay
-    // RxView
-    api rootProject.ext.dep.rxBinding
+    implementation deps.rx.java
+    implementation deps.rx.android
+    implementation deps.rx.kotlin
+    implementation deps.rx.relay
+    implementation deps.rx.binding.lib
+    implementation deps.rx.binding.appcompat
 
     // Log
-    implementation rootProject.ext.dep.timber
+    implementation deps.tracking.timber
 
     // Unit tests.
-    testImplementation rootProject.ext.dep.testJunit
-    testImplementation rootProject.ext.dep.testMockito
-    testImplementation rootProject.ext.dep.testRobolectric
-    testImplementation rootProject.ext.dep.koinTest
-    testImplementation rootProject.ext.dep.xMultidex
+    testImplementation deps.test.junit
+    testImplementation deps.test.mockito
 
     // Instrumentation tests.
-    androidTestImplementation rootProject.ext.dep.testRunner
-    androidTestImplementation rootProject.ext.dep.testEspressoCore
+    androidTestImplementation deps.test.runner
+    androidTestImplementation deps.test.espresso.core
 }
 
 repositories {

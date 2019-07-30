@@ -2,8 +2,6 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
-// For Jitpack release
-apply plugin: 'com.github.dcendents.android-maven'
 
 apply from: rootProject.file("gradleScripts/android_library_extension.gradle")
 apply from: rootProject.file("gradleScripts/version_extension.gradle")
@@ -17,16 +15,13 @@ def versionPropertiesFile = project.file("version.properties")
 def versionProperties = new Properties()
 versionProperties.load(new FileInputStream(versionPropertiesFile))
 
-// The group is used by local maven and Jitpack
-group = 'com.github.sodalabs.apkupdater'
-
 android {
-    compileSdkVersion rootProject.ext.compileSdkVersion
-    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdkVersion deps.build.compileSdkVersion
+    buildToolsVersion deps.build.buildToolsVersion
 
     defaultConfig {
-        minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
+        minSdkVersion deps.build.minSdkVersion
+        targetSdkVersion deps.build.targetSdkVersion
 
         versionCode buildVersionCode(versionProperties.artifact_version)
         versionName versionProperties.artifact_version
@@ -111,52 +106,56 @@ androidExtensions {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    // Google Support Library.
-    api rootProject.ext.dep.xCompat
-    api rootProject.ext.dep.xConstraintLayout
+    // Android
+    api deps.androidx.appcompat
+    api deps.androidx.annotations
+    api deps.androidx.constraintLayout
+    api deps.androidx.preference
+    api deps.androidx.coreKtx
     // Multi-dex.
-    api rootProject.ext.dep.xMultidex
+    api deps.androidx.multidex
 
-    // Kotlin STD Library.
-    api rootProject.ext.dep.kotlinStdlibJdk7
+    // Kotlin
+    api deps.kotlin.stdlibJdk7
 
-    // Log
-    api rootProject.ext.dep.timber
+    // Tracking
+    api deps.tracking.timber
 
-    // RxAndroid
-    api rootProject.ext.dep.rxAndroid
-    // RxJava
-    api rootProject.ext.dep.rxJava
-    api rootProject.ext.dep.rxKotlin
-    api rootProject.ext.dep.rxRelay
-    // RxView
-    api rootProject.ext.dep.rxBinding
+    // Rx
+    api deps.rx.java
+    api deps.rx.android
+    api deps.rx.kotlin
+    api deps.rx.relay
+    api deps.rx.binding.lib
+    api deps.rx.binding.appcompat
+    api deps.rx.binding.design
+    api deps.rx.binding.recyclerview
+    api deps.rx.binding.viewpager
 
-    // Networking
-    api rootProject.ext.dep.retrofit2
-    api rootProject.ext.dep.retrofit2ConverterScalar
-    api rootProject.ext.dep.retrofit2ConverterMoshi
-    api rootProject.ext.dep.retrofit2AdapterRxJava2
-    api rootProject.ext.dep.okhttpLoggingInterceptor
+    // Network
+    api deps.retrofit.lib
+    api deps.retrofit.okhttp
+    api deps.retrofit.adapterRx
+    api deps.retrofit.converterGson
+    api deps.retrofit.converterMoshi
+    api deps.retrofit.converterScalars
+    api deps.retrofit.interceptorLogging
 
-    // Moshi for Serialization/Deserialization
-    api rootProject.ext.dep.moshi
-    kapt rootProject.ext.dep.moshiKotlinCodegen
+    // Json
+    api deps.moshi.lib
+    kapt deps.moshi.codegen
+
+    // IO
+    api deps.fileio.apacheCommonIo
 
     // Better File Downloader
-    api rootProject.ext.dep.thinkDownloadManager
-
-    // File Utils
-    api rootProject.ext.dep.apacheCommonIo
+    api project(":fitdownloadmanager")
 
     // Unit tests.
-    testImplementation rootProject.ext.dep.testJunit
-    testImplementation rootProject.ext.dep.testMockito
-    testImplementation rootProject.ext.dep.testRobolectric
-    testImplementation rootProject.ext.dep.koinTest
-    testImplementation rootProject.ext.dep.xMultidex
+    testImplementation deps.test.junit
+    testImplementation deps.test.mockito
 
     // Instrumentation tests.
-    androidTestImplementation rootProject.ext.dep.testRunner
-    androidTestImplementation rootProject.ext.dep.testEspressoCore
+    androidTestImplementation deps.test.runner
+    androidTestImplementation deps.test.espresso.core
 }
