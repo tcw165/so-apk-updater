@@ -1,10 +1,10 @@
-package co.sodalabs.fitdownloadmanager;
+package co.sodalabs.updaterengine.feature.downloadmanager;
 
 import android.os.Handler;
 
 import java.security.InvalidParameterException;
 
-import co.sodalabs.fitdownloadmanager.util.Log;
+import co.sodalabs.updaterengine.feature.downloadmanager.util.Log;
 
 /**
  * This class used to handles long-running HTTP downloads, User can raise a {@link DownloadRequest} request with multiple features.

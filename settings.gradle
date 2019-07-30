@@ -1,1 +1,1 @@
-include ':apkupdater', ':updaterengine', ':privilegedinstaller', ':fitdownloadmanager'
+include ':apkupdater', ':updaterengine', ':privilegedinstaller'

@@ -1,4 +1,4 @@
-package co.sodalabs.fitdownloadmanager;
+package co.sodalabs.updaterengine.feature.downloadmanager;
 
 import android.net.Uri;
 

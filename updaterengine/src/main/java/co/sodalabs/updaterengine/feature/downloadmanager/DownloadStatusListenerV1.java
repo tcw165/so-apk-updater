@@ -1,4 +1,4 @@
-package co.sodalabs.fitdownloadmanager;
+package co.sodalabs.updaterengine.feature.downloadmanager;
 
 /**
  * A Listener for the Download Status. Implement this interface to listen to Download Events.

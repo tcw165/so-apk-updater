@@ -2,18 +2,6 @@ package co.sodalabs.updaterengine.feature.downloader
 
 import android.content.Context
 import android.net.Uri
-import co.sodalabs.fitdownloadmanager.DefaultRetryPolicy
-import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_CONNECTION_TIMEOUT_AFTER_RETRIES
-import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_DOWNLOAD_CANCELLED
-import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_DOWNLOAD_SIZE_UNKNOWN
-import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_FILE_ERROR
-import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_HTTP_DATA_ERROR
-import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_MALFORMED_URI
-import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_TOO_MANY_REDIRECTS
-import co.sodalabs.fitdownloadmanager.DownloadManager.ERROR_UNHANDLED_HTTP_CODE
-import co.sodalabs.fitdownloadmanager.DownloadRequest
-import co.sodalabs.fitdownloadmanager.DownloadStatusListenerV1
-import co.sodalabs.fitdownloadmanager.FitDownloadManager
 import co.sodalabs.updaterengine.AppUpdatesDownloader
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.data.Apk
@@ -26,6 +14,18 @@ import co.sodalabs.updaterengine.exception.DownloadTimeoutException
 import co.sodalabs.updaterengine.exception.DownloadUnknownErrorException
 import co.sodalabs.updaterengine.exception.HttpMalformedURIException
 import co.sodalabs.updaterengine.exception.HttpTooManyRedirectsException
+import co.sodalabs.updaterengine.feature.downloadmanager.DefaultRetryPolicy
+import co.sodalabs.updaterengine.feature.downloadmanager.DownloadManager.ERROR_CONNECTION_TIMEOUT_AFTER_RETRIES
+import co.sodalabs.updaterengine.feature.downloadmanager.DownloadManager.ERROR_DOWNLOAD_CANCELLED
+import co.sodalabs.updaterengine.feature.downloadmanager.DownloadManager.ERROR_DOWNLOAD_SIZE_UNKNOWN
+import co.sodalabs.updaterengine.feature.downloadmanager.DownloadManager.ERROR_FILE_ERROR
+import co.sodalabs.updaterengine.feature.downloadmanager.DownloadManager.ERROR_HTTP_DATA_ERROR
+import co.sodalabs.updaterengine.feature.downloadmanager.DownloadManager.ERROR_MALFORMED_URI
+import co.sodalabs.updaterengine.feature.downloadmanager.DownloadManager.ERROR_TOO_MANY_REDIRECTS
+import co.sodalabs.updaterengine.feature.downloadmanager.DownloadManager.ERROR_UNHANDLED_HTTP_CODE
+import co.sodalabs.updaterengine.feature.downloadmanager.DownloadRequest
+import co.sodalabs.updaterengine.feature.downloadmanager.DownloadStatusListenerV1
+import co.sodalabs.updaterengine.feature.downloadmanager.FitDownloadManager
 import co.sodalabs.updaterengine.net.ApkCache
 import co.sodalabs.updaterengine.utils.BuildUtils
 import io.reactivex.Single

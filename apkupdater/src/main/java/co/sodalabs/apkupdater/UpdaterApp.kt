@@ -109,8 +109,11 @@ class UpdaterApp : MultiDexApplication() {
     private val preferences by lazy { PreferenceManager.getDefaultSharedPreferences(this@UpdaterApp) }
     private val appPreferences by lazy { AppSharedPreference(preferences) }
     private val sharedSettings by lazy { AndroidSharedSettings(contentResolver, schedulers) }
+    // private val diskLruCache by lazy { DiskLruCache.open() }
 
     private fun injectDependencies() {
+        // val editor = diskLruCache.edit("abc")
+
         // Application singleton(s)
         appComponent = DaggerAppComponent.builder()
             .applicationContextModule(ApplicationContextModule(this))

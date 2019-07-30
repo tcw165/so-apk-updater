@@ -1,4 +1,4 @@
-package co.sodalabs.fitdownloadmanager;
+package co.sodalabs.updaterengine.feature.downloadmanager;
 
 import android.os.Handler;
 import android.os.Looper;
@@ -124,7 +124,8 @@ public class DownloadRequestQueue {
 
         // Create download dispatchers (and corresponding threads) up to the pool size.
         for (int i = 0; i < mDownloadDispatchers.length; i++) {
-            DownloadDispatcher downloadDispatcher = new DownloadDispatcher(mDownloadQueue, mDelivery);
+            DownloadDispatcher
+                downloadDispatcher = new DownloadDispatcher(mDownloadQueue, mDelivery);
             mDownloadDispatchers[i] = downloadDispatcher;
             downloadDispatcher.start();
         }

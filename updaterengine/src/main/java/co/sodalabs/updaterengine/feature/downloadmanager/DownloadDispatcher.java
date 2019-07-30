@@ -1,4 +1,4 @@
-package co.sodalabs.fitdownloadmanager;
+package co.sodalabs.updaterengine.feature.downloadmanager;
 
 import android.os.Process;
 
@@ -19,7 +19,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
 
-import co.sodalabs.fitdownloadmanager.util.Log;
+import co.sodalabs.updaterengine.feature.downloadmanager.util.Log;
 
 import static android.content.ContentValues.TAG;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;

@@ -148,9 +148,6 @@ dependencies {
     // IO
     api deps.fileio.apacheCommonIo
 
-    // Better File Downloader
-    api project(":fitdownloadmanager")
-
     // Unit tests.
     testImplementation deps.test.junit
     testImplementation deps.test.mockito

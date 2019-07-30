@@ -1,4 +1,4 @@
-package co.sodalabs.fitdownloadmanager;
+package co.sodalabs.updaterengine.feature.downloadmanager;
 
 /**
  * Created by maniselvaraj on 15/4/15.

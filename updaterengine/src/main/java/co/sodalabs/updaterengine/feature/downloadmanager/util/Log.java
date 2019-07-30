@@ -1,4 +1,4 @@
-package co.sodalabs.fitdownloadmanager.util;
+package co.sodalabs.updaterengine.feature.downloadmanager.util;
 
 public final class Log {
     private static String sTag = "ThinDownloadManager";
