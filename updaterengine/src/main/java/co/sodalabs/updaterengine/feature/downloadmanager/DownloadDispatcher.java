@@ -1,5 +1,6 @@
 package co.sodalabs.updaterengine.feature.downloadmanager;
 
+import android.net.Uri;
 import android.os.Process;
 
 import org.apache.http.conn.ConnectTimeoutException;
@@ -20,6 +21,7 @@ import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
 
 import co.sodalabs.updaterengine.feature.downloadmanager.util.Log;
+import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache;
 
 import static android.content.ContentValues.TAG;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
@@ -75,14 +77,17 @@ class DownloadDispatcher extends Thread {
      */
     private long mDownloadedCacheSize = 0;
 
+    private DiskLruCache diskLruCache;
+
     private Timer mTimer;
 
     /**
      * Constructor take the dependency (DownloadRequest queue) that all the Dispatcher needs
      */
-    DownloadDispatcher(BlockingQueue<DownloadRequest> queue, DownloadRequestQueue.CallBackDelivery delivery) {
+    DownloadDispatcher(BlockingQueue<DownloadRequest> queue, DownloadRequestQueue.CallBackDelivery delivery, DiskLruCache downloadCache) {
         mQueue = queue;
         mDelivery = delivery;
+        diskLruCache = downloadCache;
     }
 
     @Override
@@ -130,10 +135,17 @@ class DownloadDispatcher extends Thread {
         }
 
         HttpURLConnection conn = null;
+        DiskLruCache.Editor cacheEditor = null;
 
         try {
             conn = (HttpURLConnection) url.openConnection();
-            File destinationFile = new File(request.getDestinationURI().getPath());
+
+            cacheEditor = diskLruCache.edit(request.getUri().getPath());
+            final File destinationFile = cacheEditor.getFile(0);
+
+            // Assign the destination URI to the request.
+            request.setDestinationURI(Uri.fromFile(destinationFile));
+
             if (destinationFile.exists()) {
                 mDownloadedCacheSize = (int) destinationFile.length();
             }
@@ -220,6 +232,13 @@ class DownloadDispatcher extends Thread {
             e.printStackTrace();
             updateDownloadFailed(request, DownloadManager.ERROR_HTTP_DATA_ERROR, "Trouble with low-level sockets");
         } finally {
+            try {
+                if (cacheEditor != null) {
+                    cacheEditor.commit();
+                }
+            } catch (Throwable ignored) {
+                // No-op
+            }
             if (conn != null) {
                 conn.disconnect();
             }

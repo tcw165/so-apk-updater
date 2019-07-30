@@ -11,7 +11,7 @@ import timber.log.Timber
 import java.io.File
 import java.io.IOException
 
-// TODO: Use LRU Disk Cache and save this complicated cache mechanism
+@Deprecated("Replaced by DiskLruCache")
 object ApkCache {
 
     private const val CACHE_DIR = "apks"

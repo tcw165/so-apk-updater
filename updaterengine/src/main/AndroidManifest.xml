@@ -12,8 +12,16 @@
             android:name="co.sodalabs.updaterengine.feature.installer.DefaultInstallerActivity"
             android:theme="@style/AppThemeTransparent" />
 
+        <!-- Updates Checker -->
         <service
-            android:name="co.sodalabs.updaterengine.feature.installer.InstallerService"
+            android:name=".feature.downloader.DownloadJobIntentService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- Installer (install dispatcher) -->
+        <service
+            android:name=".feature.installer.InstallerService"
             android:enabled="true"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
@@ -30,16 +38,5 @@
                 android:resource="@xml/apk_file_provider" />
         </provider>
         -->
-
-        <!--TODO: Do we still need it?-->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.installer"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/installer_file_provider" />
-        </provider>
     </application>
 </manifest>

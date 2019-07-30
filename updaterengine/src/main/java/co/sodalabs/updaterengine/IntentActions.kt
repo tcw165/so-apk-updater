@@ -2,8 +2,9 @@ package co.sodalabs.updaterengine
 
 object IntentActions {
 
-    // Check/install requests
+    // Check/download/install requests
     const val ACTION_CHECK_UPDATES = "$ACTION_PREFIX.check_updates"
+    const val ACTION_DOWNLOAD_UPDATES = "$ACTION_PREFIX.download_app"
     const val ACTION_INSTALL_APP = "$ACTION_PREFIX.install_app"
     const val ACTION_UNINSTALL_APP = "$ACTION_PREFIX.uninstall_app"
     // Check response broadcast
@@ -23,7 +24,11 @@ object IntentActions {
     // Check response broadcast
     const val ACTION_SEND_HEART_BEAT_NOW = "$ACTION_PREFIX.send_heart_beat_now"
 
+    const val PROP_APP_DOWNLOAD_URIS = "$EXTRA_PREFIX.app_download_uri"
+    const val PROP_APP_DOWNLOAD_FILE_URIS = "$EXTRA_PREFIX.app_download_files"
+    const val PROP_APP_DOWNLOAD_FILE_URIS_TO_UPDATE_INDICES = "$EXTRA_PREFIX.app_download_files_indices"
     const val PROP_APP_FILE_URI = "$EXTRA_PREFIX.app_file_uri"
+    const val PROP_APP_FILE_FROM_UPDATE_INDEX = "$EXTRA_PREFIX.app_file_from_update_index"
     const val PROP_APP_PACKAGE_NAME = "$EXTRA_PREFIX.app_package_name"
     const val PROP_APP_PACKAGE_NAMES = "$EXTRA_PREFIX.app_package_names"
     const val PROP_APP_UPDATES = "$EXTRA_PREFIX.app_updates"

@@ -4,13 +4,14 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
-import java.security.InvalidParameterException;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache;
 
 public class DownloadRequestQueue {
 
@@ -24,6 +25,8 @@ public class DownloadRequestQueue {
 
     /** The download dispatchers */
     private DownloadDispatcher[] mDownloadDispatchers;
+
+    private DiskLruCache diskLruCache;
 
     /** Used for generating monotonically-increasing sequence numbers for requests. */
     private AtomicInteger mSequenceGenerator = new AtomicInteger();
@@ -92,31 +95,13 @@ public class DownloadRequestQueue {
     }
 
     /**
-     * Default constructor.
-     */
-    public DownloadRequestQueue() {
-        initialize(new Handler(Looper.getMainLooper()));
-    }
-
-    /**
      * Creates the download dispatchers workers pool.
      * Deprecated:
      */
-    public DownloadRequestQueue(int threadPoolSize) {
-        initialize(new Handler(Looper.getMainLooper()), threadPoolSize);
-    }
-
-    /**
-     * Construct with provided callback handler.
-     *
-     * @param callbackHandler
-     */
-    public DownloadRequestQueue(Handler callbackHandler) throws InvalidParameterException {
-        if (callbackHandler == null) {
-            throw new InvalidParameterException("callbackHandler must not be null");
-        }
-
-        initialize(callbackHandler);
+    public DownloadRequestQueue(int threadPoolSize, DiskLruCache downloadCache) {
+        mDownloadDispatchers = new DownloadDispatcher[threadPoolSize];
+        mDelivery = new CallBackDelivery(new Handler(Looper.getMainLooper()));
+        diskLruCache = downloadCache;
     }
 
     public void start() {
@@ -124,8 +109,7 @@ public class DownloadRequestQueue {
 
         // Create download dispatchers (and corresponding threads) up to the pool size.
         for (int i = 0; i < mDownloadDispatchers.length; i++) {
-            DownloadDispatcher
-                downloadDispatcher = new DownloadDispatcher(mDownloadQueue, mDelivery);
+            DownloadDispatcher downloadDispatcher = new DownloadDispatcher(mDownloadQueue, mDelivery, diskLruCache);
             mDownloadDispatchers[i] = downloadDispatcher;
             downloadDispatcher.start();
         }
@@ -237,7 +221,7 @@ public class DownloadRequestQueue {
         synchronized (mCurrentRequests) {
             for (DownloadRequest request : mCurrentRequests) {
                 if (downloadId == -1 && !request.isResumable()) {
-                    Log.e("FitDownloadManager", String
+                    Log.e("ThinDownloadManager", String
                         .format(Locale.getDefault(), "This request has not enabled resume feature hence request will be cancelled. Request Id: %d",
                                 request.getDownloadId()));
                 } else if ((request.getDownloadId() == downloadId && !request.isResumable())) {
@@ -284,25 +268,6 @@ public class DownloadRequestQueue {
     }
 
     // Private methods.
-
-    /**
-     * Perform construction.
-     *
-     * @param callbackHandler
-     */
-    private void initialize(Handler callbackHandler) {
-        int processors = Runtime.getRuntime().availableProcessors();
-        mDownloadDispatchers = new DownloadDispatcher[processors];
-        mDelivery = new CallBackDelivery(callbackHandler);
-    }
-
-    /**
-     * Perform construction with custom thread pool size.
-     */
-    private void initialize(Handler callbackHandler, int threadPoolSize) {
-        mDownloadDispatchers = new DownloadDispatcher[threadPoolSize];
-        mDelivery = new CallBackDelivery(callbackHandler);
-    }
 
     /**
      * Stops download dispatchers.
