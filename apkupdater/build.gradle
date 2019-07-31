@@ -8,7 +8,8 @@ apply from: rootProject.file("gradleScripts/android_app_extension.gradle")
 apply from: rootProject.file("gradleScripts/version_extension.gradle")
 
 // If you are missing these files, please download from our internal file repo
-// https://drive.google.com/open?id=1a-H4w7Qia5EPBJKh2fE7aJ-07LjBR2Vh
+// store: https://drive.google.com/open?id=1IXPvYIFQz0cPlzw88HIJ8M_Ipf7IYSy1
+// key:   https://drive.google.com/open?id=1Q6UysSx2CmMPfhFOSwe87nSXvwFZeq5u
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
 keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
