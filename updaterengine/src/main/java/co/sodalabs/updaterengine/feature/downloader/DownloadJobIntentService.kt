@@ -38,7 +38,7 @@ private const val CACHE_DIR = "apks"
 private const val CACHE_JOURNAL_VERSION = 1
 
 private const val THREAD_POOL_SIZE = 3
-private const val CACHE_SIZE_MB = 700
+private const val CACHE_SIZE_MB = 1024
 
 private const val MAX_RETRY_COUNT = 3
 private const val BACKOFF_MULTIPLIER = 2f
@@ -91,6 +91,7 @@ class DownloadJobIntentService : JobIntentService() {
 
     // TODO: Shall we close the cache when the app is killed?
     private val diskCache by lazy {
+        // The cache dir would be "/storage/emulated/legacy/co.sodalabs.apkupdater/apks/apks/"
         DiskLruCache.open(
             File(StorageUtils.getCacheDirectory(this, true), CACHE_DIR),
             CACHE_JOURNAL_VERSION,

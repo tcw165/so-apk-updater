@@ -43,6 +43,10 @@ object StorageUtils {
         }
 
         if (preferExternal && MEDIA_MOUNTED == externalStorageState && hasExternalStoragePermission(context)) {
+            // The download file would be stored under "/storage/emulated/legacy"
+            // and the partition of this directory is as below on BIG-TAB:
+            // Filesystem               Size     Used     Free   Blksize
+            // .                        8.9G     1.3G     7.6G   4096
             appCacheDir = getExternalCacheDir(context)
         }
 
