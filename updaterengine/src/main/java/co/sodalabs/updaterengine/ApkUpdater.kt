@@ -72,12 +72,29 @@ class ApkUpdater private constructor(
             }
         }
 
+        fun observeRestartRequests(): Observable<Unit> {
+            return synchronized(ApkUpdater::class.java) {
+                val safeEngine = engine ?: throw NullPointerException("Updater engine isn't yet installed!")
+                safeEngine.restartRequestsRelay.hide()
+            }
+        }
+
+        /**
+         * Send a heart-beat to the server immediately.
+         *
+         * @return The HTTP status code.
+         */
         fun sendHeartBeatNow(): Single<Int> {
             return synchronized(ApkUpdater::class.java) {
                 engine?.engineHeartBeater?.sendHeartBeatNow() ?: throw NullPointerException("Updater engine isn't yet installed!")
             }
         }
 
+        /**
+         * Observe heart-beat result.
+         *
+         * @return The Observable of HTTP status code.
+         */
         fun observeHeartBeat(): Observable<Int> {
             return synchronized(ApkUpdater::class.java) {
                 engine?.engineHeartBeater?.observeRecurringHeartBeat() ?: throw NullPointerException("Updater engine isn't yet installed!")
@@ -90,6 +107,26 @@ class ApkUpdater private constructor(
                     interval = 0L,
                     periodic = false
                 ))
+            }
+        }
+
+        fun downloadUpdateNow(
+            updates: List<AppUpdate>
+        ): Single<List<Apk>> {
+            return synchronized(ApkUpdater::class.java) {
+                val safeEngine = engine ?: throw NullPointerException("Updater engine isn't yet installed!")
+                safeEngine.downloadUpdates(updates)
+            }
+        }
+
+        fun setDownloadCacheMaxSize(
+            sizeInMB: Long
+        ) {
+            return synchronized(ApkUpdater::class.java) {
+                val safeEngine = engine ?: throw NullPointerException("Updater engine isn't yet installed!")
+                safeEngine.appUpdatesDownloader.setDownloadCacheMaxSize(sizeInMB)
+                // Request for restarting the process!
+                safeEngine.restartRequestsRelay.accept(Unit)
             }
         }
     }
@@ -115,11 +152,11 @@ class ApkUpdater private constructor(
     }
 
     private fun logInitInfo() {
-        println("[Init] Context file directory: ${application.applicationContext.filesDir}")
-        println("[Init] Context cache directory: ${application.applicationContext.cacheDir}")
-        println("[Init] Environment data directory: ${Environment.getDataDirectory()}")
-        println("[Init] Environment external storage directory: ${Environment.getExternalStorageDirectory()}")
-        println("[Init] Environment download cache directory: ${Environment.getDownloadCacheDirectory()}")
+        println("[Updater] Context file directory: ${application.applicationContext.filesDir}")
+        println("[Updater] Context cache directory: ${application.applicationContext.cacheDir}")
+        println("[Updater] Environment data directory: ${Environment.getDataDirectory()}")
+        println("[Updater] Environment external storage directory: ${Environment.getExternalStorageDirectory()}")
+        println("[Updater] Environment download cache directory: ${Environment.getDownloadCacheDirectory()}")
     }
 
     // Updater Action /////////////////////////////////////////////////////////
@@ -241,4 +278,8 @@ class ApkUpdater private constructor(
     private fun Completable.toEmptyAction(): Maybe<UpdaterAction> {
         return this.toMaybe()
     }
+
+    // Changes Requiring Reboot ///////////////////////////////////////////////
+
+    private val restartRequestsRelay = PublishRelay.create<Unit>().toSerialized()
 }

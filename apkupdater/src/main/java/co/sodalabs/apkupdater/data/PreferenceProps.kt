@@ -13,5 +13,7 @@ object PreferenceProps {
     const val NETWORK_WRITE_TIMEOUT_SECONDS = "$PREFIX.network_write_timeout"
 
     const val HEARTBEAT_INTERVAL_SECONDS = "$PREFIX.heartbeat_interval"
+
     const val UPDATE_CHECK_INTERVAL_SECONDS = "$PREFIX.update_check_interval"
+    const val UPDATE_DOWNLOAD_CACHE_MAX_SIZE_MB = "$PREFIX.update_download_cache_max_size"
 }

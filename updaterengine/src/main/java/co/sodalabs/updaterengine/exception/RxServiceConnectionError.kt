@@ -1,3 +1,8 @@
 package co.sodalabs.updaterengine.exception
 
-class RxServiceConnectionError(componentName: String) : Throwable("Unable to bind $componentName")
+import androidx.annotation.Keep
+
+@Keep
+data class RxServiceConnectionError(
+    val componentName: String
+) : RuntimeException("Unable to bind $componentName")

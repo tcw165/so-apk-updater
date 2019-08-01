@@ -8,7 +8,8 @@ apply from: rootProject.file("gradleScripts/android_app_extension.gradle")
 apply from: rootProject.file("gradleScripts/version_extension.gradle")
 
 // If you are missing these files, please download from our internal file repo
-// https://drive.google.com/open?id=1a-H4w7Qia5EPBJKh2fE7aJ-07LjBR2Vh
+// store: https://drive.google.com/open?id=1IXPvYIFQz0cPlzw88HIJ8M_Ipf7IYSy1
+// key:   https://drive.google.com/open?id=1Q6UysSx2CmMPfhFOSwe87nSXvwFZeq5u
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
 keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
@@ -19,14 +20,14 @@ def versionProperties = new Properties()
 versionProperties.load(new FileInputStream(versionPropertiesFile))
 
 android {
-    compileSdkVersion rootProject.ext.compileSdkVersion
-    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdkVersion deps.build.compileSdkVersion
+    buildToolsVersion deps.build.buildToolsVersion
 
     defaultConfig {
         applicationId "co.sodalabs.apkupdater"
 
-        minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
+        minSdkVersion deps.build.minSdkVersion
+        targetSdkVersion deps.build.targetSdkVersion
 
         versionCode buildVersionCode(versionProperties.artifact_version)
         versionName versionProperties.artifact_version
@@ -168,65 +169,68 @@ androidExtensions {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    // Google Support Library.
-    implementation rootProject.ext.dep.xCompat
-    implementation rootProject.ext.dep.xConstraintLayout
-    implementation rootProject.ext.dep.xPreference
+    // Android
+    implementation deps.androidx.appcompat
+    implementation deps.androidx.annotations
+    implementation deps.androidx.constraintLayout
+    implementation deps.androidx.preference
+    implementation deps.androidx.coreKtx
     // Multi-dex.
-    implementation rootProject.ext.dep.xMultidex
+    implementation deps.androidx.multidex
 
-    // Kotlin STD Library.
-    api rootProject.ext.dep.kotlinStdlibJdk7
+    // Kotlin
+    implementation deps.kotlin.stdlibJdk7
 
     // DI
-    implementation rootProject.ext.dep.dagger2
-    kapt rootProject.ext.dep.dagger2Compiler
+    compileOnly deps.dagger.lib
+    implementation deps.dagger.androidSupport
+    kapt deps.dagger.compiler
+    kapt deps.dagger.androidCompiler
 
-    // RxAndroid
-    api rootProject.ext.dep.rxAndroid
-    // RxJava
-    api rootProject.ext.dep.rxJava
-    api rootProject.ext.dep.rxKotlin
-    api rootProject.ext.dep.rxRelay
-    // RxView
-    api rootProject.ext.dep.rxBinding
+    // Rx
+    implementation deps.rx.java
+    implementation deps.rx.android
+    implementation deps.rx.kotlin
+    implementation deps.rx.relay
+    implementation deps.rx.binding.lib
+    implementation deps.rx.binding.appcompat
+    implementation deps.rx.binding.design
+    implementation deps.rx.binding.recyclerview
+    implementation deps.rx.binding.viewpager
 
-    // Networking
-    implementation rootProject.ext.dep.retrofit2
-    implementation rootProject.ext.dep.retrofit2ConverterScalar
-    implementation rootProject.ext.dep.retrofit2ConverterMoshi
-    implementation rootProject.ext.dep.retrofit2AdapterRxJava2
-    implementation rootProject.ext.dep.okhttpLoggingInterceptor
+    // Network
+    implementation deps.retrofit.lib
+    implementation deps.retrofit.okhttp
+    implementation deps.retrofit.adapterRx
+    implementation deps.retrofit.converterGson
+    implementation deps.retrofit.converterMoshi
+    implementation deps.retrofit.converterScalars
+    implementation deps.retrofit.interceptorLogging
 
     // Process
-    implementation rootProject.ext.dep.processPhoenix
+    implementation deps.process.phoenix
 
-    // Moshi for Serialization/Deserialization
-    implementation rootProject.ext.dep.moshi
-    kapt rootProject.ext.dep.moshiKotlinCodegen
+    // Json
+    implementation deps.moshi.lib
+    kapt deps.moshi.codegen
 
     implementation project(":updaterengine")
 
-    // Log
-    implementation rootProject.ext.dep.timber
-
-    // Better dimens
-    implementation rootProject.ext.dep.scaledDP
-    implementation rootProject.ext.dep.scaledSP
-
-    // Crashlytics
+    // Tracking
+    implementation deps.tracking.timber
     implementation('com.crashlytics.sdk.android:crashlytics:2.9.8@aar') {
         transitive = true
     }
 
+    // Better dimens
+    implementation deps.scaleDimen.sdp
+    implementation deps.scaleDimen.ssp
+
     // Unit tests.
-    testImplementation rootProject.ext.dep.testJunit
-    testImplementation rootProject.ext.dep.testMockito
-    testImplementation rootProject.ext.dep.testRobolectric
-    testImplementation rootProject.ext.dep.koinTest
-    testImplementation rootProject.ext.dep.xMultidex
+    testImplementation deps.test.junit
+    testImplementation deps.test.mockito
 
     // Instrumentation tests.
-    androidTestImplementation rootProject.ext.dep.testRunner
-    androidTestImplementation rootProject.ext.dep.testEspressoCore
+    androidTestImplementation deps.test.runner
+    androidTestImplementation deps.test.espresso.core
 }

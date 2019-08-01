@@ -5,27 +5,27 @@ import android.widget.Toast
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import co.sodalabs.apkupdater.R
+import co.sodalabs.apkupdater.data.UiState
 import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.Intervals
+import co.sodalabs.updaterengine.data.Apk
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import co.sodalabs.updaterengine.extension.smartRetryWhen
 import com.jakewharton.rxrelay2.PublishRelay
+import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
 
-private const val CODE_PROCESSING = 0
-
 private const val KEY_HEART_BEAT_WATCHER = "heartbeat_watcher"
 private const val KEY_HEART_BEAT_NOW = "report_heartbeat_now"
+private const val KEY_DOWNLOAD_TEST_APP_NOW = "download_test_app_now"
 
 class SettingsFragment : PreferenceFragmentCompat() {
 
     private val disposables = CompositeDisposable()
-    private val preferenceClicks = PublishRelay.create<Preference>().toSerialized()
-    private val caughtErrorRelay = PublishRelay.create<Throwable>().toSerialized()
 
     override fun onCreatePreferences(
         savedInstanceState: Bundle?,
@@ -40,24 +40,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
         observeHeartBeatNowClicks()
         observeRecurringHeartBeat()
 
+        observeDownloadTestNowClicks()
+
         observeCaughtErrors()
     }
 
     override fun onPause() {
         disposables.clear()
         super.onPause()
-    }
-
-    override fun onPreferenceTreeClick(
-        preference: Preference
-    ): Boolean {
-        return when (preference) {
-            sendHeartBeatNowPref -> {
-                preferenceClicks.accept(preference)
-                true
-            }
-            else -> super.onPreferenceTreeClick(preference)
-        }
     }
 
     // Heart Beat /////////////////////////////////////////////////////////////
@@ -68,28 +58,31 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private val sendHeartBeatNowPref by lazy { findPreference<Preference>(KEY_HEART_BEAT_NOW) ?: throw IllegalStateException("Can't find preference!") }
     private val sendHeartbeatNowTitle by lazy { sendHeartBeatNowPref.title.toString() }
 
+    @Suppress("USELESS_CAST")
     private fun observeHeartBeatNowClicks() {
-        preferenceClicks
-            .filter { it == sendHeartBeatNowPref }
+        sendHeartBeatNowPref.clicks()
             .flatMap {
                 ApkUpdater.sendHeartBeatNow()
+                    .map { UiState.Done(it) as UiState<Int> }
                     .toObservable()
-                    .startWith(CODE_PROCESSING)
+                    .startWith(UiState.InProgress())
             }
             .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
                 caughtErrorRelay.accept(error)
                 true
             }
             .observeOn(AndroidSchedulers.mainThread())
-            .subscribe({ code ->
-                when (code) {
-                    CODE_PROCESSING -> {
+            .subscribe({ uiState ->
+                when (uiState) {
+                    is UiState.InProgress<Int> -> {
                         markHeartBeatWIP()
                     }
-                    else -> {
+                    is UiState.Done<Int> -> {
                         markHeartBeatDone()
+
+                        val httpCode = uiState.data
                         context?.let { c ->
-                            Toast.makeText(c, "Heart beat returns $code", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(c, "Heart beat returns $httpCode", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -100,7 +93,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private fun observeRecurringHeartBeat() {
         var last = "???"
         ApkUpdater.observeHeartBeat()
+            .observeOn(AndroidSchedulers.mainThread())
             .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
+                markHeartBeatDone()
                 caughtErrorRelay.accept(error)
                 true
             }
@@ -124,17 +119,83 @@ class SettingsFragment : PreferenceFragmentCompat() {
         sendHeartBeatNowPref.title = sendHeartbeatNowTitle
     }
 
+    // Update/Download ////////////////////////////////////////////////////////
+
+    private val downloadTestAppNowPref by lazy { findPreference<Preference>(KEY_DOWNLOAD_TEST_APP_NOW) ?: throw IllegalStateException("Can't find preference!") }
+    private val downloadTestAppNowTitle by lazy { downloadTestAppNowPref.title.toString() }
+
+    @Suppress("USELESS_CAST")
+    private fun observeDownloadTestNowClicks() {
+        downloadTestAppNowPref.clicks()
+            .flatMap {
+                ApkUpdater.downloadUpdateNow(FakeUpdates.filesTotoal830MB)
+                    .map { UiState.Done(it) as UiState<List<Apk>> }
+                    .toObservable()
+                    .startWith(UiState.InProgress())
+            }
+            .observeOn(AndroidSchedulers.mainThread())
+            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
+                markTestDownloadDone()
+                caughtErrorRelay.accept(error)
+                true
+            }
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({ uiState ->
+                when (uiState) {
+                    is UiState.InProgress<List<Apk>> -> {
+                        markTestDownloadWIP()
+                    }
+                    is UiState.Done<List<Apk>> -> {
+                        val apks = uiState.data
+                        Timber.v("[Download] files: $apks")
+                        markTestDownloadDone()
+                    }
+                }
+            }, Timber::e)
+            .addTo(disposables)
+    }
+
+    private fun markTestDownloadWIP() {
+        downloadTestAppNowPref.isEnabled = false
+        // Use title to present working state
+        downloadTestAppNowPref.title = "$downloadTestAppNowTitle (Working...)"
+    }
+
+    private fun markTestDownloadDone() {
+        downloadTestAppNowPref.isEnabled = true
+        downloadTestAppNowPref.title = downloadTestAppNowTitle
+    }
+
     // Error //////////////////////////////////////////////////////////////////
+
+    private val caughtErrorRelay = PublishRelay.create<Throwable>().toSerialized()
 
     private fun observeCaughtErrors() {
         caughtErrorRelay
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe({ error ->
-                markHeartBeatDone()
                 context?.let { c ->
-                    Toast.makeText(c, "Heart beat throws $error", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(c, "Capture $error", Toast.LENGTH_LONG).show()
                 }
             }, Timber::e)
             .addTo(disposables)
+    }
+
+    // RxPreference ///////////////////////////////////////////////////////////
+
+    private val preferenceClicks = PublishRelay.create<Preference>().toSerialized()
+
+    override fun onPreferenceTreeClick(
+        preference: Preference
+    ): Boolean {
+        preferenceClicks.accept(preference)
+        return true
+    }
+
+    private fun Preference.clicks(): Observable<Unit> {
+        val thisPreference = this
+        return preferenceClicks
+            .filter { thisPreference.isEnabled && it == thisPreference }
+            .map { Unit }
     }
 }

@@ -19,7 +19,7 @@
         <Preference
             app:icon="@drawable/bt_heartbeat"
             app:key="report_heartbeat_now"
-            app:title="Send Heart-Beat Now" />
+            app:title="Test Heart-Beat Now" />
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -31,10 +31,21 @@
             app:summary="Interval in seconds that the recurring update check happens"
             app:title="@string/update_check_interval" />
 
+        <!--suppress AndroidElementNotAllowed -->
+        <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
+            app:key="co.sodalabs.apkupdater.update_download_cache_max_size"
+            app:summary="The maximum size of cache for storing the download files (in MB)"
+            app:title="@string/update_download_cache_max_size" />
+
         <Preference
             app:icon="@drawable/bt_meteor"
             app:key="update_now"
-            app:title="Update Now" />
+            app:title="Test Update Now" />
+
+        <Preference
+            app:icon="@drawable/bt_meteor"
+            app:key="download_test_app_now"
+            app:title="Test Download Now" />
     </PreferenceCategory>
 
     <PreferenceCategory
