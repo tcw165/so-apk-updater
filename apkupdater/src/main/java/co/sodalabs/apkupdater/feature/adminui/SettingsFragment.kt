@@ -9,7 +9,6 @@ import co.sodalabs.apkupdater.data.UiState
 import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.data.Apk
-import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import co.sodalabs.updaterengine.extension.smartRetryWhen
@@ -125,39 +124,31 @@ class SettingsFragment : PreferenceFragmentCompat() {
     private val downloadTestAppNowPref by lazy { findPreference<Preference>(KEY_DOWNLOAD_TEST_APP_NOW) ?: throw IllegalStateException("Can't find preference!") }
     private val downloadTestAppNowTitle by lazy { downloadTestAppNowPref.title.toString() }
 
-    private val fakeUpdate = AppUpdate(
-        packageName = "co.sodalabs.sparkpoint",
-        downloadUrl = "https://sparkdatav0.blob.core.windows.net/apks/Sparkpoint-debug-0.2.5.apk",
-        hash = "doesn't really matter",
-        versionCode = 0,
-        versionName = "0.0.0")
-
     @Suppress("USELESS_CAST")
     private fun observeDownloadTestNowClicks() {
         downloadTestAppNowPref.clicks()
             .flatMap {
-                ApkUpdater.downloadUpdateNow(fakeUpdate)
-                    .map { UiState.Done(it) as UiState<Apk> }
+                ApkUpdater.downloadUpdateNow(FakeUpdates.filesTotoal830MB)
+                    .map { UiState.Done(it) as UiState<List<Apk>> }
                     .toObservable()
                     .startWith(UiState.InProgress())
             }
             .observeOn(AndroidSchedulers.mainThread())
             .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
-                markTestDownloadDone("???")
+                markTestDownloadDone()
                 caughtErrorRelay.accept(error)
                 true
             }
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe({ uiState ->
                 when (uiState) {
-                    is UiState.InProgress<Apk> -> {
+                    is UiState.InProgress<List<Apk>> -> {
                         markTestDownloadWIP()
                     }
-                    is UiState.Done<Apk> -> {
-                        val apk = uiState.data
-                        val apkFilePath = apk.file.canonicalPath
-                        markTestDownloadDone(apkFilePath)
-                        Toast.makeText(activity, "The test update is downloaded under \"$apkFilePath\" directory.", Toast.LENGTH_LONG).show()
+                    is UiState.Done<List<Apk>> -> {
+                        val apks = uiState.data
+                        Timber.v("[Download] files: $apks")
+                        markTestDownloadDone()
                     }
                 }
             }, Timber::e)
@@ -170,11 +161,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
         downloadTestAppNowPref.title = "$downloadTestAppNowTitle (Working...)"
     }
 
-    private fun markTestDownloadDone(
-        filePath: String
-    ) {
+    private fun markTestDownloadDone() {
         downloadTestAppNowPref.isEnabled = true
-        downloadTestAppNowPref.title = "$downloadTestAppNowTitle (file is stored here, \"$filePath\")"
+        downloadTestAppNowPref.title = downloadTestAppNowTitle
     }
 
     // Error //////////////////////////////////////////////////////////////////

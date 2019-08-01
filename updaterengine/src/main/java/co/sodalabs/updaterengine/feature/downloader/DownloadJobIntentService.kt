@@ -20,7 +20,6 @@ import co.sodalabs.updaterengine.exception.DownloadUnknownErrorException
 import co.sodalabs.updaterengine.exception.HttpMalformedURIException
 import co.sodalabs.updaterengine.exception.HttpTooManyRedirectsException
 import co.sodalabs.updaterengine.extension.mbToBytes
-import co.sodalabs.updaterengine.feature.downloader.data.DownloadFailureCause
 import co.sodalabs.updaterengine.feature.downloadmanager.DefaultRetryPolicy
 import co.sodalabs.updaterengine.feature.downloadmanager.DownloadManager
 import co.sodalabs.updaterengine.feature.downloadmanager.DownloadRequest
@@ -29,6 +28,10 @@ import co.sodalabs.updaterengine.feature.downloadmanager.ThinDownloadManager
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
 import co.sodalabs.updaterengine.utils.BuildUtils
 import co.sodalabs.updaterengine.utils.StorageUtils
+import com.jakewharton.rxrelay2.PublishRelay
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -43,8 +46,6 @@ private const val CACHE_SIZE_MB = 1024
 private const val MAX_RETRY_COUNT = 3
 private const val BACKOFF_MULTIPLIER = 2f
 
-private const val BROADCAST_INTERVAL = 300L
-
 class DownloadJobIntentService : JobIntentService() {
 
     companion object {
@@ -58,24 +59,33 @@ class DownloadJobIntentService : JobIntentService() {
 
             val packageNames = updates.map { it.packageName }
             intent.putStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES, ArrayList(packageNames))
-            val downloadURIs = updates.map { Uri.parse(it.downloadUrl) }
-            intent.putParcelableArrayListExtra(IntentActions.PROP_APP_DOWNLOAD_URIS, ArrayList(downloadURIs))
+            val downloadURLs = updates.map { it.downloadUrl }
+            intent.putStringArrayListExtra(IntentActions.PROP_APP_DOWNLOAD_URIS, ArrayList(downloadURLs))
 
             enqueueWork(context, ComponentName(context, DownloadJobIntentService::class.java), UpdaterJobs.JOB_ID_DOWNLOAD_UPDATES, intent)
         }
     }
 
+    private val disposables = CompositeDisposable()
+
     override fun onCreate() {
         super.onCreate()
         injectDependencies()
+
+        observeDownloadProgress()
+    }
+
+    override fun onDestroy() {
+        disposables.clear()
+        super.onDestroy()
     }
 
     override fun onHandleWork(intent: Intent) {
         when (intent.action) {
             IntentActions.ACTION_DOWNLOAD_UPDATES -> {
                 val packageNames = intent.getStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES)
-                val downloadURIs = intent.getParcelableArrayListExtra<Uri>(IntentActions.PROP_APP_DOWNLOAD_URIS)
-                download(packageNames, downloadURIs)
+                val downloadURLs = intent.getStringArrayListExtra(IntentActions.PROP_APP_DOWNLOAD_URIS)
+                download(packageNames, downloadURLs)
             }
             else -> throw IllegalArgumentException("Hey develop, DownloadJobIntentService is for downloading the app only!")
         }
@@ -111,20 +121,24 @@ class DownloadJobIntentService : JobIntentService() {
 
     private fun download(
         packageNames: List<String>,
-        downloadURIs: List<Uri>
+        downloadURLs: List<String>
     ) {
         // The latch for joint the thread of the JobIntentService and the
         // threads of download manager.
-        val countdownLatch = CountDownLatch(downloadURIs.size)
+        val countdownLatch = CountDownLatch(downloadURLs.size)
 
         val downloadFileURIs = mutableListOf<Uri>()
         val downloadFileIndices = mutableListOf<Int>()
+        val aggregateProgresses = mutableListOf<DownloadProgress>()
         val failedDownloads = mutableListOf<Throwable>()
 
         try {
-            for (i in 0 until downloadURIs.size) {
+            // Prepare the download request
+            val requests = mutableListOf<DownloadRequest>()
+            for (i in 0 until downloadURLs.size) {
                 val packageName = packageNames[i]
-                val uri = downloadURIs[i]
+                val url = downloadURLs[i]
+                val uri = Uri.parse(url)
                 val request = DownloadRequest(uri)
                     .setRetryPolicy(DefaultRetryPolicy(DefaultRetryPolicy.DEFAULT_TIMEOUT_MS, MAX_RETRY_COUNT, BACKOFF_MULTIPLIER))
                     .setPriority(DownloadRequest.Priority.LOW)
@@ -165,24 +179,29 @@ class DownloadJobIntentService : JobIntentService() {
                             downloadedBytes: Long,
                             progress: Int
                         ) {
-                            val id = downloadRequest.downloadId
-                            val prettyProgress = progress.toString().padStart(3)
-                            // Timber.v("[Download] Download(ID: $id, package: \"$packageName\") progress $prettyProgress")
+                            logDownloadProgress(downloadRequest, progress, aggregateProgresses)
                         }
                     })
 
-                // set target directory
+                requests.add(request)
+                aggregateProgresses.add(DownloadProgress(
+                    downloadURL = url,
+                    downloadProgress = 0
+                ))
+            }
+
+            // Enqueue the download request
+            for (i in 0 until requests.size) {
+                val request = requests[i]
+                val uri = request.uri
                 val id = downloadManager.add(request)
-                Timber.i("[Download] Download(ID: $id) for \"$packageName\" (URL: \"$uri\") starts!")
+                Timber.v("[Download] Download(ID: $id) for \"$packageName\" (URL: \"$uri\") starts!")
             }
 
             // Wait for the download manager library finishing.
             countdownLatch.await(Intervals.TIMEOUT_DOWNLOAD_HR, TimeUnit.HOURS)
 
             reportAllDownloads(downloadFileURIs, downloadFileIndices, failedDownloads)
-            // if (failedDownloads.isNotEmpty()) {
-            //     reportFailedDownloads(failedDownloads)
-            // }
         } catch (error: Throwable) {
             reportTimeout(error)
         }
@@ -221,21 +240,6 @@ class DownloadJobIntentService : JobIntentService() {
         broadcastManager.sendBroadcast(intent)
     }
 
-    private fun reportFailedDownloads(
-        causes: List<DownloadFailureCause>
-    ) {
-        for (i in 0 until causes.size) {
-            val cause = causes[i]
-            val error = cause.errorCode.toError(cause.packageName, cause.downloadURI.path ?: "unknown")
-            val failureIntent = Intent(IntentActions.ACTION_DOWNLOAD_UPDATES)
-            failureIntent.putExtra(IntentActions.PROP_ERROR, error)
-            broadcastManager.sendBroadcast(failureIntent)
-
-            // We don't want to jam the broadcast.
-            Thread.sleep(BROADCAST_INTERVAL)
-        }
-    }
-
     private fun reportTimeout(
         error: Throwable
     ) {
@@ -243,4 +247,49 @@ class DownloadJobIntentService : JobIntentService() {
         failureIntent.putExtra(IntentActions.PROP_ERROR, error)
         broadcastManager.sendBroadcast(failureIntent)
     }
+
+    // Progress ///////////////////////////////////////////////////////////////
+
+    private val progressRelay = PublishRelay.create<List<DownloadProgress>>()
+
+    private fun observeDownloadProgress() {
+        val sb = StringBuilder()
+        progressRelay
+            .distinctUntilChanged()
+            .sample(Intervals.SAMPLE_INTERVAL_LONG, TimeUnit.MILLISECONDS)
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({ progressList ->
+                sb.clear()
+                sb.appendln("[Download] download progress: [")
+                for (i in 0 until progressList.size) {
+                    val progress = progressList[i]
+                    val url = progress.downloadURL
+                    val prettyProgress = progress.downloadProgress.toString().padStart(3)
+                    sb.appendln("    download request $url is at $prettyProgress percentage,")
+                }
+                sb.appendln("]")
+                Timber.v(sb.toString())
+            }, Timber::e)
+            .addTo(disposables)
+    }
+
+    private fun logDownloadProgress(
+        downloadRequest: DownloadRequest,
+        progress: Int,
+        aggregateProgresses: MutableList<DownloadProgress>
+    ) {
+        val found = aggregateProgresses.indexOfFirst { it.downloadURL == downloadRequest.uri.toString() }
+
+        if (found in 0 until aggregateProgresses.size) {
+            val newProgress = aggregateProgresses[found].copy(downloadProgress = progress)
+            aggregateProgresses[found] = newProgress
+
+            progressRelay.accept(aggregateProgresses.toList())
+        }
+    }
+
+    private data class DownloadProgress(
+        val downloadURL: String,
+        val downloadProgress: Int
+    )
 }

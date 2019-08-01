@@ -56,4 +56,8 @@ class DefaultUpdatesDownloader constructor(
             apks
         }
     }
+
+    override fun setDownloadCacheMaxSize(sizeInMB: Long) {
+        TODO("not implemented")
+    }
 }

@@ -72,6 +72,13 @@ class ApkUpdater private constructor(
             }
         }
 
+        fun observeRestartRequests(): Observable<Unit> {
+            return synchronized(ApkUpdater::class.java) {
+                val safeEngine = engine ?: throw NullPointerException("Updater engine isn't yet installed!")
+                safeEngine.restartRequestsRelay.hide()
+            }
+        }
+
         /**
          * Send a heart-beat to the server immediately.
          *
@@ -104,13 +111,22 @@ class ApkUpdater private constructor(
         }
 
         fun downloadUpdateNow(
-            update: AppUpdate
-        ): Single<Apk> {
+            updates: List<AppUpdate>
+        ): Single<List<Apk>> {
             return synchronized(ApkUpdater::class.java) {
                 val safeEngine = engine ?: throw NullPointerException("Updater engine isn't yet installed!")
-                safeEngine
-                    .downloadUpdates(listOf(update))
-                    .map { it[0] }
+                safeEngine.downloadUpdates(updates)
+            }
+        }
+
+        fun setDownloadCacheMaxSize(
+            sizeInMB: Long
+        ) {
+            return synchronized(ApkUpdater::class.java) {
+                val safeEngine = engine ?: throw NullPointerException("Updater engine isn't yet installed!")
+                safeEngine.appUpdatesDownloader.setDownloadCacheMaxSize(sizeInMB)
+                // Request for restarting the process!
+                safeEngine.restartRequestsRelay.accept(Unit)
             }
         }
     }
@@ -262,4 +278,8 @@ class ApkUpdater private constructor(
     private fun Completable.toEmptyAction(): Maybe<UpdaterAction> {
         return this.toMaybe()
     }
+
+    // Changes Requiring Reboot ///////////////////////////////////////////////
+
+    private val restartRequestsRelay = PublishRelay.create<Unit>().toSerialized()
 }
