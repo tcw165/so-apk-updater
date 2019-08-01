@@ -22,6 +22,7 @@ import java.util.concurrent.BlockingQueue;
 
 import co.sodalabs.updaterengine.feature.downloadmanager.util.Log;
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache;
+import timber.log.Timber;
 
 import static android.content.ContentValues.TAG;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
@@ -142,6 +143,7 @@ class DownloadDispatcher extends Thread {
 
             cacheEditor = diskLruCache.edit(request.getUri().getPath());
             final File destinationFile = cacheEditor.getFile(0);
+            Timber.v("[Download] Prepare file, %s", destinationFile.toString());
 
             // Assign the destination URI to the request.
             request.setDestinationURI(Uri.fromFile(destinationFile));
@@ -234,6 +236,7 @@ class DownloadDispatcher extends Thread {
         } finally {
             try {
                 if (cacheEditor != null) {
+                    Timber.v("[Download] Close the cache editor");
                     cacheEditor.commit();
                 }
             } catch (Throwable ignored) {
@@ -248,7 +251,7 @@ class DownloadDispatcher extends Thread {
     private void transferData(DownloadRequest request, HttpURLConnection conn) {
         BufferedInputStream in = null;
         RandomAccessFile accessFile = null;
-        cleanupDestination(request, false);
+        // cleanupDestination(request, false);
         try {
             try {
                 in = new BufferedInputStream(conn.getInputStream());
@@ -450,7 +453,9 @@ class DownloadDispatcher extends Thread {
             Log.d("cleanupDestination() deleting " + request.getDestinationURI().getPath());
             File destinationFile = new File(request.getDestinationURI().getPath());
             if (destinationFile.exists()) {
-                destinationFile.delete();
+                if (destinationFile.delete()) {
+                    Log.v("\"%s\" is deleted", destinationFile.getAbsolutePath());
+                }
             }
         }
     }
@@ -470,9 +475,9 @@ class DownloadDispatcher extends Thread {
         mDownloadedCacheSize = 0; // reset into Zero.
         shouldAllowRedirects = false;
         request.setDownloadState(DownloadManager.STATUS_FAILED);
-        if (request.getDeleteDestinationFileOnFailure()) {
-            cleanupDestination(request, true);
-        }
+        // if (request.getDeleteDestinationFileOnFailure()) {
+        //     cleanupDestination(request, true);
+        // }
         mDelivery.postDownloadFailed(request, errorCode, errorMsg);
         request.finish();
     }

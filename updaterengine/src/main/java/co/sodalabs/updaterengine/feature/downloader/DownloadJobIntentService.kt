@@ -10,6 +10,7 @@ import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.data.AppUpdate
+import co.sodalabs.updaterengine.exception.CompositeException
 import co.sodalabs.updaterengine.exception.DownloadCancelledException
 import co.sodalabs.updaterengine.exception.DownloadFileIOException
 import co.sodalabs.updaterengine.exception.DownloadHttpException
@@ -37,7 +38,7 @@ private const val CACHE_DIR = "apks"
 private const val CACHE_JOURNAL_VERSION = 1
 
 private const val THREAD_POOL_SIZE = 3
-private const val CACHE_SIZE_MB = 500
+private const val CACHE_SIZE_MB = 700
 
 private const val MAX_RETRY_COUNT = 3
 private const val BACKOFF_MULTIPLIER = 2f
@@ -117,7 +118,7 @@ class DownloadJobIntentService : JobIntentService() {
 
         val downloadFileURIs = mutableListOf<Uri>()
         val downloadFileIndices = mutableListOf<Int>()
-        val failedDownloads = mutableListOf<DownloadFailureCause>()
+        val failedDownloads = mutableListOf<Throwable>()
 
         try {
             for (i in 0 until downloadURIs.size) {
@@ -151,7 +152,7 @@ class DownloadJobIntentService : JobIntentService() {
                             Timber.e("[Download] Download(ID: $id) fails \"$$packageName\", error code: $errorCode")
 
                             // Add to the failure pool
-                            failedDownloads.add(DownloadFailureCause(packageName, uri, errorCode))
+                            failedDownloads.add(errorCode.toError(packageName, uri.path!!))
 
                             // Countdown for failure as well so that we could let the joint thread continue.
                             countdownLatch.countDown()
@@ -165,7 +166,7 @@ class DownloadJobIntentService : JobIntentService() {
                         ) {
                             val id = downloadRequest.downloadId
                             val prettyProgress = progress.toString().padStart(3)
-                            Timber.v("[Download] Download(ID: $id) progress $prettyProgress on \"$packageName\"")
+                            // Timber.v("[Download] Download(ID: $id, package: \"$packageName\") progress $prettyProgress")
                         }
                     })
 
@@ -177,9 +178,7 @@ class DownloadJobIntentService : JobIntentService() {
             // Wait for the download manager library finishing.
             countdownLatch.await(Intervals.TIMEOUT_DOWNLOAD_HR, TimeUnit.HOURS)
 
-            if (downloadFileURIs.isNotEmpty()) {
-                reportSuccessfulDownloads(downloadFileURIs, downloadFileIndices)
-            }
+            reportAllDownloads(downloadFileURIs, downloadFileIndices, failedDownloads)
             // if (failedDownloads.isNotEmpty()) {
             //     reportFailedDownloads(failedDownloads)
             // }
@@ -205,14 +204,20 @@ class DownloadJobIntentService : JobIntentService() {
         }
     }
 
-    private fun reportSuccessfulDownloads(
+    private fun reportAllDownloads(
         downloadFileURIs: List<Uri>,
-        downloadFileIndices: List<Int>
+        downloadFileIndices: List<Int>,
+        failedDownloads: List<Throwable>
     ) {
-        val successIntent = Intent(IntentActions.ACTION_DOWNLOAD_UPDATES)
-        successIntent.putParcelableArrayListExtra(IntentActions.PROP_APP_DOWNLOAD_FILE_URIS, ArrayList(downloadFileURIs))
-        successIntent.putIntegerArrayListExtra(IntentActions.PROP_APP_DOWNLOAD_FILE_URIS_TO_UPDATE_INDICES, ArrayList(downloadFileIndices))
-        broadcastManager.sendBroadcast(successIntent)
+        val intent = Intent(IntentActions.ACTION_DOWNLOAD_UPDATES)
+
+        if (failedDownloads.isNotEmpty()) {
+            intent.putExtra(IntentActions.PROP_ERROR, CompositeException(failedDownloads))
+        }
+
+        intent.putParcelableArrayListExtra(IntentActions.PROP_APP_DOWNLOAD_FILE_URIS, ArrayList(downloadFileURIs))
+        intent.putIntegerArrayListExtra(IntentActions.PROP_APP_DOWNLOAD_FILE_URIS_TO_UPDATE_INDICES, ArrayList(downloadFileIndices))
+        broadcastManager.sendBroadcast(intent)
     }
 
     private fun reportFailedDownloads(

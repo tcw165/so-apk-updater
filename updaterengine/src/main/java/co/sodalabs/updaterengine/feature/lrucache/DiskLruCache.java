@@ -229,9 +229,13 @@ public final class DiskLruCache implements Closeable {
         }
 
         // Create a new empty cache.
-        directory.mkdirs();
-        cache = new DiskLruCache(directory, appVersion, valueCount, maxSize);
-        cache.rebuildJournal();
+        if (directory.mkdirs()) {
+            cache = new DiskLruCache(directory, appVersion, valueCount, maxSize);
+            cache.rebuildJournal();
+        } else {
+            throw new IOException("Cannot create directory");
+        }
+
         return cache;
     }
 
@@ -864,7 +868,10 @@ public final class DiskLruCache implements Closeable {
             for (int i = 0; i < valueCount; i++) {
                 fileBuilder.append(i);
                 cleanFiles[i] = new File(directory, fileBuilder.toString());
-                fileBuilder.append(".tmp");
+
+                // FIXME: TC comments this out because
+                // fileBuilder.append(".tmp");
+
                 dirtyFiles[i] = new File(directory, fileBuilder.toString());
                 fileBuilder.setLength(truncateTo);
             }

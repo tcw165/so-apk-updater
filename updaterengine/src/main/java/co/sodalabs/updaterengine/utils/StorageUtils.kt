@@ -20,20 +20,6 @@ object StorageUtils {
 
     /**
      * Returns application cache directory. Cache directory will be created on SD card
-     * *("/Android/data/[app_package_name]/cache")* if card is mounted and app has appropriate permission. Else -
-     * Android defines cache directory on device's file system.
-     *
-     * @param context Application context
-     * @return Cache [directory][File].<br></br>
-     * **NOTE:** Can be null in some unpredictable cases (if SD card is unmounted and
-     * [Context.getCacheDir()][android.content.Context.getCacheDir] returns null).
-     */
-    fun getCacheDirectory(context: Context): File {
-        return getCacheDirectory(context, true)
-    }
-
-    /**
-     * Returns application cache directory. Cache directory will be created on SD card
      * *("/Android/data/[app_package_name]/cache")* (if card is mounted and app has appropriate permission) or
      * on device's file system depending incoming parameters.
      *
@@ -65,17 +51,18 @@ object StorageUtils {
         }
 
         if (appCacheDir == null) {
-            val cacheDirPath = "/data/data/" + context.packageName + "/cache/"
-            Timber.w("Can't define system cache directory! '%s' will be used.", cacheDirPath)
+            val cacheDirPath = "/cache/" + context.packageName
+            Timber.w("Can't define system cache directory! \"%s\" will be used.", cacheDirPath)
             appCacheDir = File(cacheDirPath)
         }
+
+        Timber.v("Prepare cache directory, \"${appCacheDir.absolutePath}\"")
 
         return appCacheDir
     }
 
     private fun getExternalCacheDir(context: Context): File? {
-        val dataDir = File(File(Environment.getExternalStorageDirectory(), "Android"), "data")
-        val appCacheDir = File(File(dataDir, context.packageName), "cache")
+        val appCacheDir = File(Environment.getExternalStorageDirectory(), context.packageName)
         if (!appCacheDir.exists()) {
             if (!appCacheDir.mkdirs()) {
                 Timber.w("Unable to create external cache directory")
