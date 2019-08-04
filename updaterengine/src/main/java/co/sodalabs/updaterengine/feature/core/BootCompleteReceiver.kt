@@ -1,4 +1,4 @@
-package co.sodalabs.apkupdater
+package co.sodalabs.updaterengine.feature.core
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -14,6 +14,9 @@ class BootCompleteReceiver : BroadcastReceiver() {
             intent.action != QUICKBOOT_POWERON) return
 
         // Do nothing, this initializes the Application already
-        Timber.i("BootCompleteReceiver: ${intent.action}")
+        Timber.v("Start the updater engine: ${intent.action}")
+
+        val engineServiceIntent = Intent(context, AppUpdaterService::class.java)
+        context.startService(engineServiceIntent)
     }
 }

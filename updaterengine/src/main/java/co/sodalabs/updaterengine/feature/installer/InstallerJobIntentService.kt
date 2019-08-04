@@ -2,15 +2,14 @@ package co.sodalabs.updaterengine.feature.installer
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.core.app.JobIntentService
-import co.sodalabs.updaterengine.IntentActions.ACTION_INSTALL_APP
-import co.sodalabs.updaterengine.IntentActions.ACTION_UNINSTALL_APP
-import co.sodalabs.updaterengine.IntentActions.PROP_APP_FILE_URI
-import co.sodalabs.updaterengine.IntentActions.PROP_APP_PACKAGE_NAME
-import co.sodalabs.updaterengine.UpdaterJobs.JOB_ID_INSTALL_UPDATES
-import co.sodalabs.updaterengine.data.Apk
-import io.reactivex.disposables.CompositeDisposable
+import co.sodalabs.updaterengine.IntentActions
+import co.sodalabs.updaterengine.Packages
+import co.sodalabs.updaterengine.UpdaterJobs
+import co.sodalabs.updaterengine.data.DownloadedUpdate
 import timber.log.Timber
 import java.util.Objects
 
@@ -37,7 +36,7 @@ import java.util.Objects
  * <a href="https://developer.android.com/google/play/expansion-files.html">
  * APK Expansion Files</a> spec.
  */
-class InstallerService : JobIntentService() {
+class InstallerJobIntentService : JobIntentService() {
 
     companion object {
 
@@ -56,13 +55,11 @@ class InstallerService : JobIntentService() {
          */
         fun install(
             context: Context,
-            localApkUri: Uri,
-            packageName: String
+            downloadedUpdates: List<DownloadedUpdate>
         ) {
-            val intent = Intent(context, InstallerService::class.java)
-            intent.action = ACTION_INSTALL_APP
-            intent.putExtra(PROP_APP_FILE_URI, localApkUri)
-            intent.putExtra(PROP_APP_PACKAGE_NAME, packageName)
+            val intent = Intent(context, InstallerJobIntentService::class.java)
+            intent.action = IntentActions.ACTION_INSTALL_UPDATES
+            intent.putParcelableArrayListExtra(IntentActions.PROP_DOWNLOADED_UPDATES, ArrayList(downloadedUpdates))
             enqueueWork(context, intent)
         }
 
@@ -75,81 +72,66 @@ class InstallerService : JobIntentService() {
          * [App.installedApk] will still be null when
          * [AppDetails2.startUninstall] calls
          * this method.  It is better to crash earlier here, before the [Intent]
-         * is sent install a null [Apk] instance since this service is set to
+         * is sent install a null [DownloadedUpdate] instance since this service is set to
          * receive Sticky Intents.  That means they will automatically be resent
          * by the system until they successfully complete.  If an `Intent`
-         * install a null `Apk` is sent, it'll crash.
+         * install a null `DownloadedUpdate` is sent, it'll crash.
          *
          * @param context this app's [Context]
          */
         fun uninstall(
             context: Context,
-            packageName: String
+            packageNames: List<String>
         ) {
-            val intent = Intent(context, InstallerService::class.java)
-            intent.action = ACTION_UNINSTALL_APP
-            intent.putExtra(PROP_APP_PACKAGE_NAME, packageName)
+            val intent = Intent(context, InstallerJobIntentService::class.java)
+            intent.action = IntentActions.ACTION_UNINSTALL_PACKAGES
+            intent.putStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES, ArrayList(packageNames))
             enqueueWork(context, intent)
         }
 
         // TODO: Schedule install?
 
         private fun enqueueWork(context: Context, intent: Intent) {
-            enqueueWork(context, InstallerService::class.java, JOB_ID_INSTALL_UPDATES, intent)
+            enqueueWork(context, InstallerJobIntentService::class.java, UpdaterJobs.JOB_ID_INSTALL_UPDATES, intent)
         }
-    }
-
-    private val disposables = CompositeDisposable()
-
-    override fun onCreate() {
-        super.onCreate()
-
-        defaultInstaller.start()
-        privilegedInstaller.start()
-    }
-
-    override fun onDestroy() {
-        defaultInstaller.stop()
-        privilegedInstaller.stop()
-
-        disposables.clear()
-
-        super.onDestroy()
     }
 
     override fun onHandleWork(intent: Intent) {
-        // A polling for waiting for the privileged install binding established.
-        for (i in 0 until 5) {
-            if (getInstaller() !is PrivilegedInstaller) {
-                Timber.v("[Install] Waiting for the privileged installer binding established (attempt #$i)...")
-                Thread.sleep(1000L)
+        val installer = createInstaller()
+        try {
+            when (intent.action) {
+                IntentActions.ACTION_INSTALL_UPDATES -> {
+                    val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
+                    installer.installPackages(downloadedUpdates)
+                }
+                IntentActions.ACTION_UNINSTALL_PACKAGES -> {
+                    val packageNames = intent.getStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES)
+                    installer.uninstallPackage(packageNames)
+                }
             }
-        }
-
-        val installer = getInstaller()
-        val packageName = intent.getStringExtra(PROP_APP_PACKAGE_NAME)
-
-        when (intent.action) {
-            ACTION_INSTALL_APP -> {
-                val localApkUri = intent.getParcelableExtra<Uri>(PROP_APP_FILE_URI)
-                installer.installPackage(localApkUri, packageName)
-            }
-            ACTION_UNINSTALL_APP -> {
-                installer.uninstallPackage(packageName)
-            }
+        } catch (error: Throwable) {
+            Timber.e(error)
+            // TODO: Error handling
         }
     }
 
-    // Two Types of Installers ////////////////////////////////////////////////
+    // Installer Factory //////////////////////////////////////////////////////
 
-    private val privilegedInstaller by lazy { PrivilegedInstaller(this) }
-    private val defaultInstaller by lazy { DefaultInstaller(this) }
+    private fun createInstaller(): Installer {
+        val installedPackages: List<PackageInfo> = packageManager.getInstalledPackages(PackageManager.GET_SERVICES)
+        var isPrivilegedInstallerInstalled = false
+        for (i in 0 until installedPackages.size) {
+            val packageInfo = installedPackages[i]
+            if (packageInfo.packageName == Packages.PRIVILEGED_EXTENSION_PACKAGE_NAME) {
+                isPrivilegedInstallerInstalled = true
+                break
+            }
+        }
 
-    private fun getInstaller(): Installer {
-        return if (privilegedInstaller.isReady()) {
-            privilegedInstaller
+        return if (isPrivilegedInstallerInstalled) {
+            PrivilegedInstaller(this)
         } else {
-            defaultInstaller
+            DefaultInstaller(this)
         }
     }
 }

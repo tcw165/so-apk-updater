@@ -134,7 +134,9 @@ class UpdaterApp : MultiDexApplication() {
             // packageNames = listOf(hostPackageName, *BuildUtils.PACKAGES_TO_CHECK)
             packageNames = listOf(*BuildUtils.PACKAGES_TO_CHECK),
             checkIntervalMs = checkInterval,
-            heartBeatIntervalMs = heartbeatInterval
+            heartBeatIntervalMs = heartbeatInterval,
+            // TODO
+            installTimeWindow = LongRange(0, 23)
         )
     }
 

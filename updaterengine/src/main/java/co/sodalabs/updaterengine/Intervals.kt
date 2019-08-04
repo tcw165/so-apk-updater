@@ -14,4 +14,9 @@ object Intervals {
 
     const val TIMEOUT_COMMON = 350L
     const val TIMEOUT_DOWNLOAD_HR = 5L
+    const val TIMEOUT_INSTALL_MIN = 90L
+
+    const val RETRY_CHECK = 3000L
+    const val RETRY_DOWNLOAD = 3000L
+    const val RETRY_INSTALL = 3000L
 }

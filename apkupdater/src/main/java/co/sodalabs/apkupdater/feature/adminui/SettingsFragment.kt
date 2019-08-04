@@ -1,14 +1,17 @@
 package co.sodalabs.apkupdater.feature.adminui
 
+import android.content.IntentFilter
 import android.os.Bundle
 import android.widget.Toast
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import co.sodalabs.apkupdater.R
 import co.sodalabs.apkupdater.data.UiState
+import co.sodalabs.privilegedinstaller.RxBroadcastReceiver
 import co.sodalabs.updaterengine.ApkUpdater
+import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
-import co.sodalabs.updaterengine.data.Apk
+import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import co.sodalabs.updaterengine.extension.smartRetryWhen
@@ -126,12 +129,20 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     @Suppress("USELESS_CAST")
     private fun observeDownloadTestNowClicks() {
+        val safeContext = context ?: throw NullPointerException("Context is null")
+
         downloadTestAppNowPref.clicks()
             .flatMap {
-                ApkUpdater.downloadUpdateNow(FakeUpdates.filesTotoal830MB)
-                    .map { UiState.Done(it) as UiState<List<Apk>> }
-                    .toObservable()
+                ApkUpdater.downloadUpdateNow(FakeUpdates.file170MB)
+
+                val intentFilter = IntentFilter(IntentActions.ACTION_DOWNLOAD_UPDATES)
+                RxBroadcastReceiver.bind(safeContext, intentFilter, false)
+                    .map { intent ->
+                        val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
+                        UiState.Done(downloadedUpdates.toList()) as UiState<List<DownloadedUpdate>>
+                    }
                     .startWith(UiState.InProgress())
+                    .take(2)
             }
             .observeOn(AndroidSchedulers.mainThread())
             .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
@@ -142,10 +153,10 @@ class SettingsFragment : PreferenceFragmentCompat() {
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe({ uiState ->
                 when (uiState) {
-                    is UiState.InProgress<List<Apk>> -> {
+                    is UiState.InProgress<List<DownloadedUpdate>> -> {
                         markTestDownloadWIP()
                     }
-                    is UiState.Done<List<Apk>> -> {
+                    is UiState.Done<List<DownloadedUpdate>> -> {
                         val apks = uiState.data
                         Timber.v("[Download] files: $apks")
                         markTestDownloadDone()

@@ -39,7 +39,7 @@ class CheckJobService : JobService() {
         val packageNames = extras.getStringArray(IntentActions.PROP_APP_PACKAGE_NAMES)
             ?: throw IllegalArgumentException("Must provide a package name list.")
 
-        CheckService.checkUpdatesNow(
+        CheckJobIntentService.checkUpdatesNow(
             context = this,
             packageNames = packageNames)
     }

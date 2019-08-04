@@ -28,6 +28,7 @@
             </intent-filter>
         </activity>
 
+        <!--For file sharing beyond N-->
         <provider
             android:name="co.sodalabs.updaterengine.feature.installer.ApkFileProvider"
             android:authorities="${applicationId}.installer.ApkFileProvider"
@@ -45,18 +46,6 @@
             <intent-filter>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <data android:scheme="package" />
-            </intent-filter>
-        </receiver>
-
-        <receiver
-            android:name=".BootCompleteReceiver"
-            android:enabled="true"
-            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-
-                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>
     </application>

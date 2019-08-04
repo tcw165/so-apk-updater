@@ -1,24 +1,22 @@
 package co.sodalabs.updaterengine.feature.installer
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import android.content.ServiceConnection
+import android.os.IBinder
 import co.sodalabs.privilegedinstaller.IPrivilegedCallback
 import co.sodalabs.privilegedinstaller.IPrivilegedService
-import co.sodalabs.updaterengine.IntentActions
-import co.sodalabs.updaterengine.IntentActions.ACTION_INSTALL_FAILED
-import co.sodalabs.updaterengine.IntentActions.ACTION_INSTALL_SUCCESSFULLY
+import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.Packages
-import co.sodalabs.updaterengine.RxServiceConnection
-import co.sodalabs.updaterengine.extension.smartRetryWhen
-import com.jakewharton.rxrelay2.BehaviorRelay
-import com.jakewharton.rxrelay2.PublishRelay
-import io.reactivex.Observable
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.disposables.CompositeDisposable
-import io.reactivex.rxkotlin.addTo
+import co.sodalabs.updaterengine.data.DownloadedUpdate
+import co.sodalabs.updaterengine.exception.CompositeException
+import co.sodalabs.updaterengine.exception.InstallNoPrivilegedPermissionException
 import timber.log.Timber
+import java.util.LinkedList
+import java.util.Queue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 // From AOSP source code
 const val ACTION_INSTALL_REPLACE_EXISTING = 2
@@ -48,23 +46,6 @@ const val ACTION_INSTALL_REPLACE_EXISTING = 2
 class PrivilegedInstaller(
     context: Context
 ) : Installer(context) {
-
-    private val disposables = CompositeDisposable()
-
-    private val broadcastManager by lazy { LocalBroadcastManager.getInstance(context) }
-
-    private val installerActionRelay = PublishRelay.create<InstallerAction>().toSerialized()
-
-    override fun start() {
-        Timber.v("[Install] Privileged installer is online")
-        bindPrivilegedService()
-        observeInstallerAction()
-    }
-
-    override fun stop() {
-        Timber.v("[Install] Privileged installer is offline")
-        disposables.clear()
-    }
 
     companion object {
 
@@ -179,137 +160,121 @@ class PrivilegedInstaller(
     }
 
     override fun installPackageInternal(
-        localApkUri: Uri,
-        packageName: String
+        localUpdates: List<DownloadedUpdate>
     ) {
-        val action = InstallerAction.InstallApp(localApkUri, packageName)
-        installerActionRelay.accept(action)
-    }
+        val errors = mutableListOf<Throwable>()
+        val (connection, privService) = bindPrivilegedService()
+        privService?.apply {
+            val remainingInstalls: Queue<DownloadedUpdate> = LinkedList(localUpdates)
+            while (remainingInstalls.isNotEmpty()) {
+                val downloadedUpdate = remainingInstalls.poll()
+                val fileURI = ApkFileProvider.fromFile(context, downloadedUpdate.file)
+                val countDownLatch = CountDownLatch(1)
+                val installCallback = object : IPrivilegedCallback.Stub() {
+                    override fun handleResult(
+                        packageName: String,
+                        returnCode: Int
+                    ) {
+                        if (returnCode == INSTALL_SUCCEEDED) {
+                            Timber.v("[Install] Install completes for \"$packageName\"")
+                        } else {
+                            Timber.e("[Install] Install fails for \"$packageName\"")
+                        }
+                        countDownLatch.countDown()
+                    }
+                }
 
-    override fun uninstallPackage(
-        packageName: String
-    ) {
-        val action = InstallerAction.UninstallApp(packageName)
-        installerActionRelay.accept(action)
-    }
+                if (hasPrivilegedPermissions()) {
+                    installPackage(fileURI, ACTION_INSTALL_REPLACE_EXISTING, context.packageName, installCallback)
+                } else {
+                    errors.add(InstallNoPrivilegedPermissionException())
+                    Timber.e("[Install] The privileged install doesn't have the privileged permissions...")
 
-    override fun isReady(): Boolean {
-        return synchronized(mutex) {
-            privilegedService != null
+                    countDownLatch.countDown()
+                }
+
+                // Wait for the async install
+                countDownLatch.await(Intervals.TIMEOUT_INSTALL_MIN, TimeUnit.MINUTES)
+            }
+        }
+
+        // Once all installs finishes, unbind the privileged service.
+        context.unbindService(connection)
+
+        // Throw error after the service connection is recycled
+        if (errors.isNotEmpty()) {
+            throw CompositeException(errors)
         }
     }
 
-    override fun observeReady(): Observable<Boolean> {
-        return generalChangedRelay.map { isReady() }
+    override fun uninstallPackage(
+        packageNames: List<String>
+    ) {
+        val errors = mutableListOf<Throwable>()
+        val (connection, privService) = bindPrivilegedService()
+        privService?.apply {
+            val remainingUninstalls: Queue<String> = LinkedList(packageNames)
+            while (remainingUninstalls.isNotEmpty()) {
+                val toDeletePackageName = remainingUninstalls.poll()
+                val countDownLatch = CountDownLatch(1)
+                val uninstallCallback = object : IPrivilegedCallback.Stub() {
+                    override fun handleResult(
+                        packageName: String,
+                        returnCode: Int
+                    ) {
+                        if (returnCode == DELETE_SUCCEEDED) {
+                            Timber.v("[Uninstall] Uninstall completes for \"$packageName\"")
+                        } else {
+                            Timber.e("[Uninstall] Uninstall fails for \"$packageName\"")
+                        }
+                        countDownLatch.countDown()
+                    }
+                }
+
+                if (hasPrivilegedPermissions()) {
+                    deletePackage(toDeletePackageName, ACTION_INSTALL_REPLACE_EXISTING, uninstallCallback)
+                } else {
+                    errors.add(InstallNoPrivilegedPermissionException())
+                    Timber.e("[Uninstall] The privileged install doesn't have the privileged permissions...")
+
+                    countDownLatch.countDown()
+                }
+
+                // Wait for the async install
+                countDownLatch.await(Intervals.TIMEOUT_INSTALL_MIN, TimeUnit.MINUTES)
+            }
+        }
+
+        // Once all uninstalls finishes, unbind the privileged service.
+        context.unbindService(connection)
+
+        // Throw error after the service connection is recycled
+        if (errors.isNotEmpty()) {
+            throw CompositeException(errors)
+        }
     }
 
     // Privileged Service Binding /////////////////////////////////////////////
 
-    private val generalChangedRelay = BehaviorRelay.create<Unit>().toSerialized()
-
-    private val mutex = Any()
-    private var privilegedService: IPrivilegedService? = null
-
-    private fun bindPrivilegedService() {
+    private fun bindPrivilegedService(): Pair<ServiceConnection, IPrivilegedService?> {
+        var privService: IPrivilegedService? = null
+        val countDownLatch = CountDownLatch(1)
         val serviceIntent = Intent(Packages.PRIVILEGED_EXTENSION_SERVICE_INTENT)
-        serviceIntent.setPackage(Packages.PRIVILEGED_EXTENSION_PACKAGE_NAME)
-        RxServiceConnection.bind(context, serviceIntent)
-            .map { IPrivilegedService.Stub.asInterface(it) }
-            .smartRetryWhen(10, 10000L, AndroidSchedulers.mainThread()) { true }
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe({ service ->
-                synchronized(mutex) {
-                    Timber.v("[Install] The privileged installer service is bound!")
-                    privilegedService = service
-                    generalChangedRelay.accept(Unit)
-                }
-            }, Timber::e)
-            .addTo(disposables)
-    }
+        val serviceConnection = object : ServiceConnection {
+            override fun onServiceConnected(componentName: ComponentName, binder: IBinder) {
+                privService = IPrivilegedService.Stub.asInterface(binder)
+                countDownLatch.countDown()
+            }
 
-    private fun observeInstallerAction() {
-        installerActionRelay
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe({ action ->
-                when (action) {
-                    is InstallerAction.InstallApp -> installApp(action)
-                    is InstallerAction.UninstallApp -> uninstallApp(action)
-                }
-            }, Timber::e)
-            .addTo(disposables)
-    }
-
-    private fun installApp(
-        action: InstallerAction.InstallApp
-    ) {
-        val localApkUri = action.localApkUri
-        val packageName = action.packageName
-
-        val callback = object : IPrivilegedCallback.Stub() {
-            override fun handleResult(
-                packageName: String,
-                returnCode: Int
-            ) {
-                if (returnCode == INSTALL_SUCCEEDED) {
-                    Timber.v("[Install] Install completes for \"$packageName\"")
-                    notifyViaLocalBroadcast(ACTION_INSTALL_SUCCESSFULLY, packageName)
-                } else {
-                    Timber.e("[Install] Install fails for \"$packageName\"")
-                    notifyViaLocalBroadcast(ACTION_INSTALL_FAILED, packageName)
-                }
+            override fun onServiceDisconnected(componentName: ComponentName) {
+                countDownLatch.countDown()
             }
         }
+        // Bind the privileged service
+        context.bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+        // Wait for the async binding
+        countDownLatch.await(Intervals.TIMEOUT_INSTALL_MIN, TimeUnit.MINUTES)
 
-        synchronized(mutex) {
-            privilegedService?.apply {
-                if (hasPrivilegedPermissions()) {
-                    Timber.v("[Install] Ready to install with the privileged permissions!")
-                    installPackage(localApkUri, ACTION_INSTALL_REPLACE_EXISTING, null, callback)
-                } else {
-                    Timber.v("[Install] Ready to install WITHOUT the privileged permissions...")
-                    notifyViaLocalBroadcast(ACTION_INSTALL_FAILED, packageName)
-                }
-            }
-        }
-    }
-
-    private fun uninstallApp(
-        action: InstallerAction.UninstallApp
-    ) {
-        val packageName = action.packageName
-
-        val callback = object : IPrivilegedCallback.Stub() {
-            override fun handleResult(
-                packageName: String,
-                returnCode: Int
-            ) {
-                if (returnCode == INSTALL_SUCCEEDED) {
-                    Timber.v("[Install] Uninstall completes for \"$packageName\"")
-                    notifyViaLocalBroadcast(ACTION_INSTALL_SUCCESSFULLY, packageName)
-                } else {
-                    Timber.e("[Install] Uninstall fails for \"$packageName\"")
-                    notifyViaLocalBroadcast(ACTION_INSTALL_FAILED, packageName)
-                }
-            }
-        }
-
-        privilegedService?.apply {
-            if (hasPrivilegedPermissions()) {
-                deletePackage(packageName, 0, callback)
-            } else {
-                notifyViaLocalBroadcast(ACTION_INSTALL_FAILED, packageName)
-            }
-        }
-    }
-
-    private fun notifyViaLocalBroadcast(
-        action: String,
-        packageName: String
-    ) {
-        val intent = Intent()
-        intent.action = action
-        intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAME, packageName)
-
-        broadcastManager.sendBroadcast(intent)
+        return Pair(serviceConnection, privService)
     }
 }

@@ -10,7 +10,7 @@
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
         <service
-            android:name=".feature.checker.CheckService"
+            android:name=".feature.checker.CheckJobIntentService"
             android:enabled="true"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />

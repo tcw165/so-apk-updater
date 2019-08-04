@@ -7,7 +7,8 @@ data class ApkUpdaterConfig(
     val hostPackageName: String,
     val packageNames: List<String>,
     val checkIntervalMs: Long,
-    val heartBeatIntervalMs: Long
+    val heartBeatIntervalMs: Long,
+    val installTimeWindow: LongRange
 ) {
 
     init {
