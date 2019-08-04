@@ -68,12 +68,6 @@ class ApkUpdater private constructor(
             }
         }
 
-        fun installAllowDowngrade(): Boolean {
-            return synchronized(ApkUpdater::class.java) {
-                engine?.config?.installAllowDowngrade ?: false
-            }
-        }
-
         fun sendHeartBeatNow() {
             return synchronized(ApkUpdater::class.java) {
                 engine?.apply {
@@ -129,6 +123,18 @@ class ApkUpdater private constructor(
                 engine?.apply {
                     appUpdatesDownloader.downloadNow(updates)
                 }
+            }
+        }
+
+        fun downloadUseCache(): Boolean {
+            return synchronized(ApkUpdater::class.java) {
+                engine?.config?.downloadUseCache ?: false
+            }
+        }
+
+        fun installAllowDowngrade(): Boolean {
+            return synchronized(ApkUpdater::class.java) {
+                engine?.config?.installAllowDowngrade ?: false
             }
         }
 

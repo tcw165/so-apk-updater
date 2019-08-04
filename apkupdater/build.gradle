@@ -37,10 +37,11 @@ android {
         buildConfigField "String", "BASE_URL", "\"make sure update this, please!\""
 
         buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "15"
-        buildConfigField "int", "UPDATE_CHECK_INTERVAL_SECONDS", "1440" // 1 day
-        buildConfigField "int", "UPDATE_INSTALL_HOUR_BEGIN", "0" // 00:00
-        buildConfigField "int", "UPDATE_INSTALL_HOUR_END", "23" // 23:00
-        buildConfigField "boolean", "UPDATE_INSTALL_ALLOW_DOWNGRADE", "false"
+        buildConfigField "int", "CHECK_INTERVAL_SECONDS", "1440" // 1 day
+        buildConfigField "int", "INSTALL_HOUR_BEGIN", "0" // 00:00
+        buildConfigField "int", "INSTALL_HOUR_END", "23" // 23:00
+        buildConfigField "boolean", "INSTALL_ALLOW_DOWNGRADE", "false"
+        buildConfigField "boolean", "DOWNLOAD_USE_CACHE", "true"
 
         buildConfigField "int", "CONNECT_TIMEOUT_SECONDS", "45"
         buildConfigField "int", "READ_TIMEOUT_SECONDS", "45"
@@ -66,10 +67,10 @@ android {
             signingConfig signingConfigs.platform
 
             buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "15"
-            buildConfigField "int", "UPDATE_CHECK_INTERVAL_SECONDS", "300" // 5 min
-            buildConfigField "int", "UPDATE_INSTALL_HOUR_BEGIN", "0" // 00:00
-            buildConfigField "int", "UPDATE_INSTALL_HOUR_END", "23" // 23:00
-            buildConfigField "boolean", "UPDATE_INSTALL_ALLOW_DOWNGRADE", "true"
+            buildConfigField "int", "CHECK_INTERVAL_SECONDS", "300" // 5 min
+            buildConfigField "int", "INSTALL_HOUR_BEGIN", "0" // 00:00
+            buildConfigField "int", "INSTALL_HOUR_END", "23" // 23:00
+            buildConfigField "boolean", "INSTALL_ALLOW_DOWNGRADE", "true"
 
             buildConfigField "int", "CONNECT_TIMEOUT_SECONDS", "30"
             buildConfigField "int", "READ_TIMEOUT_SECONDS", "30"
@@ -95,7 +96,7 @@ android {
             crunchPngs false
 
             buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "300" // 5 min
-            buildConfigField "int", "UPDATE_CHECK_INTERVAL_SECONDS", "86400" // 1 day
+            buildConfigField "int", "CHECK_INTERVAL_SECONDS", "86400" // 1 day
 
             buildConfigField "int", "CONNECT_TIMEOUT_SECONDS", "60"
             buildConfigField "int", "READ_TIMEOUT_SECONDS", "60"

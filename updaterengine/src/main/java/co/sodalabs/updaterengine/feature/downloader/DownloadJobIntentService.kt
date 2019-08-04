@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.app.JobIntentService
+import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.UpdaterJobs
@@ -97,11 +98,12 @@ class DownloadJobIntentService : JobIntentService() {
     // TODO: Shall we close the cache when the app is killed?
     private val diskCache by lazy {
         // The cache dir would be "/storage/emulated/legacy/co.sodalabs.apkupdater/apks/apks/"
-        DiskLruCache.open(
+        DiskLruCache(
             File(StorageUtils.getCacheDirectory(this, true), CACHE_DIR),
             CACHE_JOURNAL_VERSION,
             1,
-            CACHE_SIZE_MB.mbToBytes())
+            CACHE_SIZE_MB.mbToBytes()
+        )
     }
 
     private val downloadManager by lazy {
@@ -120,6 +122,15 @@ class DownloadJobIntentService : JobIntentService() {
         val aggregateProgresses = mutableListOf<DownloadProgress>()
         val errors = mutableListOf<Throwable>()
         val requests = mutableListOf<DownloadRequest>()
+
+        // Delete the cache before downloading if we don't use cache.
+        if (!ApkUpdater.downloadUseCache()) {
+            diskCache.delete()
+        }
+        // Open the cache
+        if (!diskCache.isOpened) {
+            diskCache.open()
+        }
 
         try {
             // Prepare the download request

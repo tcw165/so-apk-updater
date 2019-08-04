@@ -159,7 +159,7 @@ class HeartBeatJobIntentService : JobIntentService() {
                 Timber.e("Hey, heart-beat API call for device(ID: $DEBUG_DEVICE_ID) took $timeMs milliseconds!")
             }
         } catch (error: Throwable) {
-            Timber.w(error)
+            Timber.e(error)
             reportAPINoResponse(error)
         }
     }

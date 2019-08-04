@@ -7,15 +7,19 @@ import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.PackageManager.GET_META_DATA
 import android.os.Build
 import android.os.PersistableBundle
 import android.os.SystemClock
 import androidx.core.app.JobIntentService
 import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
+import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterJobs.JOB_ID_CHECK_UPDATES
 import co.sodalabs.updaterengine.data.AppUpdate
+import co.sodalabs.updaterengine.extension.isGreaterThanOrEqualTo
 import co.sodalabs.updaterengine.feature.core.AppUpdaterService
 import retrofit2.HttpException
 import timber.log.Timber
@@ -115,9 +119,7 @@ class CheckJobIntentService : JobIntentService() {
 
     override fun onCreate() {
         super.onCreate()
-
-        // TODO: Setup DI
-        setupDI()
+        injectDependencies()
     }
 
     override fun onHandleWork(intent: Intent) {
@@ -129,7 +131,7 @@ class CheckJobIntentService : JobIntentService() {
 
     // DI /////////////////////////////////////////////////////////////////////
 
-    private fun setupDI() {
+    private fun injectDependencies() {
         val appComponent = UpdaterApp.appComponent
         appComponent.inject(this)
     }
@@ -143,6 +145,7 @@ class CheckJobIntentService : JobIntentService() {
 
         val updates = mutableListOf<AppUpdate>()
         var updatesError: Throwable? = null
+        // Query the updates.
         packageNames.forEach { name ->
             try {
                 val update = queryAppUpdate(name)
@@ -151,6 +154,8 @@ class CheckJobIntentService : JobIntentService() {
                 updatesError = err
             }
         }
+        // Filter the invalid updates.
+        updates.trimInvalidUpdates()
 
         // Notify the updater to move on!
         AppUpdaterService.notifyUpdateCheckComplete(this, updates, updatesError)
@@ -172,7 +177,6 @@ class CheckJobIntentService : JobIntentService() {
         )
         val apiResponse = apiRequest.execute()
 
-        // TODO: Convert API response to AppUpdate
         return if (apiResponse.isSuccessful) {
             val body = apiResponse.body() ?: throw NullPointerException("Couldn't get AppUpdate body")
             Timber.i("[Check] Found updates, \"${body.versionName}\" for \"$packageName\"")
@@ -182,8 +186,54 @@ class CheckJobIntentService : JobIntentService() {
 
             body
         } else {
-            // TODO: Turn error body to our exception?
             throw HttpException(apiResponse)
+        }
+    }
+
+    private fun MutableList<AppUpdate>.trimInvalidUpdates() {
+        if (ApkUpdater.installAllowDowngrade()) {
+            // We install these updates regardless if the configuration says
+            // it allows downgrade.
+            Timber.v("[Check] Filter invalid updates... All are kept!")
+            return
+        }
+
+        val toTrimUpdates = mutableListOf<AppUpdate>()
+        for (i in 0 until this.size) {
+            val update = this[i]
+            val packageName = update.packageName
+            val remoteVersionName = update.versionName
+
+            if (isPackageInstalled(packageName)) {
+                val localPackageInfo = packageManager.getPackageInfo(packageName, GET_META_DATA)
+                val localVersionName = localPackageInfo.versionName
+                val validVersion = remoteVersionName.isGreaterThanOrEqualTo(localVersionName)
+
+                if (!validVersion) {
+                    // Sorry, we will discard this update cause the version isn't
+                    // greater than the current local version.
+                    toTrimUpdates.add(update)
+                }
+            }
+        }
+
+        val originalSize = this.size
+        this.removeAll(toTrimUpdates)
+        val newSize = this.size
+
+        if (originalSize == newSize) {
+            Timber.v("[Check] Filter invalid updates... All are kept!")
+        } else {
+            Timber.v("[Check] Filter invalid updates... from $originalSize updates to $newSize updates")
+        }
+    }
+
+    private fun isPackageInstalled(packageName: String): Boolean {
+        return try {
+            packageManager.getPackageInfo(packageName, 0)
+            true
+        } catch (error: PackageManager.NameNotFoundException) {
+            false
         }
     }
 }
