@@ -43,7 +43,7 @@ class CheckJobIntentService : JobIntentService() {
             interval: Long
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("(< 21) Schedule a recurring update, using AlarmManager")
+                Timber.v("[Check] (< 21) Schedule a recurring update, using AlarmManager")
 
                 val intent = Intent(context, CheckJobIntentService::class.java)
                 intent.action = IntentActions.ACTION_CHECK_UPDATES
@@ -61,7 +61,7 @@ class CheckJobIntentService : JobIntentService() {
                     pendingIntent
                 )
             } else {
-                Timber.v("(>= 21) Schedule a recurring update, using android-21 JobScheduler")
+                Timber.v("[Check] (>= 21) Schedule a recurring update, using android-21 JobScheduler")
 
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
                 val componentName = ComponentName(context, CheckJobService::class.java)
@@ -94,18 +94,18 @@ class CheckJobIntentService : JobIntentService() {
             intent.action = IntentActions.ACTION_CHECK_UPDATES
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("(>= 21) Cancel the pending jobs using android-21 JobScheduler")
+                Timber.v("[Check] (>= 21) Cancel the pending jobs using android-21 JobScheduler")
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
                 jobScheduler.cancel(JOB_ID_CHECK_UPDATES)
             } else {
-                Timber.v("(< 21) Cancel the pending jobs using AlarmManager")
+                Timber.v("[Check] (< 21) Cancel the pending jobs using AlarmManager")
                 val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
                 alarmManager.cancel(pendingIntent)
             }
 
             // Stop the service immediately
-            Timber.v("Stop the service now!")
+            Timber.v("[Check] Stop the service now!")
             context.stopService(intent)
         }
     }
@@ -175,7 +175,7 @@ class CheckJobIntentService : JobIntentService() {
         // TODO: Convert API response to AppUpdate
         return if (apiResponse.isSuccessful) {
             val body = apiResponse.body() ?: throw NullPointerException("Couldn't get AppUpdate body")
-            Timber.i("[Check] Got latest version, \"${body.versionName}\" for \"$packageName\"")
+            Timber.i("[Check] Found updates, \"${body.versionName}\" for \"$packageName\"")
 
             // Close the connection to avoid leak!
             // apiResponse.raw().close()

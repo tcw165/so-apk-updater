@@ -1,11 +1,13 @@
 package co.sodalabs.updaterengine
 
 import android.app.Application
+import android.content.Context
 import android.os.Environment
 import android.os.SystemClock
 import androidx.annotation.Keep
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
+import co.sodalabs.updaterengine.feature.core.AppUpdaterService
 import com.jakewharton.rxrelay2.PublishRelay
 import io.reactivex.Observable
 import io.reactivex.disposables.CompositeDisposable
@@ -54,7 +56,7 @@ class ApkUpdater private constructor(
                             engineHeartBeater,
                             schedulers)
                         this.engine = engine
-                        this.engine?.start()
+                        this.engine?.start(app)
                     }
                 }
             }
@@ -191,8 +193,11 @@ class ApkUpdater private constructor(
 
     private val disposables = CompositeDisposable()
 
-    private fun start() {
+    private fun start(
+        context: Context
+    ) {
         logInitInfo()
+        AppUpdaterService.start(context)
     }
 
     private fun stop() {

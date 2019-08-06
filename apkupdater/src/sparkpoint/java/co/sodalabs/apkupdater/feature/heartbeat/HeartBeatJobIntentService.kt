@@ -51,7 +51,7 @@ class HeartBeatJobIntentService : JobIntentService() {
             }
 
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("(< 21) Schedule a recurring update, using AlarmManager")
+                Timber.v("[HeartBeat] (< 21) Schedule a recurring update, using AlarmManager")
 
                 val intent = Intent(context, HeartBeatJobIntentService::class.java)
                 intent.action = IntentActions.ACTION_SEND_HEART_BEAT_NOW
@@ -68,7 +68,7 @@ class HeartBeatJobIntentService : JobIntentService() {
                     pendingIntent
                 )
             } else {
-                Timber.v("(>= 21) Schedule a recurring update, using android-21 JobScheduler")
+                Timber.v("[HeartBeat] (>= 21) Schedule a recurring update, using android-21 JobScheduler")
 
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
                 val componentName = ComponentName(context, HeartBeatJobIntentService::class.java)
