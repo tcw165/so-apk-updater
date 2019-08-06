@@ -19,6 +19,7 @@ import co.sodalabs.updaterengine.Packages
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.extension.ensureMainThread
+import co.sodalabs.updaterengine.feature.core.AppUpdaterService
 import timber.log.Timber
 import java.util.Objects
 
@@ -174,6 +175,8 @@ class InstallerJobIntentService : JobIntentService() {
         } catch (error: Throwable) {
             Timber.e(error)
             // TODO: Error handling
+        } finally {
+            AppUpdaterService.notifyInstallComplete(this)
         }
     }
 

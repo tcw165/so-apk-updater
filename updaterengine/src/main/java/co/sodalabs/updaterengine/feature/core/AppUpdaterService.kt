@@ -20,6 +20,7 @@ import co.sodalabs.updaterengine.R
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
+import timber.log.Timber
 
 private const val NOTIFICATION_CHANNEL_ID = "updater_engine"
 private const val NOTIFICATION_ID = 20190802
@@ -29,6 +30,16 @@ class AppUpdaterService : Service() {
     companion object {
 
         private val uiHandler = Handler(Looper.getMainLooper())
+
+        fun start(
+            context: Context
+        ) {
+            uiHandler.post {
+                val serviceIntent = Intent(context, AppUpdaterService::class.java)
+                serviceIntent.action = IntentActions.ACTION_ENGINE_START
+                context.startService(serviceIntent)
+            }
+        }
 
         /**
          * The method for the updater engine knows the update check finishes and
@@ -103,6 +114,31 @@ class AppUpdaterService : Service() {
                 }
             }
         }
+
+        /**
+         * The method for the updater engine knows the install finishes and
+         * to move on.
+         */
+        fun notifyInstallComplete(
+            context: Context
+        ) {
+            uiHandler.post {
+                val broadcastIntent = Intent()
+                broadcastIntent.prepareForInstallComplete()
+                val broadcastManager = LocalBroadcastManager.getInstance(context)
+                broadcastManager.sendBroadcast(broadcastIntent)
+
+                val serviceIntent = Intent(context, AppUpdaterService::class.java)
+                serviceIntent.prepareForInstallComplete()
+                context.startService(serviceIntent)
+            }
+        }
+
+        private fun Intent.prepareForInstallComplete() {
+            this.apply {
+                action = IntentActions.ACTION_INSTALL_UPDATES
+            }
+        }
     }
 
     override fun onStartCommand(
@@ -129,9 +165,15 @@ class AppUpdaterService : Service() {
         return null
     }
 
+    override fun onDestroy() {
+        Timber.v("[Updater] engine stops!")
+        super.onDestroy()
+    }
+
     // Init ///////////////////////////////////////////////////////////////////
 
     private fun start() {
+        Timber.v("[Updater] engine starts ~~~~ .oO")
         ApkUpdater.scheduleRecurringHeartbeat()
         ApkUpdater.scheduleRecurringCheck()
     }
@@ -182,7 +224,7 @@ class AppUpdaterService : Service() {
     private fun postInstallUpdates(
         intent: Intent
     ) {
-        TODO("not implemented")
+        // No-op
     }
 
     // Notification ///////////////////////////////////////////////////////////
