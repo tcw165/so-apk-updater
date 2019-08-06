@@ -19,6 +19,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.RemoteException
 import android.widget.Toast
+import co.sodalabs.privilegedinstaller.PrivilegedInstallStatusCode.INSTALL_FAILED_INTERNAL_ERROR
 import co.sodalabs.privilegedinstaller.PrivilegedInstallStatusCode.INSTALL_NO_PRIVILEGED_PERMISSIONS
 import timber.log.Timber
 import java.io.IOException
@@ -138,8 +139,8 @@ class PrivilegedInstallerService : Service() {
                     // If error happens, AOSP might send a null package name.
                     val safePackageName = packageName ?: ""
                     callback?.handleResult(safePackageName, returnCode)
-                } catch (e1: RemoteException) {
-                    Timber.e(e1, "RemoteException")
+                } catch (error: RemoteException) {
+                    Timber.e(error)
                 }
             }
         }
@@ -151,12 +152,12 @@ class PrivilegedInstallerService : Service() {
                 packageManager, packageURI, installObserver,
                 flags, installerPackageName
             )
-        } catch (e: Exception) {
-            Timber.e(e, "Android not compatible!")
+        } catch (error: Exception) {
+            Timber.e(error, "Android not compatible!")
             try {
-                callback?.handleResult("", 0)
-            } catch (e1: RemoteException) {
-                Timber.e(e1, "RemoteException")
+                callback?.handleResult("", INSTALL_FAILED_INTERNAL_ERROR)
+            } catch (remoteError: RemoteException) {
+                Timber.e(remoteError)
             }
         }
     }

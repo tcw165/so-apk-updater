@@ -43,6 +43,10 @@
             app:summary="The end hour of the day of install window"
             app:title="@string/update_install_hour_end" />
 
+        <SwitchPreference
+            app:key="co.sodalabs.apkupdater.update_install_allow_downgrade"
+            app:title="@string/update_install_allow_downgrade" />
+
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
             app:key="co.sodalabs.apkupdater.update_download_cache_max_size"
