@@ -1,4 +1,4 @@
-package co.sodalabs.privilegedinstaller.view
+package co.sodalabs.privilegedinstaller
 
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity

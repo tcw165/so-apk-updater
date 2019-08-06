@@ -25,6 +25,7 @@ import co.sodalabs.updaterengine.extension.toMilliseconds
 import com.crashlytics.android.Crashlytics
 import com.crashlytics.android.core.CrashlyticsCore
 import com.jakewharton.processphoenix.ProcessPhoenix
+import com.jakewharton.threetenabp.AndroidThreeTen
 import io.fabric.sdk.android.Fabric
 import io.reactivex.Observable
 import io.reactivex.disposables.CompositeDisposable
@@ -61,6 +62,7 @@ class UpdaterApp : MultiDexApplication() {
 
         initLogging()
         initCrashReporting()
+        initDatetime()
 
         // Note: Injection of default preference must be prior than dependencies
         // injection!
@@ -103,6 +105,10 @@ class UpdaterApp : MultiDexApplication() {
         }
     }
 
+    private fun initDatetime() {
+        AndroidThreeTen.init(this)
+    }
+
     // Application Singletons /////////////////////////////////////////////////
 
     private val schedulers = AppThreadSchedulers()
@@ -127,6 +133,8 @@ class UpdaterApp : MultiDexApplication() {
     private fun generateUpdaterConfig(): ApkUpdaterConfig {
         val hostPackageName = packageName
         val checkInterval = appPreferences.getInt(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, BuildConfig.UPDATE_CHECK_INTERVAL_SECONDS).toMilliseconds()
+        val installHourBegin = appPreferences.getInt(PreferenceProps.UPDATE_INSTALL_HOUR_BEGIN, BuildConfig.UPDATE_INSTALL_HOUR_BEGIN)
+        val installHourEnd = appPreferences.getInt(PreferenceProps.UPDATE_INSTALL_HOUR_END, BuildConfig.UPDATE_INSTALL_HOUR_END)
         val heartbeatInterval = appPreferences.getInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS).toMilliseconds()
 
         return ApkUpdaterConfig(
@@ -134,9 +142,9 @@ class UpdaterApp : MultiDexApplication() {
             // packageNames = listOf(hostPackageName, *BuildUtils.PACKAGES_TO_CHECK)
             packageNames = listOf(*BuildUtils.PACKAGES_TO_CHECK),
             checkIntervalMs = checkInterval,
-            heartBeatIntervalMs = heartbeatInterval,
-            // TODO
-            installTimeWindow = LongRange(0, 23)
+            installWindow = IntRange(installHourBegin, installHourEnd),
+            installAllowDowngrade = !BuildUtils.isRelease(), // TODO: Give it a toggle
+            heartBeatIntervalMs = heartbeatInterval
         )
     }
 
@@ -153,12 +161,19 @@ class UpdaterApp : MultiDexApplication() {
         if (INT_NOT_FOUND == appPreferences.getInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, INT_NOT_FOUND)) {
             appPreferences.putInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.WRITE_TIMEOUT_SECONDS)
         }
-        // Intervals
-        if (INT_NOT_FOUND == appPreferences.getInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, INT_NOT_FOUND)) {
-            appPreferences.putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
-        }
+        // Update
         if (INT_NOT_FOUND == appPreferences.getInt(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, INT_NOT_FOUND)) {
             appPreferences.putInt(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, BuildConfig.UPDATE_CHECK_INTERVAL_SECONDS)
+        }
+        if (INT_NOT_FOUND == appPreferences.getInt(PreferenceProps.UPDATE_INSTALL_HOUR_BEGIN, INT_NOT_FOUND)) {
+            appPreferences.putInt(PreferenceProps.UPDATE_INSTALL_HOUR_BEGIN, BuildConfig.UPDATE_INSTALL_HOUR_BEGIN)
+        }
+        if (INT_NOT_FOUND == appPreferences.getInt(PreferenceProps.UPDATE_INSTALL_HOUR_END, INT_NOT_FOUND)) {
+            appPreferences.putInt(PreferenceProps.UPDATE_INSTALL_HOUR_END, BuildConfig.UPDATE_INSTALL_HOUR_END)
+        }
+        // Heartbeat
+        if (INT_NOT_FOUND == appPreferences.getInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, INT_NOT_FOUND)) {
+            appPreferences.putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
         }
     }
 
@@ -170,10 +185,13 @@ class UpdaterApp : MultiDexApplication() {
             appPreferences.observeIntChange(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, BuildConfig.CONNECT_TIMEOUT_SECONDS),
             appPreferences.observeIntChange(PreferenceProps.NETWORK_WRITE_TIMEOUT_SECONDS, BuildConfig.READ_TIMEOUT_SECONDS),
             appPreferences.observeIntChange(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.WRITE_TIMEOUT_SECONDS),
-            // Intervals
+            // Heartbeat
             appPreferences.observeIntChange(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS),
-            appPreferences.observeIntChange(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, BuildConfig.UPDATE_CHECK_INTERVAL_SECONDS)))
-            .debounce(Intervals.VALUE_CHANGE, TimeUnit.MILLISECONDS)
+            // Update
+            appPreferences.observeIntChange(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, BuildConfig.UPDATE_CHECK_INTERVAL_SECONDS),
+            appPreferences.observeIntChange(PreferenceProps.UPDATE_INSTALL_HOUR_BEGIN, BuildConfig.UPDATE_INSTALL_HOUR_BEGIN),
+            appPreferences.observeIntChange(PreferenceProps.UPDATE_INSTALL_HOUR_END, BuildConfig.UPDATE_INSTALL_HOUR_END)))
+            .debounce(Intervals.DEBOUNCE_VALUE_CHANGE, TimeUnit.MILLISECONDS)
             .observeOn(schedulers.main())
             .subscribe({
                 Timber.v("[Updater] System configuration changes, so restart the process!")

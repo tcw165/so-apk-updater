@@ -33,6 +33,18 @@
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
+            app:key="co.sodalabs.apkupdater.update_install_hour_begin"
+            app:summary="The begin hour of the day of install window"
+            app:title="@string/update_install_hour_begin" />
+
+        <!--suppress AndroidElementNotAllowed -->
+        <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
+            app:key="co.sodalabs.apkupdater.update_install_hour_end"
+            app:summary="The end hour of the day of install window"
+            app:title="@string/update_install_hour_end" />
+
+        <!--suppress AndroidElementNotAllowed -->
+        <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
             app:key="co.sodalabs.apkupdater.update_download_cache_max_size"
             app:summary="The maximum size of cache for storing the download files (in MB)"
             app:title="@string/update_download_cache_max_size" />

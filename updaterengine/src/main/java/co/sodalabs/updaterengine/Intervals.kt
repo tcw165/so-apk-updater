@@ -8,13 +8,14 @@ object Intervals {
 
     const val RETRY_AFTER_1S = 1000L
 
-    const val VALUE_CHANGE = 250L
+    const val DELAY_INSTALL = 1000L
 
     const val DEBOUNCE_VALUE_CHANGE = 250L
 
     const val TIMEOUT_COMMON = 350L
+    const val TIMEOUT_SERVICE_BINDING = 5000L
     const val TIMEOUT_DOWNLOAD_HR = 5L
-    const val TIMEOUT_INSTALL_MIN = 90L
+    const val TIMEOUT_INSTALL_MIN = 7L
 
     const val RETRY_CHECK = 3000L
     const val RETRY_DOWNLOAD = 3000L

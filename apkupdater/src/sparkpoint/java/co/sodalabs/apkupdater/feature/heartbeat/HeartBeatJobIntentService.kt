@@ -27,22 +27,16 @@ import javax.inject.Inject
 
 private const val DEBUG_DEVICE_ID = "660112"
 
-class HeartBeatService : JobIntentService() {
+class HeartBeatJobIntentService : JobIntentService() {
 
     companion object {
-
-        fun cancelAllPendingJobs(
-            context: Context
-        ) {
-            TODO()
-        }
 
         fun sendHeartBeatNow(
             context: Context
         ) {
-            val intent = Intent(context, HeartBeatService::class.java)
+            val intent = Intent(context, HeartBeatJobIntentService::class.java)
             intent.action = IntentActions.ACTION_SEND_HEART_BEAT_NOW
-            enqueueWork(context, ComponentName(context, HeartBeatService::class.java), UpdaterJobs.JOB_ID_HEART_BEAT, intent)
+            enqueueWork(context, ComponentName(context, HeartBeatJobIntentService::class.java), UpdaterJobs.JOB_ID_HEART_BEAT, intent)
         }
 
         fun scheduleRecurringHeartBeat(
@@ -59,7 +53,7 @@ class HeartBeatService : JobIntentService() {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
                 Timber.v("(< 21) Schedule a recurring update, using AlarmManager")
 
-                val intent = Intent(context, HeartBeatService::class.java)
+                val intent = Intent(context, HeartBeatJobIntentService::class.java)
                 intent.action = IntentActions.ACTION_SEND_HEART_BEAT_NOW
 
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -77,7 +71,7 @@ class HeartBeatService : JobIntentService() {
                 Timber.v("(>= 21) Schedule a recurring update, using android-21 JobScheduler")
 
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-                val componentName = ComponentName(context, HeartBeatService::class.java)
+                val componentName = ComponentName(context, HeartBeatJobIntentService::class.java)
                 val bundle = PersistableBundle()
                 // < You could append data to it here
 
@@ -123,7 +117,7 @@ class HeartBeatService : JobIntentService() {
     override fun onHandleWork(intent: Intent) {
         when (intent.action) {
             IntentActions.ACTION_SEND_HEART_BEAT_NOW -> sendHeartBeat()
-            else -> throw IllegalArgumentException("Hey develop, HeartBeatService is for checking version only!")
+            else -> throw IllegalArgumentException("Hey develop, HeartBeatJobIntentService is for checking version only!")
         }
     }
 

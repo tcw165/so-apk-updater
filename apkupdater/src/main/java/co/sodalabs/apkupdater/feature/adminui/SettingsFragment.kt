@@ -7,7 +7,7 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import co.sodalabs.apkupdater.R
 import co.sodalabs.apkupdater.data.UiState
-import co.sodalabs.privilegedinstaller.RxBroadcastReceiver
+import co.sodalabs.privilegedinstaller.RxLocalBroadcastReceiver
 import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
@@ -63,12 +63,20 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     @Suppress("USELESS_CAST")
     private fun observeHeartBeatNowClicks() {
+        val safeContext = context ?: throw NullPointerException("Context is null")
+
         sendHeartBeatNowPref.clicks()
             .flatMap {
                 ApkUpdater.sendHeartBeatNow()
-                    .map { UiState.Done(it) as UiState<Int> }
-                    .toObservable()
+
+                val intentFilter = IntentFilter(IntentActions.ACTION_SEND_HEART_BEAT_NOW)
+                RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
+                    .map { intent ->
+                        val statusCode = intent.getIntExtra(IntentActions.PROP_HTTP_RESPONSE_CODE, 0)
+                        UiState.Done(statusCode) as UiState<Int>
+                    }
                     .startWith(UiState.InProgress())
+                    .take(2)
             }
             .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
                 caughtErrorRelay.accept(error)
@@ -136,7 +144,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 ApkUpdater.downloadUpdateNow(FakeUpdates.file170MB)
 
                 val intentFilter = IntentFilter(IntentActions.ACTION_DOWNLOAD_UPDATES)
-                RxBroadcastReceiver.bind(safeContext, intentFilter, false)
+                RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
                     .map { intent ->
                         val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
                         UiState.Done(downloadedUpdates.toList()) as UiState<List<DownloadedUpdate>>
@@ -157,8 +165,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
                         markTestDownloadWIP()
                     }
                     is UiState.Done<List<DownloadedUpdate>> -> {
-                        val apks = uiState.data
-                        Timber.v("[Download] files: $apks")
+                        // val apks = uiState.data
+                        // Timber.v("[Download] files: $apks")
                         markTestDownloadDone()
                     }
                 }

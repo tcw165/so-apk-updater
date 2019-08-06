@@ -3,6 +3,7 @@ package co.sodalabs.updaterengine
 object IntentActions {
 
     // Check/download/install requests
+    const val ACTION_ENGINE_START = "$ACTION_PREFIX.engine_start"
     const val ACTION_CHECK_UPDATES = "$ACTION_PREFIX.check_updates"
     const val ACTION_DOWNLOAD_UPDATES = "$ACTION_PREFIX.download_updates"
     const val ACTION_INSTALL_UPDATES = "$ACTION_PREFIX.install_updates"

@@ -48,6 +48,11 @@
 
         <!-- Installer (install dispatcher) -->
         <service
+            android:name=".feature.installer.InstallerJobService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service
             android:name=".feature.installer.InstallerJobIntentService"
             android:enabled="true"
             android:exported="false"

@@ -13,13 +13,13 @@ class DefaultAppUpdatesInstaller constructor(
     override fun install(
         downloadedUpdates: List<DownloadedUpdate>
     ) {
-        InstallerJobIntentService.install(context, downloadedUpdates)
+        InstallerJobIntentService.installNow(context, downloadedUpdates)
     }
 
-    override fun scheduleRecurringInstall(
-        startTimeInDay: Long,
-        endTimeInDay: Long
+    override fun scheduleInstall(
+        downloadedUpdates: List<DownloadedUpdate>,
+        triggerAtMillis: Long
     ) {
-        // TODO("not implemented")
+        InstallerJobIntentService.scheduleInstall(context, downloadedUpdates, triggerAtMillis)
     }
 }

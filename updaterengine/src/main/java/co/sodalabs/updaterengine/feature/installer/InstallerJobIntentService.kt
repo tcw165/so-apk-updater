@@ -1,15 +1,24 @@
 package co.sodalabs.updaterengine.feature.installer
 
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.app.job.JobInfo
+import android.app.job.JobScheduler
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.os.PersistableBundle
 import androidx.core.app.JobIntentService
+import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Packages
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.data.DownloadedUpdate
+import co.sodalabs.updaterengine.extension.ensureMainThread
 import timber.log.Timber
 import java.util.Objects
 
@@ -53,14 +62,67 @@ class InstallerJobIntentService : JobIntentService() {
          * @param apk apk object of app that should be installed
          * @see .uninstall
          */
-        fun install(
+        fun installNow(
             context: Context,
             downloadedUpdates: List<DownloadedUpdate>
         ) {
+            ensureMainThread()
+
             val intent = Intent(context, InstallerJobIntentService::class.java)
             intent.action = IntentActions.ACTION_INSTALL_UPDATES
             intent.putParcelableArrayListExtra(IntentActions.PROP_DOWNLOADED_UPDATES, ArrayList(downloadedUpdates))
             enqueueWork(context, intent)
+        }
+
+        fun scheduleInstall(
+            context: Context,
+            downloadedUpdates: List<DownloadedUpdate>,
+            triggerAtMillis: Long
+        ) {
+            ensureMainThread()
+
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                Timber.v("[Install] (< 21) Schedule a recurring install, using AlarmManager, at $triggerAtMillis milliseconds")
+
+                val intent = Intent(context, InstallerJobIntentService::class.java)
+                intent.action = IntentActions.ACTION_INSTALL_UPDATES
+                intent.putParcelableArrayListExtra(IntentActions.PROP_DOWNLOADED_UPDATES, ArrayList(downloadedUpdates))
+
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+
+                // TODO: Do we need to recover the scheduling on boot?
+                alarmManager.cancel(pendingIntent)
+                alarmManager.setExact(
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+            } else {
+                Timber.v("[Install] (>= 21) Schedule a recurring install, using android-21 JobScheduler")
+                Timber.e("[Install] Sorry, we don't support this yet!")
+
+                val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
+                val componentName = ComponentName(context, InstallerJobService::class.java)
+                val persistentBundle = PersistableBundle()
+                // persistentBundle.put(IntentActions.PROP_DOWNLOADED_UPDATES, ArrayList(downloadedUpdates))
+
+                val builder = JobInfo.Builder(UpdaterJobs.JOB_ID_INSTALL_UPDATES, componentName)
+                    .setRequiresDeviceIdle(false)
+                    .setExtras(persistentBundle)
+
+                if (Build.VERSION.SDK_INT >= 26) {
+                    builder.setRequiresBatteryNotLow(true)
+                        .setRequiresStorageNotLow(true)
+                }
+
+                builder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+
+                // Note: The job would be consumed by CheckJobService and translated
+                // to an Intent. Then the Intent is handled here in onHandleWork()!
+                jobScheduler.cancel(UpdaterJobs.JOB_ID_INSTALL_UPDATES)
+                jobScheduler.schedule(builder.build())
+            }
         }
 
         /**
@@ -79,7 +141,7 @@ class InstallerJobIntentService : JobIntentService() {
          *
          * @param context this app's [Context]
          */
-        fun uninstall(
+        fun uninstallNow(
             context: Context,
             packageNames: List<String>
         ) {
@@ -129,7 +191,7 @@ class InstallerJobIntentService : JobIntentService() {
         }
 
         return if (isPrivilegedInstallerInstalled) {
-            PrivilegedInstaller(this)
+            PrivilegedInstaller(ApkUpdater.installAllowDowngrade(), this)
         } else {
             DefaultInstaller(this)
         }

@@ -4,5 +4,5 @@ import co.sodalabs.updaterengine.data.DownloadedUpdate
 
 interface AppUpdatesInstaller {
     fun install(downloadedUpdates: List<DownloadedUpdate>)
-    fun scheduleRecurringInstall(startTimeInDay: Long, endTimeInDay: Long)
+    fun scheduleInstall(downloadedUpdates: List<DownloadedUpdate>, triggerAtMillis: Long)
 }

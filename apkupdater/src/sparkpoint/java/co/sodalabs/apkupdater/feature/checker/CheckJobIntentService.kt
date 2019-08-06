@@ -55,7 +55,7 @@ class CheckJobIntentService : JobIntentService() {
                 // TODO: Do we need to recover the scheduling on boot?
                 alarmManager.cancel(pendingIntent)
                 alarmManager.setInexactRepeating(
-                    AlarmManager.ELAPSED_REALTIME,
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
                     SystemClock.elapsedRealtime() + INITIAL_CHECK_DELAY,
                     interval,
                     pendingIntent

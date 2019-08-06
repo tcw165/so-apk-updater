@@ -16,7 +16,6 @@ import androidx.core.app.NotificationCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.IntentActions
-import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.R
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
@@ -115,8 +114,9 @@ class AppUpdaterService : Service() {
 
         intent?.let { safeIntent ->
             when (safeIntent.action) {
-                IntentActions.ACTION_CHECK_UPDATES -> downloadUpdates(safeIntent)
-                IntentActions.ACTION_DOWNLOAD_UPDATES -> installUpdates(safeIntent)
+                IntentActions.ACTION_ENGINE_START -> start()
+                IntentActions.ACTION_CHECK_UPDATES -> downloadUpdatesNow(safeIntent)
+                IntentActions.ACTION_DOWNLOAD_UPDATES -> scheduleInstallUpdates(safeIntent)
                 IntentActions.ACTION_INSTALL_UPDATES -> postInstallUpdates(safeIntent)
             }
         }
@@ -129,6 +129,13 @@ class AppUpdaterService : Service() {
         return null
     }
 
+    // Init ///////////////////////////////////////////////////////////////////
+
+    private fun start() {
+        ApkUpdater.scheduleRecurringHeartbeat()
+        ApkUpdater.scheduleRecurringCheck()
+    }
+
     // Check //////////////////////////////////////////////////////////////////
 
     private var checkAttempts: Int = 0
@@ -138,14 +145,14 @@ class AppUpdaterService : Service() {
     private var downloadAttempts: Int = 0
 
     @Suppress("UNCHECKED_CAST")
-    private fun downloadUpdates(
+    private fun downloadUpdatesNow(
         intent: Intent
     ) {
         val updatesError: Throwable? = intent.getSerializableExtra(IntentActions.PROP_ERROR) as Throwable?
         updatesError?.let {
             // TODO error-handling
             ++checkAttempts
-            ApkUpdater.scheduleCheckUpdate(Intervals.RETRY_CHECK)
+            // ApkUpdater.scheduleCheckUpdate(Intervals.RETRY_CHECK)
         } ?: kotlin.run {
             // Reset check attempts since we successfully find the updates to download
             checkAttempts = 0
@@ -157,18 +164,18 @@ class AppUpdaterService : Service() {
 
     // Install ////////////////////////////////////////////////////////////////
 
-    private fun installUpdates(
+    private fun scheduleInstallUpdates(
         intent: Intent
     ) {
         // Reset download attempts since we successfully download the updates.
         downloadAttempts = 0
 
-        val error = intent.getSerializableExtra(IntentActions.PROP_ERROR) as? Throwable
-        error?.let { err ->
+        val nullableError = intent.getSerializableExtra(IntentActions.PROP_ERROR) as? Throwable
+        nullableError?.let { error ->
             // TODO error-handling
         } ?: kotlin.run {
             val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
-            ApkUpdater.installDownloadedUpdatesNow(downloadedUpdates)
+            ApkUpdater.scheduleInstallUpdates(downloadedUpdates)
         }
     }
 

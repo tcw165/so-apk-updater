@@ -51,14 +51,9 @@ class DefaultInstaller(
             context.startActivity(installIntent)
 
             // Wait for response and then move on
-            try {
-                countDownLatch.await(Intervals.TIMEOUT_INSTALL_MIN, TimeUnit.MINUTES)
-            } catch (error: Throwable) {
-                errors.add(error)
-                // TODO: Can we also stop Activity?
-            } finally {
-                context.unregisterReceiver(installReceiver)
-            }
+            countDownLatch.await(Intervals.TIMEOUT_INSTALL_MIN, TimeUnit.MINUTES)
+
+            context.unregisterReceiver(installReceiver)
         }
 
         // Throw the errors (if they present) when everything is done.
@@ -90,14 +85,9 @@ class DefaultInstaller(
             context.startActivity(uninstallIntent)
 
             // Wait for response and then move on
-            try {
-                countDownLatch.await(Intervals.TIMEOUT_INSTALL_MIN, TimeUnit.MINUTES)
-            } catch (error: Throwable) {
-                errors.add(error)
-                // TODO: Can we also stop Activity?
-            } finally {
-                context.unregisterReceiver(installReceiver)
-            }
+            countDownLatch.await(Intervals.TIMEOUT_INSTALL_MIN, TimeUnit.MINUTES)
+
+            context.unregisterReceiver(installReceiver)
         }
 
         // Throw the errors (if they present) when everything is done.

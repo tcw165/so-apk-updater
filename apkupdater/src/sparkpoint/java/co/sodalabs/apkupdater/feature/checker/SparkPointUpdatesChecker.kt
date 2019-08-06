@@ -10,7 +10,6 @@ class SparkPointUpdatesChecker @Inject constructor(
     private val schedulers: IThreadSchedulers
 ) : AppUpdatesChecker {
 
-    // TODO: Call the CheckJobIntentService and get result from the broadcast!
     override fun checkNow(
         packageNames: List<String>
     ) {

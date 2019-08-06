@@ -212,6 +212,7 @@ ext.deps = [
     scaleDimen : scaleDimension,
     sodalabs   : sodalabs,
     fileio     : fileio,
+    threetenbp : 'com.jakewharton.threetenabp:threetenabp:1.1.2',
     socket     : 'io.socket:socket.io-client:1.0.0',
     fontawesome: "com.joanzapata.iconify:android-iconify-fontawesome:2.2.2",
     findbugs   : 'com.google.code.findbugs:jsr305:3.0.2',

@@ -2,13 +2,16 @@ package co.sodalabs.updaterengine
 
 import android.app.Application
 import android.os.Environment
+import android.os.SystemClock
 import androidx.annotation.Keep
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import com.jakewharton.rxrelay2.PublishRelay
 import io.reactivex.Observable
-import io.reactivex.Single
 import io.reactivex.disposables.CompositeDisposable
+import org.threeten.bp.Instant
+import org.threeten.bp.ZoneId
+import timber.log.Timber
 
 class ApkUpdater private constructor(
     private val application: Application,
@@ -52,14 +55,6 @@ class ApkUpdater private constructor(
                             schedulers)
                         this.engine = engine
                         this.engine?.start()
-
-                        // Schedule the recurring heartbeat
-                        val interval = config.heartBeatIntervalMs
-                        engineHeartBeater.scheduleRecurringHeartBeat(interval, true)
-                        // Schedule the recurring check & download
-                        engine.appUpdatesChecker.scheduleRecurringCheck(
-                            config.packageNames,
-                            config.checkIntervalMs)
                     }
                 }
             }
@@ -71,22 +66,26 @@ class ApkUpdater private constructor(
             }
         }
 
-        fun observeRestartRequests(): Observable<Unit> {
+        fun installAllowDowngrade(): Boolean {
             return synchronized(ApkUpdater::class.java) {
-                val safeEngine = engine ?: throw NullPointerException("Updater engine isn't yet installed!")
-                safeEngine.restartRequestsRelay.hide()
+                engine?.config?.installAllowDowngrade ?: false
             }
         }
 
-        /**
-         * Send a heart-beat to the server immediately.
-         *
-         * @return The HTTP status code.
-         */
-        fun sendHeartBeatNow(): Single<Int> {
+        fun sendHeartBeatNow() {
             return synchronized(ApkUpdater::class.java) {
-                val safeEngine = validateEngine()
-                safeEngine.engineHeartBeater.sendHeartBeatNow()
+                engine?.apply {
+                    engineHeartBeater.sendHeartBeatNow()
+                }
+            }
+        }
+
+        fun scheduleRecurringHeartbeat() {
+            return synchronized(ApkUpdater::class.java) {
+                engine?.apply {
+                    val interval = config.heartBeatIntervalMs
+                    engineHeartBeater.scheduleRecurringHeartBeat(interval, true)
+                }
             }
         }
 
@@ -104,17 +103,20 @@ class ApkUpdater private constructor(
 
         fun checkForUpdatesNow() {
             synchronized(ApkUpdater::class.java) {
-                val safeEngine = validateEngine()
-                safeEngine.appUpdatesChecker.checkNow(safeEngine.config.packageNames)
+                engine?.apply {
+                    val packageNames = config.packageNames
+                    appUpdatesChecker.checkNow(packageNames)
+                }
             }
         }
 
-        fun scheduleCheckUpdate(
-            afterMs: Long
-        ) {
+        fun scheduleRecurringCheck() {
             synchronized(ApkUpdater::class.java) {
-                val safeEngine = validateEngine()
-                safeEngine.appUpdatesChecker.scheduleCheckAfter(safeEngine.config.packageNames, afterMs)
+                engine?.apply {
+                    val packageNames = config.packageNames
+                    val interval = config.checkIntervalMs
+                    appUpdatesChecker.scheduleRecurringCheck(packageNames, interval)
+                }
             }
         }
 
@@ -122,27 +124,20 @@ class ApkUpdater private constructor(
             updates: List<AppUpdate>
         ) {
             return synchronized(ApkUpdater::class.java) {
-                val safeEngine = validateEngine()
-                safeEngine.appUpdatesDownloader.downloadNow(updates)
+                engine?.apply {
+                    appUpdatesDownloader.downloadNow(updates)
+                }
             }
         }
 
-        fun scheduleDownloadUpdate(
-            updates: List<AppUpdate>,
-            afterMs: Long
-        ) {
-            return synchronized(ApkUpdater::class.java) {
-                val safeEngine = validateEngine()
-                safeEngine.appUpdatesDownloader.scheduleDownloadAfter(updates, afterMs)
-            }
-        }
-
-        fun installDownloadedUpdatesNow(
-            downloadedUpdates: List<DownloadedUpdate>
+        fun scheduleInstallUpdates(
+            updates: List<DownloadedUpdate>
         ) {
             synchronized(ApkUpdater::class.java) {
-                val safeEngine = validateEngine()
-                safeEngine.appUpdatesInstaller.install(downloadedUpdates)
+                engine?.apply {
+                    val triggerAtMillis: Long = findNextAvailableTriggerTimeMillis(config)
+                    appUpdatesInstaller.scheduleInstall(updates, triggerAtMillis)
+                }
             }
         }
 
@@ -153,7 +148,39 @@ class ApkUpdater private constructor(
                 val safeEngine = validateEngine()
                 safeEngine.appUpdatesDownloader.setDownloadCacheMaxSize(sizeInMB)
                 // Request for restarting the process!
-                safeEngine.restartRequestsRelay.accept(Unit)
+                requestRestartProcess()
+            }
+        }
+
+        private fun requestRestartProcess() {
+            engine?.restartRequestsRelay?.accept(Unit)
+        }
+
+        private fun findNextAvailableTriggerTimeMillis(
+            config: ApkUpdaterConfig
+        ): Long {
+            // Convert the window to Calendar today.
+            val startHour = config.installWindow.start // 03:00
+            val endHour = config.installWindow.endInclusive // 08:00
+            Timber.v("[Updater] The install window is [$startHour..$endHour]")
+
+            val currentTime = Instant.now()
+                .atZone(ZoneId.systemDefault())
+            val hour = currentTime.hour
+            return if (hour in startHour..endHour) {
+                val triggerAtMillis = SystemClock.elapsedRealtime() + Intervals.DELAY_INSTALL
+                Timber.v("[Updater] It's currently within the install window, will install the updates after $triggerAtMillis milliseconds")
+                triggerAtMillis
+            } else {
+                // If the current time has past the window today, schedule for tomorrow
+                // 9 am -> 3 am
+                val triggerTimeTomorrow = Instant.now()
+                    .atZone(ZoneId.systemDefault())
+                    .withHour(startHour)
+                    .plusDays(1)
+                val triggerAtMillis = triggerTimeTomorrow.toInstant().toEpochMilli()
+                Timber.v("[Updater] It's currently out of the install window, will install the updates at $triggerTimeTomorrow, which is $triggerAtMillis milliseconds after")
+                triggerAtMillis
             }
         }
 

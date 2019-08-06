@@ -37,7 +37,9 @@ android {
         buildConfigField "String", "BASE_URL", "\"make sure update this, please!\""
 
         buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "15"
-        buildConfigField "int", "UPDATE_CHECK_INTERVAL_SECONDS", "1440"
+        buildConfigField "int", "UPDATE_CHECK_INTERVAL_SECONDS", "1440" // 1 day
+        buildConfigField "int", "UPDATE_INSTALL_HOUR_BEGIN", "0" // 00:00
+        buildConfigField "int", "UPDATE_INSTALL_HOUR_END", "23" // 23:00
 
         buildConfigField "int", "CONNECT_TIMEOUT_SECONDS", "45"
         buildConfigField "int", "READ_TIMEOUT_SECONDS", "45"
