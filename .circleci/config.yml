@@ -10,7 +10,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradleScripts/dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
           name: Download Keystore
           command: echo $RELEASE_KEYSTORE_BASE64 | base64 --decode > build.keystore
@@ -23,7 +23,7 @@ jobs:
           name: Download dependencies
           command: ./gradlew androidDependencies --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
       - save_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradleScripts/dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
           paths:
             - ~/.gradle
             - ~/.bundle
@@ -39,7 +39,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradleScripts/dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
           name: Run Lint Test
           command: ./gradlew pmd ktlintCheck --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
@@ -53,7 +53,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradleScripts/dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
           name: Run Unit Test
           command: ./gradlew test --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
@@ -76,7 +76,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradleScripts/dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
           name: Test ProGuard
           command: ./gradlew assembleRelease --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
@@ -96,7 +96,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradleScripts/dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
           name: Build Updater Engine Library (Debug)
           command: ./gradlew :updaterengine:assembleDebug --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
@@ -113,7 +113,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradleScripts/dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
           name: Build APK Updater (Debug)
           command: ./gradlew :apkupdater:assembleDebug --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
@@ -130,7 +130,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradleScripts/dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
           name: Build Privileged Installer (Debug)
           command: ./gradlew :privilegedinstaller:assembleDebug --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
@@ -147,7 +147,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradleScripts/dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
           name: Build APK Updater (Release)
           command: ./gradlew :updaterengine:assembleRelease :apkupdater:assembleStaging :apkupdater:assembleRelease :privilegedinstaller:assembleStaging :privilegedinstaller:assembleRelease --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
@@ -200,3 +200,5 @@ workflows:
           filters:
             branches:
               only: master
+          requires:
+            - checkout-cache
