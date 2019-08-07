@@ -8,7 +8,7 @@ Utils class used for system interaction. Specifically useful for killing service
 @Suppress("TooGenericExceptionCaught")
 object BuildUtils {
 
-    const val UPDATE_URL: String = BuildConfig.BASE_URL
+    val PACKAGES_TO_CHECK: Array<String> = BuildConfig.PACKAGES_TO_CHECK
 
     fun isDebug() = BuildConfig.BUILD_TYPE == "debug"
 

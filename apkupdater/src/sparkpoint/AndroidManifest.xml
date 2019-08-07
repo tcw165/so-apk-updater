@@ -1,0 +1,30 @@
+<manifest package="co.sodalabs.apkupdater"
+          xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!-- Updates Checker -->
+        <service
+            android:name=".feature.checker.CheckJobService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service
+            android:name=".feature.checker.CheckJobIntentService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- Heart Beater -->
+        <service
+            android:name=".feature.heartbeat.HeartBeatJobService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service
+            android:name=".feature.heartbeat.HeartBeatJobIntentService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+    </application>
+</manifest>

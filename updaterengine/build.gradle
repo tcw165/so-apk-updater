@@ -2,26 +2,30 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
-apply from: "$rootDir/quality.gradle"
-apply from: "$rootDir/extension.gradle"
-apply from: "$rootDir/android_library_extension.gradle"
-apply plugin: 'com.github.dcendents.android-maven'
 
-// The version is for our local maven snapshot folder and name.
-// We use maven local as a way to distribute the framework for testing
-version = artifact_version + '-SNAPSHOT'
+apply from: rootProject.file("gradleScripts/android_library_extension.gradle")
+apply from: rootProject.file("gradleScripts/version_extension.gradle")
 
-// The group is used by local maven and Jitpack
-group = 'com.github.sodalabs.apkupdater'
+//// The version is for our local maven snapshot folder and name.
+//// We use maven local as a way to distribute the framework for testing
+//version = artifact_version + '-SNAPSHOT'
+
+// Version
+def versionPropertiesFile = project.file("version.properties")
+def versionProperties = new Properties()
+versionProperties.load(new FileInputStream(versionPropertiesFile))
 
 android {
-    compileSdkVersion 28
+    compileSdkVersion deps.build.compileSdkVersion
+    buildToolsVersion deps.build.buildToolsVersion
 
     defaultConfig {
-        minSdkVersion 19
-        targetSdkVersion 28
-        versionCode buildVersionCode(artifact_version)
-        versionName artifact_version
+        minSdkVersion deps.build.minSdkVersion
+        targetSdkVersion deps.build.targetSdkVersion
+
+        versionCode buildVersionCode(versionProperties.artifact_version)
+        versionName versionProperties.artifact_version
+
         multiDexEnabled true
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
@@ -30,28 +34,23 @@ android {
     }
 
     buildTypes {
-        all {
-            minifyEnabled false
-        }
-
         debug {
             debuggable true
-            testCoverageEnabled = true
-            matchingFallbacks = ['debug']
+        }
+
+        staging {
+            initWith(release)
+            matchingFallbacks = ['release']
         }
 
         release {
             debuggable false
-
-            // Disables PNG crunching for the release build type.
-            crunchPngs false
-            matchingFallbacks = ['release']
         }
     }
 
     dexOptions {
         // Don't preDex on CI
-        preDexLibraries = !rootProject.build.ci
+        preDexLibraries = !rootProject.ext.isCI
     }
 
     packagingOptions {
@@ -105,35 +104,58 @@ androidExtensions {
 }
 
 dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    // Android
+    api deps.androidx.appcompat
+    api deps.androidx.annotations
+    api deps.androidx.constraintLayout
+    api deps.androidx.preference
+    api deps.androidx.coreKtx
+    // Multi-dex.
+    api deps.androidx.multidex
+
     // Kotlin
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    api deps.kotlin.stdlibJdk7
 
-    // Support Libs
-    implementation 'com.android.support:appcompat-v7:28.0.0'
-    implementation "com.android.support:multidex:1.0.3"
+    // Tracking
+    api deps.tracking.timber
 
-    // Better logging
-    implementation "com.jakewharton.timber:timber:4.7.1"
+    // Rx
+    api deps.rx.java
+    api deps.rx.android
+    api deps.rx.kotlin
+    api deps.rx.relay
+    api deps.rx.binding.lib
+    api deps.rx.binding.appcompat
+    api deps.rx.binding.design
+    api deps.rx.binding.recyclerview
+    api deps.rx.binding.viewpager
 
-    // Networking
-    implementation "com.squareup.retrofit2:retrofit:2.4.0"
-    implementation "com.squareup.retrofit2:converter-scalars:2.4.0"
-    implementation "com.squareup.retrofit2:converter-moshi:2.4.0"
-    implementation "com.squareup.retrofit2:adapter-rxjava2:2.4.0"
-    implementation "com.squareup.okhttp3:logging-interceptor:3.11.0"
+    // Network
+    api deps.retrofit.lib
+    api deps.retrofit.okhttp
+    api deps.retrofit.adapterRx
+    api deps.retrofit.converterGson
+    api deps.retrofit.converterMoshi
+    api deps.retrofit.converterScalars
+    api deps.retrofit.interceptorLogging
 
-    // Moshi for Serialization/Deserialization
-    implementation "com.squareup.moshi:moshi:1.7.0"
-    kapt 'com.squareup.moshi:moshi-kotlin-codegen:1.7.0'
+    // Json
+    api deps.moshi.lib
+    kapt deps.moshi.codegen
 
-    // Better File Downloader
-    implementation "com.mani:ThinDownloadManager:1.4.0"
+    // IO
+    api deps.fileio.apacheCommonIo
 
-    // File Utils
-    implementation "commons-io:commons-io:2.6"
+    // Time
+    api deps.threetenbp
 
-    // Tests
-    testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'com.android.support.test:runner:1.0.2'
-    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+    // Unit tests.
+    testImplementation deps.test.junit
+    testImplementation deps.test.mockito
+
+    // Instrumentation tests.
+    androidTestImplementation deps.test.runner
+    androidTestImplementation deps.test.espresso.core
 }

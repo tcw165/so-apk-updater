@@ -2,7 +2,7 @@ package co.sodalabs.updaterengine.net
 
 import android.content.Context
 import android.net.Uri
-import co.sodalabs.updaterengine.data.Apk
+import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.data.SanitizedFile
 import co.sodalabs.updaterengine.utils.Hasher
 import co.sodalabs.updaterengine.utils.StorageUtils
@@ -11,6 +11,7 @@ import timber.log.Timber
 import java.io.File
 import java.io.IOException
 
+@Deprecated("Replaced by DiskLruCache")
 object ApkCache {
 
     private const val CACHE_DIR = "apks"
@@ -22,10 +23,14 @@ object ApkCache {
      * so it should still be in the RAM disk cache.
      */
     @Throws(IOException::class)
-    fun copyApkFromCacheToFiles(context: Context, apkFile: File, expectedApk: Apk): SanitizedFile {
-        val name = expectedApk.packageName
-        val apkFileName = name + "-" + expectedApk.versionName + ".apk"
-        return copyApkToFiles(context, apkFile, apkFileName, true, expectedApk.hash ?: "", expectedApk.hashType)
+    fun copyApkFromCacheToFiles(
+        context: Context,
+        apkFile: File,
+        expectedDownloadedUpdate: DownloadedUpdate
+    ): SanitizedFile {
+        val name = expectedDownloadedUpdate.fromUpdate.packageName
+        val apkFileName = name + "-" + expectedDownloadedUpdate.fromUpdate.versionName + ".apk"
+        return copyApkToFiles(context, apkFile, apkFileName, true, expectedDownloadedUpdate.fromUpdate.hash ?: "")
     }
 
     /**
@@ -42,8 +47,7 @@ object ApkCache {
         apkFile: File,
         destinationName: String,
         verifyHash: Boolean,
-        hash: String,
-        hashType: String
+        hash: String
     ): SanitizedFile {
         val sanitizedApkFile = SanitizedFile(context.filesDir, destinationName)
 
@@ -57,8 +61,8 @@ object ApkCache {
         Timber.d("copyApkToFiles: ${apkFile.path} -> ${sanitizedApkFile.path}")
         FileUtils.copyFile(apkFile, sanitizedApkFile)
 
-        // verify copied file's hash install expected hash from Apk class
-        if (verifyHash && !Hasher.isFileMatchingHash(sanitizedApkFile, hash, hashType)) {
+        // verify copied file's hash install expected hash from DownloadedUpdate class
+        if (verifyHash && !Hasher.isFileMatchingHash(sanitizedApkFile, hash)) {
             FileUtils.deleteQuietly(apkFile)
             throw IOException("$apkFile failed to verify!")
         }

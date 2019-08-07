@@ -2,49 +2,86 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
-apply from: "$rootDir/quality.gradle"
-apply from: "$rootDir/android_app_extension.gradle"
+apply from: rootProject.file("gradleScripts/android_app_extension.gradle")
+apply from: rootProject.file("gradleScripts/version_extension.gradle")
+
+// If you are missing these files, please download from our internal file repo
+// store: https://drive.google.com/open?id=1IXPvYIFQz0cPlzw88HIJ8M_Ipf7IYSy1
+// key:   https://drive.google.com/open?id=1Q6UysSx2CmMPfhFOSwe87nSXvwFZeq5u
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+
+// Version
+def versionPropertiesFile = project.file("version.properties")
+def versionProperties = new Properties()
+versionProperties.load(new FileInputStream(versionPropertiesFile))
 
 android {
-    compileSdkVersion 28
+    compileSdkVersion deps.build.compileSdkVersion
+    buildToolsVersion deps.build.buildToolsVersion
 
     defaultConfig {
         applicationId "co.sodalabs.privilegedinstaller"
-        minSdkVersion 14
-        targetSdkVersion 28
-        versionCode buildVersionCode(artifact_version)
-        versionName artifact_version
+
+        minSdkVersion deps.build.minSdkVersion
+        targetSdkVersion deps.build.targetSdkVersion
+
+        versionCode buildVersionCode(versionProperties.artifact_version)
+        versionName versionProperties.artifact_version
+
         multiDexEnabled true
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        // Command to extract the public key hash:
+        // keytool -printcert -jarfile your.apk | sed -n 's,SHA256:\s*\([A-F0-9:]*\),\1,p' | sed 's,:,,g' | tr A-f a-f
+        buildConfigField "String[]", "CLIENT_WHITELIST", "{" +
+            "\"c8a2e9bccf597c2fb6dc66bee293fc13f2fc47ec77bc6b2b0d52c11f51192ab8\"" +
+            "}"
+    }
+
+    signingConfigs {
+        platform {
+            keyAlias keystoreProperties['releaseKeyAlias']
+            keyPassword keystoreProperties['releaseKeyPassword']
+            storeFile rootProject.file(keystoreProperties['releaseKeyStore'])
+            storePassword keystoreProperties['releaseStorePassword']
+        }
     }
 
     buildTypes {
-        all {
+        debug {
             // Keep IPackageInstallObserver and IPackageDeleteObserver
             minifyEnabled false
             useProguard false
             shrinkResources false
+
+            signingConfig signingConfigs.platform
         }
 
-        debug {
-            debuggable true
+        staging {
+            initWith(release)
+            matchingFallbacks = ['release']
 
-            buildConfigField "String", "DATE_OF_BUILD", "\"00-00-00\""
-            buildConfigField "String", "GIT_SHA", "\"-\""
+            debuggable true
         }
 
         release {
-            debuggable true
-
+            debuggable false
+            useProguard true
+            shrinkResources true
+            minifyEnabled true
             // Disables PNG crunching for the release build type.
             crunchPngs false
+
+            signingConfig signingConfigs.platform
         }
     }
 
     dexOptions {
         // Don't preDex on CI
-        preDexLibraries = !rootProject.build.ci
+        preDexLibraries = !rootProject.ext.isCI
     }
 
     packagingOptions {
@@ -78,6 +115,14 @@ android {
         }
     }
 
+    // This configuration is to fix the packing problem that we use androidx
+    // namespace (ViewModel) and some of the other modules use older android
+    // namespace.
+    // e.g. android-23-no-hides.jar
+    packagingOptions {
+        exclude 'META-INF/proguard/androidx-annotations.pro'
+    }
+
     testOptions.unitTests.all {
         testLogging {
             events 'passed', 'skipped', 'failed', 'standardOut', 'standardError'
@@ -92,21 +137,39 @@ android {
 }
 
 dependencies {
-    // Kotlin
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    // Support libs
-    implementation "com.android.support:appcompat-v7:28.0.0"
-    implementation "com.android.support:multidex:1.0.3"
+    // Android
+    implementation deps.androidx.appcompat
+    implementation deps.androidx.annotations
+    implementation deps.androidx.constraintLayout
+    implementation deps.androidx.coreKtx
+    // Multi-dex.
+    implementation deps.androidx.multidex
 
-    // Better logging
-    implementation "com.jakewharton.timber:timber:4.7.1"
+    // Kotlin STD Library.
+    implementation deps.kotlin.stdlibJdk7
 
-    // Tests
-    testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'com.android.support.test:runner:1.0.2'
-    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+    // RxAndroid
+    implementation deps.rx.java
+    implementation deps.rx.android
+    implementation deps.rx.kotlin
+    implementation deps.rx.relay
+    implementation deps.rx.binding.lib
+    implementation deps.rx.binding.appcompat
+
+    // Log
+    implementation deps.tracking.timber
+
+    // Unit tests.
+    testImplementation deps.test.junit
+    testImplementation deps.test.mockito
+
+    // Instrumentation tests.
+    androidTestImplementation deps.test.runner
+    androidTestImplementation deps.test.espresso.core
 }
+
 repositories {
     mavenCentral()
 }

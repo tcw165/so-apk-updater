@@ -1,0 +1,63 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+default_platform(:android)
+
+platform :android do
+
+  desc "Submit the artifacts (APK and Mapping) to Github"
+  lane :releaseGithub do
+    Dir.chdir ".." do
+      pwd = sh('pwd').strip
+
+      # Try Linux sed first and fallback to gsed for Mac if Linux sed doesn't work.
+      begin
+        version = sh('grep "version" version.properties | sed -nre \'s/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p\'').strip
+      rescue
+        version = sh('grep "version" version.properties | gsed -nre \'s/^[^0-9]*(([0-9]+\.)*[0-9]+).*/\1/p\'').strip
+      end
+      last_tag = sh("git describe --abbrev=0 --tags").strip unless nil
+      this_tag = "v#{version}"
+
+      puts "last_tag: \"#{last_tag}\", this_tag: \"#{this_tag}\""
+
+      pretty_format = "### **%s**%n###### %h %an - _%aD_%n%n%b"
+      change_log = ''
+      if last_tag.nil?
+        change_log = sh("git log --pretty=format:\"#{pretty_format}\" --no-merges")
+      else
+        change_log = sh("git log --pretty=format:\"#{pretty_format}\" #{last_tag}..HEAD --no-merges")
+      end
+
+      artifacts = []
+      # The artifacts for library module
+      artifacts = artifacts.concat(Dir.glob("**/*.aar"))
+      # The artifacts for application module
+      artifacts = artifacts.concat(Dir.glob("**/*.apk"))
+      artifacts = artifacts.concat(Dir.glob("**/*-mapping.txt"))
+      artifacts = artifacts.map { |file| "#{pwd}/#{file}" }
+
+      github_release = set_github_release(
+        repository_name: "sodalabs/ApkUpdater",
+        api_token: ENV["GITHUB_API_TOKEN"],
+        name: this_tag,
+        tag_name: this_tag,
+        description: change_log,
+        commitish: "master",
+        upload_assets: artifacts
+      )
+    end
+  end
+end

@@ -3,28 +3,86 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
 apply plugin: "io.fabric"
-apply from: "$rootDir/android_app_extension.gradle"
+
+apply from: rootProject.file("gradleScripts/android_app_extension.gradle")
+apply from: rootProject.file("gradleScripts/version_extension.gradle")
+
+// If you are missing these files, please download from our internal file repo
+// store: https://drive.google.com/open?id=1IXPvYIFQz0cPlzw88HIJ8M_Ipf7IYSy1
+// key:   https://drive.google.com/open?id=1Q6UysSx2CmMPfhFOSwe87nSXvwFZeq5u
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+
+// Version
+def versionPropertiesFile = project.file("version.properties")
+def versionProperties = new Properties()
+versionProperties.load(new FileInputStream(versionPropertiesFile))
 
 android {
-    compileSdkVersion 28
+    compileSdkVersion deps.build.compileSdkVersion
+    buildToolsVersion deps.build.buildToolsVersion
+
     defaultConfig {
         applicationId "co.sodalabs.apkupdater"
-        minSdkVersion 19
-        targetSdkVersion 28
-        versionCode buildVersionCode(artifact_version)
-        versionName artifact_version
+
+        minSdkVersion deps.build.minSdkVersion
+        targetSdkVersion deps.build.targetSdkVersion
+
+        versionCode buildVersionCode(versionProperties.artifact_version)
+        versionName versionProperties.artifact_version
+
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
-        buildConfigField "String", "BASE_URL", "\"https://sparkpoint-func.azurewebsites.net/api/\""
+        buildConfigField "String", "BASE_URL", "\"make sure update this, please!\""
+
+        buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "15"
+        buildConfigField "int", "CHECK_INTERVAL_SECONDS", "1440" // 1 day
+        buildConfigField "int", "INSTALL_HOUR_BEGIN", "0" // 00:00
+        buildConfigField "int", "INSTALL_HOUR_END", "23" // 23:00
+        buildConfigField "boolean", "INSTALL_ALLOW_DOWNGRADE", "false"
+        buildConfigField "boolean", "DOWNLOAD_USE_CACHE", "true"
+
+        buildConfigField "int", "CONNECT_TIMEOUT_SECONDS", "45"
+        buildConfigField "int", "READ_TIMEOUT_SECONDS", "45"
+        buildConfigField "int", "WRITE_TIMEOUT_SECONDS", "45"
+        buildConfigField "int", "MAX_CONNECTIONS_PER_HOST", "10"
+        buildConfigField "int", "MAX_TOTAL_CONNECTIONS", "10"
+    }
+
+    signingConfigs {
+        platform {
+            keyAlias keystoreProperties['releaseKeyAlias']
+            keyPassword keystoreProperties['releaseKeyPassword']
+            storeFile rootProject.file(keystoreProperties['releaseKeyStore'])
+            storePassword keystoreProperties['releaseStorePassword']
+        }
     }
 
     buildTypes {
         debug {
             debuggable true
             minifyEnabled false
-            testCoverageEnabled = true
 
-            matchingFallbacks = ['debug']
+            signingConfig signingConfigs.platform
+
+            buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "15"
+            buildConfigField "int", "CHECK_INTERVAL_SECONDS", "300" // 5 min
+            buildConfigField "int", "INSTALL_HOUR_BEGIN", "0" // 00:00
+            buildConfigField "int", "INSTALL_HOUR_END", "23" // 23:00
+            buildConfigField "boolean", "INSTALL_ALLOW_DOWNGRADE", "true"
+
+            buildConfigField "int", "CONNECT_TIMEOUT_SECONDS", "30"
+            buildConfigField "int", "READ_TIMEOUT_SECONDS", "30"
+            buildConfigField "int", "WRITE_TIMEOUT_SECONDS", "30"
+        }
+
+        staging {
+            initWith(release)
+            matchingFallbacks = ['release']
+
+            // Disables PNG crunching for the release build type.
+            crunchPngs false
         }
 
         release {
@@ -32,16 +90,35 @@ android {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
 
+            signingConfig signingConfigs.platform
+
             // Disables PNG crunching for the release build type.
             crunchPngs false
 
-            matchingFallbacks = ['release']
+            buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "300" // 5 min
+            buildConfigField "int", "CHECK_INTERVAL_SECONDS", "86400" // 1 day
+
+            buildConfigField "int", "CONNECT_TIMEOUT_SECONDS", "60"
+            buildConfigField "int", "READ_TIMEOUT_SECONDS", "60"
+            buildConfigField "int", "WRITE_TIMEOUT_SECONDS", "60"
+        }
+    }
+
+    flavorDimensions "PRODUCT"
+
+    productFlavors {
+        sparkpoint {
+            dimension "PRODUCT"
+            buildConfigField "String", "BASE_URL", "\"https://spark-api-v0-prod.azurewebsites.net/api/v0/\""
+            buildConfigField "String[]", "PACKAGES_TO_CHECK", "{" +
+                "\"co.sodalabs.sparkpoint\"" +
+                "}"
         }
     }
 
     dexOptions {
         // Don't preDex on CI
-        preDexLibraries = !rootProject.build.ci
+        preDexLibraries = !rootProject.ext.isCI
     }
 
     packagingOptions {
@@ -97,34 +174,70 @@ androidExtensions {
 }
 
 dependencies {
-    implementation project(":updaterengine")
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    // Android
+    implementation deps.androidx.appcompat
+    implementation deps.androidx.annotations
+    implementation deps.androidx.constraintLayout
+    implementation deps.androidx.preference
+    implementation deps.androidx.coreKtx
+    // Multi-dex.
+    implementation deps.androidx.multidex
 
     // Kotlin
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation deps.kotlin.stdlibJdk7
 
-    // RxJava
-    implementation "io.reactivex.rxjava2:rxjava:2.2.2"
-    implementation "com.jakewharton.rxrelay2:rxrelay:2.0.0"
+    // DI
+    compileOnly deps.dagger.lib
+    implementation deps.dagger.androidSupport
+    kapt deps.dagger.compiler
+    kapt deps.dagger.androidCompiler
 
-    // Support Libs
-    implementation 'com.android.support:appcompat-v7:28.0.0'
-    implementation "com.android.support:multidex:1.0.3"
-    implementation 'com.android.support.constraint:constraint-layout:1.1.3'
+    // Rx
+    implementation deps.rx.java
+    implementation deps.rx.android
+    implementation deps.rx.kotlin
+    implementation deps.rx.relay
+    implementation deps.rx.binding.lib
+    implementation deps.rx.binding.appcompat
+    implementation deps.rx.binding.design
+    implementation deps.rx.binding.recyclerview
+    implementation deps.rx.binding.viewpager
 
-    // Better logging
-    implementation "com.jakewharton.timber:timber:4.7.1"
+    // Network
+    implementation deps.retrofit.lib
+    implementation deps.retrofit.okhttp
+    implementation deps.retrofit.adapterRx
+    implementation deps.retrofit.converterGson
+    implementation deps.retrofit.converterMoshi
+    implementation deps.retrofit.converterScalars
+    implementation deps.retrofit.interceptorLogging
 
-    // Scaled DP/SP
-    implementation 'com.intuit.sdp:sdp-android:1.0.6'
-    implementation 'com.intuit.ssp:ssp-android:1.0.6'
+    // Process
+    implementation deps.process.phoenix
 
-    // Crashlytics
+    // Json
+    implementation deps.moshi.lib
+    kapt deps.moshi.codegen
+
+    implementation project(":updaterengine")
+
+    // Tracking
+    implementation deps.tracking.timber
     implementation('com.crashlytics.sdk.android:crashlytics:2.9.8@aar') {
         transitive = true
     }
 
-    // Tests
-    testImplementation 'junit:junit:4.12'
-    androidTestImplementation 'com.android.support.test:runner:1.0.2'
-    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+    // Better dimens
+    implementation deps.scaleDimen.sdp
+    implementation deps.scaleDimen.ssp
+
+    // Unit tests.
+    testImplementation deps.test.junit
+    testImplementation deps.test.mockito
+
+    // Instrumentation tests.
+    androidTestImplementation deps.test.runner
+    androidTestImplementation deps.test.espresso.core
 }
