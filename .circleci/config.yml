@@ -58,12 +58,14 @@ jobs:
           name: Run Unit Test
           command: ./gradlew test --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
       - store_test_results:
-          path: apkupdater/build/test-results
-          destination: apkupdater-test
-      # TODO: Shall we add the engine lib test report?
+          path: updaterengine/build/reports/tests/
+          destination: updaterengine/build/reports/tests/
       - store_test_results:
-          path: privilegedinstaller/build/test-results
-          destination: privilegedinstaller-test
+          path: apkupdater/build/reports/tests/
+          destination: apkupdater/build/reports/tests/
+      - store_test_results:
+          path: privilegedinstaller/build/reports/tests/
+          destination: privilegedinstaller/build/reports/tests/
 
   test-proguard:
     working_directory: ~/project
@@ -79,13 +81,30 @@ jobs:
           name: Test ProGuard
           command: ./gradlew assembleRelease --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
       - store_artifacts:
-          path: apkupdater/build/outputs/mapping/release
-          destination: proguard
+          path: apkupdater/build/outputs/mapping/
+          destination: apkupdater/build/outputs/mapping/
       - store_artifacts:
-          path: privilegedinstaller/build/outputs/mapping/release
-          destination: proguard
+          path: privilegedinstaller/build/outputs/mapping/
+          destination: privilegedinstaller/build/outputs/mapping/
 
-  build-apkupdater-debug:
+  build-updaterengine-debug:
+    working_directory: ~/ApkUpdater
+    docker:
+      - image: circleci/android:api-28-alpha
+    environment:
+      GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xms256m -Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"'
+    steps:
+      - checkout
+      - restore_cache:
+          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
+      - run:
+          name: Build Updater Engine Library (Debug)
+          command: ./gradlew :updaterengine:assembleDebug --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
+      - store_artifacts:
+          path: updaterengine/build/outputs/aar/
+          destination: updaterengine/build/outputs/aar/
+
+  build-updater-debug:
     working_directory: ~/ApkUpdater
     docker:
       - image: circleci/android:api-28-alpha
@@ -99,8 +118,8 @@ jobs:
           name: Build APK Updater (Debug)
           command: ./gradlew :apkupdater:assembleDebug --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
       - store_artifacts:
-          path: apkupdater/build/outputs/apk/debug
-          destination: apk
+          path: apkupdater/build/outputs/apk/
+          destination: apkupdater/build/outputs/apk/
 
   build-privilegedinstaller-debug:
     working_directory: ~/ApkUpdater
@@ -116,12 +135,10 @@ jobs:
           name: Build Privileged Installer (Debug)
           command: ./gradlew :privilegedinstaller:assembleDebug --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
       - store_artifacts:
-          path: privilegedinstaller/build/outputs/apk/debug
-          destination: apk
+          path: privilegedinstaller/build/outputs/apk/
+          destination: privilegedinstaller/build/outputs/apk/
 
-  # TODO: Release the engine lib to Jitpack?
-
-  build-apkupdater-release:
+  deploy-all-releases:
     working_directory: ~/ApkUpdater
     docker:
       - image: circleci/android:api-28-alpha
@@ -133,7 +150,7 @@ jobs:
           key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
           name: Build APK Updater (Release)
-          command: ./gradlew :apkupdater:assembleRelease --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
+          command: ./gradlew :updaterengine:assembleRelease :apkupdater:assembleStaging :apkupdater:assembleRelease :privilegedinstaller:assembleStaging :privilegedinstaller:assembleRelease --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
       - run:
           name: Install FastLane
           command: |
@@ -143,33 +160,14 @@ jobs:
           name: Release to Github
           command: fastlane releaseGithub
       - store_artifacts:
-          path: apkupdater/build/outputs/apk/release
-          destination: apk
-
-  build-privilegedinstaller-release:
-    working_directory: ~/ApkUpdater
-    docker:
-      - image: circleci/android:api-28-alpha
-    environment:
-      GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xms256m -Xmx2048m -XX:+HeapDumpOnOutOfMemoryError"'
-    steps:
-      - checkout
-      - restore_cache:
-          key: jars-{{ checksum "build.gradle" }}-{{ checksum "dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
-      - run:
-          name: Build Privileged Installer (Release)
-          command: ./gradlew :privilegedinstaller:assembleRelease --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
-      - run:
-          name: Install FastLane
-          command: |
-            gem update bundler
-            bundle install
-      - run:
-          name: Release to Github
-          command: fastlane releaseGithub
+          path: updaterengine/build/outputs/aar/
+          destination: updaterengine/build/outputs/aar/
       - store_artifacts:
-          path: privilegedinstaller/build/outputs/apk/release
-          destination: apk
+          path: apkupdater/build/outputs/apk/
+          destination: apkupdater/build/outputs/apk/
+      - store_artifacts:
+          path: privilegedinstaller/build/outputs/apk/
+          destination: privilegedinstaller/build/outputs/apk/
 
 workflows:
   version: 2
@@ -185,36 +183,20 @@ workflows:
       - test-proguard:
           requires:
             - checkout-cache
-      - build-apkupdater-debug:
-          filters:
-            branches:
-              ignore: master
+      - build-updaterengine-debug:
           requires:
             - test-lint
             - test-unit-test
             - test-proguard
+      - build-updater-debug:
+          requires:
+            - build-updaterengine-debug
       - build-privilegedinstaller-debug:
-          filters:
-            branches:
-              ignore: master
           requires:
             - test-lint
             - test-unit-test
             - test-proguard
-      # TODO: Release the engine lib to Jitpack?
-      - build-apkupdater-release:
+      - deploy-all-releases:
           filters:
             branches:
               only: master
-          requires:
-            - test-lint
-            - test-unit-test
-            - test-proguard
-      - build-privilegedinstaller-release:
-          filters:
-            branches:
-              only: master
-          requires:
-            - test-lint
-            - test-unit-test
-            - test-proguard

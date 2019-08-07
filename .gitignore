@@ -10,7 +10,7 @@
 **/fabric.properties
 
 # Release Signing
-keystore.properties
+**/*keystore.properties
 **/*.keystore
 
 # Fastlane Report
