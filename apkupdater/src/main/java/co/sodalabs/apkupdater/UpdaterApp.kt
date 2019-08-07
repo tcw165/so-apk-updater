@@ -129,20 +129,22 @@ class UpdaterApp : MultiDexApplication() {
 
     private fun generateUpdaterConfig(): ApkUpdaterConfig {
         val hostPackageName = packageName
-        val checkInterval = appPreferences.getInt(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, BuildConfig.UPDATE_CHECK_INTERVAL_SECONDS).toMilliseconds()
-        val installHourBegin = appPreferences.getInt(PreferenceProps.UPDATE_INSTALL_HOUR_BEGIN, BuildConfig.UPDATE_INSTALL_HOUR_BEGIN)
-        val installHourEnd = appPreferences.getInt(PreferenceProps.UPDATE_INSTALL_HOUR_END, BuildConfig.UPDATE_INSTALL_HOUR_END)
-        val installAllowDowngrade = appPreferences.getBoolean(PreferenceProps.UPDATE_INSTALL_ALLOW_DOWNGRADE, BuildConfig.UPDATE_INSTALL_ALLOW_DOWNGRADE)
         val heartbeatInterval = appPreferences.getInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS).toMilliseconds()
+        val checkInterval = appPreferences.getInt(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS).toMilliseconds()
+        val downloadUseCache = appPreferences.getBoolean(PreferenceProps.DOWNLOAD_USE_CACHE, BuildConfig.DOWNLOAD_USE_CACHE)
+        val installHourBegin = appPreferences.getInt(PreferenceProps.INSTALL_HOUR_BEGIN, BuildConfig.INSTALL_HOUR_BEGIN)
+        val installHourEnd = appPreferences.getInt(PreferenceProps.INSTALL_HOUR_END, BuildConfig.INSTALL_HOUR_END)
+        val installAllowDowngrade = appPreferences.getBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
 
         return ApkUpdaterConfig(
             hostPackageName = hostPackageName,
             // packageNames = listOf(hostPackageName, *BuildUtils.PACKAGES_TO_CHECK)
             packageNames = listOf(*BuildUtils.PACKAGES_TO_CHECK),
+            heartBeatIntervalMs = heartbeatInterval,
             checkIntervalMs = checkInterval,
+            downloadUseCache = downloadUseCache,
             installWindow = IntRange(installHourBegin, installHourEnd),
-            installAllowDowngrade = installAllowDowngrade,
-            heartBeatIntervalMs = heartbeatInterval
+            installAllowDowngrade = installAllowDowngrade
         )
     }
 
@@ -159,18 +161,34 @@ class UpdaterApp : MultiDexApplication() {
         if (!appPreferences.containsKey(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS)) {
             appPreferences.putInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.WRITE_TIMEOUT_SECONDS)
         }
-        // Update
-        if (!appPreferences.containsKey(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS)) {
-            appPreferences.putInt(PreferenceProps.UPDATE_CHECK_INTERVAL_SECONDS, BuildConfig.UPDATE_CHECK_INTERVAL_SECONDS)
+        // Updater
+        if (!appPreferences.containsKey(PreferenceProps.CHECK_INTERVAL_SECONDS)) {
+            appPreferences.putInt(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS)
         }
-        if (!appPreferences.containsKey(PreferenceProps.UPDATE_INSTALL_HOUR_BEGIN)) {
-            appPreferences.putInt(PreferenceProps.UPDATE_INSTALL_HOUR_BEGIN, BuildConfig.UPDATE_INSTALL_HOUR_BEGIN)
+        if (!appPreferences.containsKey(PreferenceProps.INSTALL_HOUR_BEGIN)) {
+            appPreferences.putInt(PreferenceProps.INSTALL_HOUR_BEGIN, BuildConfig.INSTALL_HOUR_BEGIN)
         }
-        if (!appPreferences.containsKey(PreferenceProps.UPDATE_INSTALL_HOUR_END)) {
-            appPreferences.putInt(PreferenceProps.UPDATE_INSTALL_HOUR_END, BuildConfig.UPDATE_INSTALL_HOUR_END)
+        if (!appPreferences.containsKey(PreferenceProps.INSTALL_HOUR_END)) {
+            appPreferences.putInt(PreferenceProps.INSTALL_HOUR_END, BuildConfig.INSTALL_HOUR_END)
         }
-        if (!appPreferences.containsKey(PreferenceProps.UPDATE_INSTALL_ALLOW_DOWNGRADE)) {
-            appPreferences.putBoolean(PreferenceProps.UPDATE_INSTALL_ALLOW_DOWNGRADE, BuildConfig.UPDATE_INSTALL_ALLOW_DOWNGRADE)
+        if (!appPreferences.containsKey(PreferenceProps.INSTALL_ALLOW_DOWNGRADE)) {
+            appPreferences.putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
+        }
+        if (!appPreferences.containsKey(PreferenceProps.DOWNLOAD_USE_CACHE)) {
+            appPreferences.putBoolean(PreferenceProps.DOWNLOAD_USE_CACHE, BuildConfig.DOWNLOAD_USE_CACHE)
+        }
+        // Heartbeat
+        if (!appPreferences.containsKey(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)) {
+            appPreferences.putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
+        }
+        if (!appPreferences.containsKey(PreferenceProps.INSTALL_HOUR_BEGIN)) {
+            appPreferences.putInt(PreferenceProps.INSTALL_HOUR_BEGIN, BuildConfig.INSTALL_HOUR_BEGIN)
+        }
+        if (!appPreferences.containsKey(PreferenceProps.INSTALL_HOUR_END)) {
+            appPreferences.putInt(PreferenceProps.INSTALL_HOUR_END, BuildConfig.INSTALL_HOUR_END)
+        }
+        if (!appPreferences.containsKey(PreferenceProps.INSTALL_ALLOW_DOWNGRADE)) {
+            appPreferences.putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
         }
         // Heartbeat
         if (!appPreferences.containsKey(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)) {

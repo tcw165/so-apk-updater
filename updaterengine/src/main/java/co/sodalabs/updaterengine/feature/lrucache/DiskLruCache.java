@@ -175,7 +175,7 @@ public final class DiskLruCache implements Closeable {
         }
     };
 
-    private DiskLruCache(File directory, int appVersion, int valueCount, long maxSize) {
+    public DiskLruCache(File directory, int appVersion, int valueCount, long maxSize) {
         this.directory = directory;
         this.appVersion = appVersion;
         this.journalFile = new File(directory, JOURNAL_FILE);
@@ -189,13 +189,9 @@ public final class DiskLruCache implements Closeable {
      * Opens the cache in {@code directory}, creating a cache if none exists
      * there.
      *
-     * @param directory  a writable directory
-     * @param valueCount the number of values per cache entry. Must be positive.
-     * @param maxSize    the maximum number of bytes this cache should use to store
-     *
      * @throws IOException if reading or writing the cache directory fails
      */
-    public static DiskLruCache open(File directory, int appVersion, int valueCount, long maxSize) throws IOException {
+    public void open() throws IOException {
         if (maxSize <= 0) {
             throw new IllegalArgumentException("maxSize <= 0");
         }
@@ -216,27 +212,23 @@ public final class DiskLruCache implements Closeable {
         }
 
         // Prefer to pick up where we left off.
-        DiskLruCache cache = new DiskLruCache(directory, appVersion, valueCount, maxSize);
-        if (cache.journalFile.exists()) {
+        if (journalFile.exists()) {
             try {
-                cache.readJournal();
-                cache.processJournal();
-                return cache;
+                readJournal();
+                processJournal();
+                return;
             } catch (IOException journalIsCorrupt) {
                 System.out.println("DiskLruCache " + directory + " is corrupt: " + journalIsCorrupt.getMessage() + ", removing");
-                cache.delete();
+                delete();
             }
         }
 
         // Create a new empty cache.
-        if (directory.mkdirs()) {
-            cache = new DiskLruCache(directory, appVersion, valueCount, maxSize);
-            cache.rebuildJournal();
+        if (directory.exists() || directory.mkdirs()) {
+            rebuildJournal();
         } else {
             throw new IOException("Cannot create directory");
         }
-
-        return cache;
     }
 
     private void readJournal() throws IOException {
@@ -604,6 +596,11 @@ public final class DiskLruCache implements Closeable {
     /** Returns true if this cache has been closed. */
     public synchronized boolean isClosed() {
         return journalWriter == null;
+    }
+
+    /** Returns true if this cache has been opened. */
+    public synchronized boolean isOpened() {
+        return journalWriter != null;
     }
 
     private void checkNotClosed() {

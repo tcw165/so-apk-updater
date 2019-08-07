@@ -14,7 +14,8 @@ data class ApkUpdaterConfig(
      * day, the same as [Calendar.HOUR_OF_DAY].
      */
     val installWindow: IntRange,
-    val installAllowDowngrade: Boolean
+    val installAllowDowngrade: Boolean,
+    val downloadUseCache: Boolean
 ) {
 
     init {
