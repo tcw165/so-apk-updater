@@ -2,7 +2,8 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
-apply plugin: "io.fabric"
+// For full integration of bugs tracking. e.g. mapping upload
+apply plugin: 'com.bugsnag.android.gradle'
 
 apply from: rootProject.file("gradleScripts/android_app_extension.gradle")
 apply from: rootProject.file("gradleScripts/version_extension.gradle")
@@ -64,10 +65,10 @@ android {
             debuggable true
             minifyEnabled false
 
-            signingConfig signingConfigs.platform
-
             buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "15"
+
             buildConfigField "int", "CHECK_INTERVAL_SECONDS", "300" // 5 min
+
             buildConfigField "int", "INSTALL_HOUR_BEGIN", "0" // 00:00
             buildConfigField "int", "INSTALL_HOUR_END", "23" // 23:00
             buildConfigField "boolean", "INSTALL_ALLOW_DOWNGRADE", "true"
@@ -75,32 +76,47 @@ android {
             buildConfigField "int", "CONNECT_TIMEOUT_SECONDS", "30"
             buildConfigField "int", "READ_TIMEOUT_SECONDS", "30"
             buildConfigField "int", "WRITE_TIMEOUT_SECONDS", "30"
+
+            signingConfig signingConfigs.platform
         }
 
         staging {
-            initWith(release)
+            initWith release
             matchingFallbacks = ['release']
 
+            debuggable true
+            useProguard true
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             // Disables PNG crunching for the release build type.
             crunchPngs false
+
+            signingConfig signingConfigs.platform
         }
 
         release {
             debuggable false
+            useProguard true
             minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-
-            signingConfig signingConfigs.platform
-
             // Disables PNG crunching for the release build type.
             crunchPngs false
 
             buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "300" // 5 min
+
             buildConfigField "int", "CHECK_INTERVAL_SECONDS", "86400" // 1 day
+
+            buildConfigField "boolean", "DOWNLOAD_USE_CACHE", "true"
+
+            buildConfigField "boolean", "INSTALL_ALLOW_DOWNGRADE", "false"
 
             buildConfigField "int", "CONNECT_TIMEOUT_SECONDS", "60"
             buildConfigField "int", "READ_TIMEOUT_SECONDS", "60"
             buildConfigField "int", "WRITE_TIMEOUT_SECONDS", "60"
+
+            signingConfig signingConfigs.platform
         }
     }
 
@@ -176,6 +192,8 @@ androidExtensions {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
+    implementation project(":updaterengine")
+
     // Android
     implementation deps.androidx.appcompat
     implementation deps.androidx.annotations
@@ -221,13 +239,9 @@ dependencies {
     implementation deps.moshi.lib
     kapt deps.moshi.codegen
 
-    implementation project(":updaterengine")
-
     // Tracking
     implementation deps.tracking.timber
-    implementation('com.crashlytics.sdk.android:crashlytics:2.9.8@aar') {
-        transitive = true
-    }
+    implementation 'com.bugsnag:bugsnag-android:4.17.2'
 
     // Better dimens
     implementation deps.scaleDimen.sdp

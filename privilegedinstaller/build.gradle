@@ -2,6 +2,9 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
+// For full integration of bugs tracking. e.g. mapping upload
+apply plugin: 'com.bugsnag.android.gradle'
+
 apply from: rootProject.file("gradleScripts/android_app_extension.gradle")
 apply from: rootProject.file("gradleScripts/version_extension.gradle")
 
@@ -53,25 +56,34 @@ android {
     buildTypes {
         debug {
             // Keep IPackageInstallObserver and IPackageDeleteObserver
-            minifyEnabled false
             useProguard false
+            minifyEnabled false
             shrinkResources false
 
             signingConfig signingConfigs.platform
         }
 
         staging {
-            initWith(release)
+            initWith release
             matchingFallbacks = ['release']
 
             debuggable true
+            useProguard true
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // Disables PNG crunching for the release build type.
+            crunchPngs false
+
+            signingConfig signingConfigs.platform
         }
 
         release {
             debuggable false
             useProguard true
-            shrinkResources true
             minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             // Disables PNG crunching for the release build type.
             crunchPngs false
 

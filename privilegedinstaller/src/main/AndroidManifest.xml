@@ -20,6 +20,10 @@
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
 
+        <meta-data
+            android:name="com.bugsnag.android.API_KEY"
+            android:value="60971df94e9a3ed63bcb65a8c32cd6da" />
+
         <!--
         Android requires a default Activity for adb-install, otherwise we'll bake
         this app in the Android Image.

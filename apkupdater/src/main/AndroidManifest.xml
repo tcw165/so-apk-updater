@@ -16,8 +16,11 @@
         tools:ignore="GoogleAppIndexingWarning">
 
         <meta-data
-            android:name="io.fabric.ApiKey"
-            android:value="899dcee9306ec461449140c2bcf50da976c36991" />
+            android:name="com.bugsnag.android.API_KEY"
+            android:value="60971df94e9a3ed63bcb65a8c32cd6da" />
+        <!--<meta-data-->
+        <!--android:name="io.fabric.ApiKey"-->
+        <!--android:value="899dcee9306ec461449140c2bcf50da976c36991" />-->
 
         <activity android:name=".feature.adminui.SettingsActivity">
             <intent-filter>
