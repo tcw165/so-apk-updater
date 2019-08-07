@@ -11,72 +11,41 @@ import android.os.Build
 import android.os.PersistableBundle
 import android.os.SystemClock
 import androidx.core.app.JobIntentService
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterJobs.JOB_ID_CHECK_UPDATES
 import co.sodalabs.updaterengine.data.AppUpdate
+import co.sodalabs.updaterengine.feature.core.AppUpdaterService
 import retrofit2.HttpException
 import timber.log.Timber
 import javax.inject.Inject
 
 private const val INITIAL_CHECK_DELAY = 5000L
 
-class CheckService : JobIntentService() {
+class CheckJobIntentService : JobIntentService() {
 
     companion object {
-
-        fun cancelAllPendingJobs(
-            context: Context
-        ) {
-            val intent = Intent(context, CheckService::class.java)
-            intent.action = IntentActions.ACTION_CHECK_UPDATES
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("(>= 21) Cancel the pending jobs using android-21 JobScheduler")
-                val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-                jobScheduler.cancel(JOB_ID_CHECK_UPDATES)
-            } else {
-                Timber.v("(< 21) Cancel the pending jobs using AlarmManager")
-                val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
-                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                alarmManager.cancel(pendingIntent)
-            }
-
-            // Stop the service immediately
-            Timber.v("Stop the service now!")
-            context.stopService(intent)
-        }
 
         fun checkUpdatesNow(
             context: Context,
             packageNames: Array<String>
         ) {
-            // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Timber.v("(>= 26) Schedule an immediate version-check with Service#enqueueWork()")
-            val intent = Intent(context, CheckService::class.java)
+            val intent = Intent(context, CheckJobIntentService::class.java)
             intent.action = IntentActions.ACTION_CHECK_UPDATES
             intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames)
-            enqueueWork(context, ComponentName(context, CheckService::class.java), JOB_ID_CHECK_UPDATES, intent)
-            // } else {
-            //     Timber.v("(< 26) Schedule an immediate version-check with Context#startService()")
-            //     val intent = Intent(context, CheckService::class.java)
-            //     intent.action = IntentActions.ACTION_CHECK_UPDATES
-            //     intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames)
-            //     context.startService(intent)
-            // }
+            enqueueWork(context, ComponentName(context, CheckJobIntentService::class.java), JOB_ID_CHECK_UPDATES, intent)
         }
 
-        fun scheduleUpdatesCheck(
+        fun scheduleRecurringUpdateCheck(
             context: Context,
-            interval: Long,
-            packageNames: Array<String>
+            packageNames: Array<String>,
+            interval: Long
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("(< 21) Schedule a recurring update, using AlarmManager")
+                Timber.v("[Check] (< 21) Schedule a recurring update, using AlarmManager")
 
-                val intent = Intent(context, CheckService::class.java)
+                val intent = Intent(context, CheckJobIntentService::class.java)
                 intent.action = IntentActions.ACTION_CHECK_UPDATES
                 intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames)
 
@@ -86,13 +55,13 @@ class CheckService : JobIntentService() {
                 // TODO: Do we need to recover the scheduling on boot?
                 alarmManager.cancel(pendingIntent)
                 alarmManager.setInexactRepeating(
-                    AlarmManager.ELAPSED_REALTIME,
+                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
                     SystemClock.elapsedRealtime() + INITIAL_CHECK_DELAY,
                     interval,
                     pendingIntent
                 )
             } else {
-                Timber.v("(>= 21) Schedule a recurring update, using android-21 JobScheduler")
+                Timber.v("[Check] (>= 21) Schedule a recurring update, using android-21 JobScheduler")
 
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
                 val componentName = ComponentName(context, CheckJobService::class.java)
@@ -116,6 +85,28 @@ class CheckService : JobIntentService() {
                 jobScheduler.cancel(JOB_ID_CHECK_UPDATES)
                 jobScheduler.schedule(builder.build())
             }
+        }
+
+        fun cancelRecurringUpdateCheck(
+            context: Context
+        ) {
+            val intent = Intent(context, CheckJobIntentService::class.java)
+            intent.action = IntentActions.ACTION_CHECK_UPDATES
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                Timber.v("[Check] (>= 21) Cancel the pending jobs using android-21 JobScheduler")
+                val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
+                jobScheduler.cancel(JOB_ID_CHECK_UPDATES)
+            } else {
+                Timber.v("[Check] (< 21) Cancel the pending jobs using AlarmManager")
+                val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                alarmManager.cancel(pendingIntent)
+            }
+
+            // Stop the service immediately
+            Timber.v("[Check] Stop the service now!")
+            context.stopService(intent)
         }
     }
 
@@ -145,33 +136,24 @@ class CheckService : JobIntentService() {
 
     // Check Updates //////////////////////////////////////////////////////////
 
-    private val broadcastManager by lazy { LocalBroadcastManager.getInstance(this) }
-
     private fun checkAppUpdates(
         intent: Intent
     ) {
         val packageNames = intent.getStringArrayExtra(IntentActions.PROP_APP_PACKAGE_NAMES) ?: throw IllegalArgumentException("Must provide a package name list")
 
         val updates = mutableListOf<AppUpdate>()
+        var updatesError: Throwable? = null
         packageNames.forEach { name ->
             try {
                 val update = queryAppUpdate(name)
                 updates.add(update)
             } catch (err: Throwable) {
-                Timber.e(err)
+                updatesError = err
             }
         }
 
         // Notify the updater to move on!
-        val responseIntent = Intent().apply {
-            if (updates.isNotEmpty()) {
-                action = IntentActions.ACTION_UPDATES_FOUND
-                putExtra(IntentActions.PROP_APP_UPDATES, updates.toTypedArray())
-            } else {
-                action = IntentActions.ACTION_UPDATES_NOT_FOUND
-            }
-        }
-        broadcastManager.sendBroadcast(responseIntent)
+        AppUpdaterService.notifyUpdateCheckComplete(this, updates, updatesError)
     }
 
     private fun queryAppUpdate(
@@ -193,7 +175,7 @@ class CheckService : JobIntentService() {
         // TODO: Convert API response to AppUpdate
         return if (apiResponse.isSuccessful) {
             val body = apiResponse.body() ?: throw NullPointerException("Couldn't get AppUpdate body")
-            Timber.i("[Check] Got latest version, \"${body.versionName}\" for \"$packageName\"")
+            Timber.i("[Check] Found updates, \"${body.versionName}\" for \"$packageName\"")
 
             // Close the connection to avoid leak!
             // apiResponse.raw().close()

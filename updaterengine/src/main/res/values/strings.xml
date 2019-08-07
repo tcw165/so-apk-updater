@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">UpdaterEngine</string>
+    <string name="notification_channel_name">Updater Engine</string>
+    <string name="notification_title">Updater Engine is running</string>
 </resources>

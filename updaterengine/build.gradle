@@ -148,6 +148,9 @@ dependencies {
     // IO
     api deps.fileio.apacheCommonIo
 
+    // Time
+    api deps.threetenbp
+
     // Unit tests.
     testImplementation deps.test.junit
     testImplementation deps.test.mockito

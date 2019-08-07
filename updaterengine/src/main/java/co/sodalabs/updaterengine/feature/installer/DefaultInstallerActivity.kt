@@ -10,7 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import androidx.fragment.app.FragmentActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import co.sodalabs.updaterengine.IntentActions
+import co.sodalabs.updaterengine.BuildConfig
 import timber.log.Timber
 
 private const val REQUEST_CODE_INSTALL = 0
@@ -21,6 +21,15 @@ private const val REQUEST_CODE_UNINSTALL = 1
  */
 class DefaultInstallerActivity : FragmentActivity() {
 
+    companion object {
+        const val ACTION_INSTALL_PACKAGE = "${BuildConfig.APPLICATION_ID}.install_package"
+        const val ACTION_UNINSTALL_PACKAGE = "${BuildConfig.APPLICATION_ID}.uninstall_package"
+
+        const val PROP_FILE_URI = "${BuildConfig.APPLICATION_ID}.file_uri"
+        const val PROP_PACKAGE_NAME = "${BuildConfig.APPLICATION_ID}.package_name"
+        const val PROP_RESULT_BOOLEAN = "${BuildConfig.APPLICATION_ID}.result_boolean"
+    }
+
     private val broadcastManager by lazy { LocalBroadcastManager.getInstance(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -28,13 +37,16 @@ class DefaultInstallerActivity : FragmentActivity() {
 
         Timber.v("[Install] The transparent default-install Activity is online")
 
-        val packageName = intent.getStringExtra(IntentActions.PROP_APP_PACKAGE_NAME)
         when (intent.action) {
-            IntentActions.ACTION_INSTALL_APP -> {
-                val localApkUri = intent.getParcelableExtra<Uri>(IntentActions.PROP_APP_FILE_URI)
-                launchSystemUIForInstall(localApkUri, packageName)
+            ACTION_INSTALL_PACKAGE -> {
+                val fileURI = intent.getParcelableExtra<Uri>(PROP_FILE_URI)
+                val packageName = intent.getStringExtra(PROP_PACKAGE_NAME)
+                launchSystemUIForInstall(fileURI, packageName)
             }
-            IntentActions.ACTION_UNINSTALL_APP -> uninstallPackage(packageName)
+            ACTION_UNINSTALL_PACKAGE -> {
+                val packageName = intent.getStringExtra(PROP_PACKAGE_NAME)
+                uninstallPackage(packageName)
+            }
             else -> throw IllegalStateException("Intent action not specified!")
         }
     }
@@ -46,14 +58,14 @@ class DefaultInstallerActivity : FragmentActivity() {
 
     @SuppressLint("InlinedApi")
     private fun launchSystemUIForInstall(
-        localApkUri: Uri,
+        fileURI: Uri,
         packageName: String
     ) {
         // https://code.google.com/p/android/issues/detail?id=205827
-        if (Build.VERSION.SDK_INT < 24 && localApkUri.scheme != "file") {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N && fileURI.scheme != "file") {
             throw RuntimeException("PackageInstaller < Android N only supports file scheme!")
         }
-        if (Build.VERSION.SDK_INT >= 24 && localApkUri.scheme != "content") {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && fileURI.scheme != "content") {
             throw RuntimeException("PackageInstaller >= Android N only supports content scheme!")
         }
 
@@ -62,32 +74,26 @@ class DefaultInstallerActivity : FragmentActivity() {
         // Note regarding EXTRA_NOT_UNKNOWN_SOURCE:
         // works only when being installed as system-app
         // https://code.google.com/p/android/issues/detail?id=42253
-        if (Build.VERSION.SDK_INT < 24) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
             Timber.v("[Install] Prepare the intent with manner (< 24)")
             intent.action = Intent.ACTION_INSTALL_PACKAGE
-            intent.data = localApkUri
+            intent.data = fileURI
             intent.putExtra(Intent.EXTRA_RETURN_RESULT, true)
             intent.putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, false)
             intent.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME, applicationInfo.packageName)
-            // Updater engine data
-            intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAME, packageName)
-            intent.putExtra(IntentActions.PROP_APP_FILE_URI, localApkUri)
         } else { // Android N
             Timber.v("[Install] Prepare the intent with manner (>= 24)")
             intent.action = Intent.ACTION_INSTALL_PACKAGE
-            intent.data = localApkUri
+            intent.data = fileURI
             // grant READ permission for this content Uri
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             intent.putExtra(Intent.EXTRA_RETURN_RESULT, true)
             intent.putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, false)
             intent.putExtra(Intent.EXTRA_INSTALLER_PACKAGE_NAME, applicationInfo.packageName)
-            // Updater engine data
-            intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAME, packageName)
-            intent.putExtra(IntentActions.PROP_APP_FILE_URI, localApkUri)
         }
 
         try {
-            Timber.v("[Install] Delegate to system UI for installing \"$packageName\" (from \"$localApkUri\")")
+            Timber.v("[Install] Delegate to system UI for installing \"$packageName\" (from \"$fileURI\")")
             startActivityForResult(intent, REQUEST_CODE_INSTALL)
         } catch (e: ActivityNotFoundException) {
             Timber.e(e)
@@ -118,6 +124,7 @@ class DefaultInstallerActivity : FragmentActivity() {
             startActivityForResult(intent, REQUEST_CODE_UNINSTALL)
         } catch (e: ActivityNotFoundException) {
             Timber.e(e)
+            notifyViaLocalBroadcast(ACTION_INSTALL_PACKAGE, false)
             finish()
         }
     }
@@ -127,28 +134,23 @@ class DefaultInstallerActivity : FragmentActivity() {
         resultCode: Int,
         data: Intent?
     ) {
-        // val localApkUri = safeIntent.getParcelableExtra<Uri>(PROP_APP_FILE_URI)
-        val packageName = intent.getStringExtra(IntentActions.PROP_APP_PACKAGE_NAME)
+        super.onActivityResult(requestCode, resultCode, data)
 
+        val packageName = intent.getStringExtra(PROP_PACKAGE_NAME)
         when (requestCode) {
             REQUEST_CODE_INSTALL -> {
                 when (resultCode) {
                     Activity.RESULT_OK -> {
                         Timber.v("[Install] Install completes for \"$packageName\"")
-                        notifyViaLocalBroadcast(IntentActions.ACTION_INSTALL_SUCCESSFULLY, packageName)
+                        notifyViaLocalBroadcast(ACTION_INSTALL_PACKAGE, true)
                     }
                     Activity.RESULT_CANCELED -> {
                         Timber.v("[Install] Install gets cancelled for \"$packageName\"")
-                        notifyViaLocalBroadcast(IntentActions.ACTION_INSTALL_CANCELLED, packageName)
-                    }
-                    Activity.RESULT_FIRST_USER -> {
-                        // AOSP returns Activity.RESULT_FIRST_USER on error
-                        Timber.e("[Install] Install fails for \"$packageName\"")
-                        notifyViaLocalBroadcast(IntentActions.ACTION_INSTALL_FAILED, packageName)
+                        notifyViaLocalBroadcast(ACTION_INSTALL_PACKAGE, false)
                     }
                     else -> {
                         Timber.e("[Install] Install fails for \"$packageName\"")
-                        notifyViaLocalBroadcast(IntentActions.ACTION_INSTALL_FAILED, packageName)
+                        notifyViaLocalBroadcast(ACTION_INSTALL_PACKAGE, false)
                     }
                 }
             }
@@ -156,20 +158,15 @@ class DefaultInstallerActivity : FragmentActivity() {
                 when (resultCode) {
                     Activity.RESULT_OK -> {
                         Timber.v("[Install] Uninstall completes for \"$packageName\"")
-                        notifyViaLocalBroadcast(IntentActions.ACTION_UNINSTALL_SUCCESSFULLY, packageName)
+                        notifyViaLocalBroadcast(ACTION_UNINSTALL_PACKAGE, true)
                     }
                     Activity.RESULT_CANCELED -> {
                         Timber.v("[Install] Uninstall gets cancelled for \"$packageName\"")
-                        notifyViaLocalBroadcast(IntentActions.ACTION_UNINSTALL_CANCELLED, packageName)
-                    }
-                    Activity.RESULT_FIRST_USER -> {
-                        Timber.e("[Install] Uninstall fails for \"$packageName\"")
-                        // AOSP UninstallAppProgress returns RESULT_FIRST_USER on error
-                        notifyViaLocalBroadcast(IntentActions.ACTION_UNINSTALL_FAILED, packageName)
+                        notifyViaLocalBroadcast(ACTION_UNINSTALL_PACKAGE, false)
                     }
                     else -> {
                         Timber.e("[Install] Uninstall fails for \"$packageName\"")
-                        notifyViaLocalBroadcast(IntentActions.ACTION_UNINSTALL_FAILED, packageName)
+                        notifyViaLocalBroadcast(ACTION_UNINSTALL_PACKAGE, false)
                     }
                 }
             }
@@ -182,12 +179,10 @@ class DefaultInstallerActivity : FragmentActivity() {
 
     private fun notifyViaLocalBroadcast(
         action: String,
-        packageName: String
+        isOk: Boolean
     ) {
-        val intent = Intent()
-        intent.action = action
-        intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAME, packageName)
-
+        val intent = Intent(action)
+        intent.putExtra(PROP_RESULT_BOOLEAN, isOk)
         broadcastManager.sendBroadcast(intent)
     }
 }

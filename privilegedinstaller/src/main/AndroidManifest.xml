@@ -20,8 +20,20 @@
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
 
+        <!--
+        Android requires a default Activity for adb-install, otherwise we'll bake
+        this app in the Android Image.
+        -->
+        <activity android:name=".DummyActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <service
-            android:name=".PrivilegedService"
+            android:name=".PrivilegedInstallerService"
             android:enabled="true"
             android:exported="true"
             android:process=":soda_privileged"

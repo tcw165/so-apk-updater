@@ -1,14 +1,17 @@
 package co.sodalabs.apkupdater.feature.adminui
 
+import android.content.IntentFilter
 import android.os.Bundle
 import android.widget.Toast
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import co.sodalabs.apkupdater.R
 import co.sodalabs.apkupdater.data.UiState
+import co.sodalabs.privilegedinstaller.RxLocalBroadcastReceiver
 import co.sodalabs.updaterengine.ApkUpdater
+import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
-import co.sodalabs.updaterengine.data.Apk
+import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import co.sodalabs.updaterengine.extension.smartRetryWhen
@@ -60,12 +63,20 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     @Suppress("USELESS_CAST")
     private fun observeHeartBeatNowClicks() {
+        val safeContext = context ?: throw NullPointerException("Context is null")
+
         sendHeartBeatNowPref.clicks()
             .flatMap {
                 ApkUpdater.sendHeartBeatNow()
-                    .map { UiState.Done(it) as UiState<Int> }
-                    .toObservable()
+
+                val intentFilter = IntentFilter(IntentActions.ACTION_SEND_HEART_BEAT_NOW)
+                RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
+                    .map { intent ->
+                        val statusCode = intent.getIntExtra(IntentActions.PROP_HTTP_RESPONSE_CODE, 0)
+                        UiState.Done(statusCode) as UiState<Int>
+                    }
                     .startWith(UiState.InProgress())
+                    .take(2)
             }
             .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
                 caughtErrorRelay.accept(error)
@@ -126,12 +137,20 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     @Suppress("USELESS_CAST")
     private fun observeDownloadTestNowClicks() {
+        val safeContext = context ?: throw NullPointerException("Context is null")
+
         downloadTestAppNowPref.clicks()
             .flatMap {
-                ApkUpdater.downloadUpdateNow(FakeUpdates.filesTotoal830MB)
-                    .map { UiState.Done(it) as UiState<List<Apk>> }
-                    .toObservable()
+                ApkUpdater.downloadUpdateNow(FakeUpdates.file170MB)
+
+                val intentFilter = IntentFilter(IntentActions.ACTION_DOWNLOAD_UPDATES)
+                RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
+                    .map { intent ->
+                        val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
+                        UiState.Done(downloadedUpdates.toList()) as UiState<List<DownloadedUpdate>>
+                    }
                     .startWith(UiState.InProgress())
+                    .take(2)
             }
             .observeOn(AndroidSchedulers.mainThread())
             .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
@@ -142,12 +161,12 @@ class SettingsFragment : PreferenceFragmentCompat() {
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe({ uiState ->
                 when (uiState) {
-                    is UiState.InProgress<List<Apk>> -> {
+                    is UiState.InProgress<List<DownloadedUpdate>> -> {
                         markTestDownloadWIP()
                     }
-                    is UiState.Done<List<Apk>> -> {
-                        val apks = uiState.data
-                        Timber.v("[Download] files: $apks")
+                    is UiState.Done<List<DownloadedUpdate>> -> {
+                        // val apks = uiState.data
+                        // Timber.v("[Download] files: $apks")
                         markTestDownloadDone()
                     }
                 }

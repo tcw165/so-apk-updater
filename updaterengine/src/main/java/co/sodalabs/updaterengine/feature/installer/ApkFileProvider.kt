@@ -42,15 +42,14 @@ class ApkFileProvider : FileProvider() {
          * itself handles their whole installation process.
          */
         @Throws(IOException::class)
-        fun getSafeUri(
+        fun fromFile(
             context: Context,
-            localApkUri: Uri
+            file: File
         ): Uri {
-            val apkFile = File(localApkUri.path)
-            return getSafeUri(
+            return fromFile(
                 context,
-                apkFile,
-                Build.VERSION.SDK_INT >= 24
+                file,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
             )
         }
 
@@ -67,23 +66,23 @@ class ApkFileProvider : FileProvider() {
          * it to be installed and the installer actually installing it.
          */
         @SuppressLint("SetWorldReadable")
-        private fun getSafeUri(
+        private fun fromFile(
             context: Context,
-            apkFile: File,
+            file: File,
             useContentUri: Boolean
         ): Uri {
             return if (useContentUri) {
                 // TODO: Research if we need to inject
                 val authority = context.packageName + AUTHORITY_SUFFIX
-                val apkUri = getUriForFile(context, authority, apkFile)
+                val apkUri = getUriForFile(context, authority, file)
                 context.grantUriPermission(
                     Packages.PRIVILEGED_EXTENSION_PACKAGE_NAME,
                     apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION
                 )
                 apkUri
             } else {
-                apkFile.setReadable(true, false)
-                Uri.fromFile(apkFile)
+                file.setReadable(true, false)
+                Uri.fromFile(file)
             }
         }
     }

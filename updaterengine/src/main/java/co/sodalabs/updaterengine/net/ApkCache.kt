@@ -2,7 +2,7 @@ package co.sodalabs.updaterengine.net
 
 import android.content.Context
 import android.net.Uri
-import co.sodalabs.updaterengine.data.Apk
+import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.data.SanitizedFile
 import co.sodalabs.updaterengine.utils.Hasher
 import co.sodalabs.updaterengine.utils.StorageUtils
@@ -26,11 +26,11 @@ object ApkCache {
     fun copyApkFromCacheToFiles(
         context: Context,
         apkFile: File,
-        expectedApk: Apk
+        expectedDownloadedUpdate: DownloadedUpdate
     ): SanitizedFile {
-        val name = expectedApk.fromUpdate.packageName
-        val apkFileName = name + "-" + expectedApk.fromUpdate.versionName + ".apk"
-        return copyApkToFiles(context, apkFile, apkFileName, true, expectedApk.fromUpdate.hash ?: "")
+        val name = expectedDownloadedUpdate.fromUpdate.packageName
+        val apkFileName = name + "-" + expectedDownloadedUpdate.fromUpdate.versionName + ".apk"
+        return copyApkToFiles(context, apkFile, apkFileName, true, expectedDownloadedUpdate.fromUpdate.hash ?: "")
     }
 
     /**
@@ -61,7 +61,7 @@ object ApkCache {
         Timber.d("copyApkToFiles: ${apkFile.path} -> ${sanitizedApkFile.path}")
         FileUtils.copyFile(apkFile, sanitizedApkFile)
 
-        // verify copied file's hash install expected hash from Apk class
+        // verify copied file's hash install expected hash from DownloadedUpdate class
         if (verifyHash && !Hasher.isFileMatchingHash(sanitizedApkFile, hash)) {
             FileUtils.deleteQuietly(apkFile)
             throw IOException("$apkFile failed to verify!")

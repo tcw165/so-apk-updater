@@ -7,7 +7,7 @@ import co.sodalabs.apkupdater.BuildConfig
 import co.sodalabs.apkupdater.IAppPreference
 import co.sodalabs.apkupdater.data.PreferenceProps
 import co.sodalabs.apkupdater.di.ApplicationScope
-import co.sodalabs.apkupdater.feature.checker.SparkPointAppUpdatesChecker
+import co.sodalabs.apkupdater.feature.checker.SparkPointUpdatesChecker
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
 import co.sodalabs.apkupdater.feature.heartbeat.SparkPointHeartBeater
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
@@ -41,7 +41,7 @@ class UpdaterModule @Inject constructor(
 ) {
 
     // FIXME: Use @Bind or DaggerAndroid way to avoid boilerplate code.
-    private val checker by lazy { SparkPointAppUpdatesChecker(context, schedulers) }
+    private val checker by lazy { SparkPointUpdatesChecker(context, schedulers) }
     // Use default download and installer from the update engine.
     private val downloader by lazy { DefaultUpdatesDownloader(context, schedulers) }
     private val installer by lazy { DefaultAppUpdatesInstaller(context, schedulers) }

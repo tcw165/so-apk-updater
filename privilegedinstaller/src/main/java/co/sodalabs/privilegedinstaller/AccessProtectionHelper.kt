@@ -6,7 +6,6 @@ import android.os.Binder
 import timber.log.Timber
 import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.math.BigInteger
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
 import java.util.Arrays
@@ -48,8 +47,10 @@ class AccessProtectionHelper(
             val currentPackageCert = getPackageCertificate(packageName)
             val digest = MessageDigest.getInstance("SHA-256")
             val packageHash = digest.digest(currentPackageCert)
-            val packageHashString = BigInteger(1, packageHash).toString(16)
-            Timber.v("Compare caller's package cert hash: \"$packageHashString\" with...")
+
+            // Note: Keep the hash string for debug, yet please be careful and don't
+            // accidentally leak the cert in log!
+            // val packageHashString = BigInteger(1, packageHash).toString(16)
 
             val whitelist = BuildConfig.CLIENT_WHITELIST
             for (i in 0 until whitelist.size) {
@@ -58,18 +59,15 @@ class AccessProtectionHelper(
 
                 val packageCertMatches = Arrays.equals(whitelistHash, packageHash)
                 if (packageCertMatches) {
-                    Timber.v("....\"$hash\" ==> matched")
                     Timber.v("Caller (package name: \"$packageName\") is allowed to access the privileged extension!")
                     return true
-                } else {
-                    Timber.v("....\"$hash\"")
                 }
             }
         } catch (e: NoSuchAlgorithmException) {
             throw RuntimeException(e.message)
         }
 
-        Timber.v("Caller (package name: \"$packageName\") is NOT allowed to access the privileged extension!")
+        Timber.e("Caller (package name: \"$packageName\") is NOT allowed to access the privileged extension!")
         return false
     }
 

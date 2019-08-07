@@ -17,6 +17,9 @@
 
     <string name="update_category">Updater</string>
     <string name="update_check_interval">Check Interval</string>
+    <string name="update_install_hour_begin">Install Window: Begin Hour of Day</string>
+    <string name="update_install_hour_end">Install Window: End Hour of Day</string>
+    <string name="update_install_allow_downgrade">Install Allow Downgrade</string>
     <string name="update_download_cache_max_size">Download Cache Max Size</string>
 
     <string name="other_category">Other</string>

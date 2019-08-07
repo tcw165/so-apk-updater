@@ -1,15 +1,16 @@
 package co.sodalabs.updaterengine.feature.installer
 
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.Intent.ACTION_UNINSTALL_PACKAGE
-import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-import android.net.Uri
-import co.sodalabs.updaterengine.IntentActions.ACTION_INSTALL_APP
-import co.sodalabs.updaterengine.IntentActions.PROP_APP_FILE_URI
-import co.sodalabs.updaterengine.IntentActions.PROP_APP_PACKAGE_NAME
-import io.reactivex.Observable
-import timber.log.Timber
+import android.content.IntentFilter
+import co.sodalabs.updaterengine.Intervals
+import co.sodalabs.updaterengine.data.DownloadedUpdate
+import co.sodalabs.updaterengine.exception.CompositeException
+import java.util.LinkedList
+import java.util.Queue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
 The default installer of F-Droid. It uses the normal Intents APIs of Android
@@ -22,44 +23,76 @@ class DefaultInstaller(
     context: Context
 ) : Installer(context) {
 
-    override fun start() {
-        Timber.v("[Install] Default apps installer is online")
-        // No-op
-    }
-
-    override fun stop() {
-        Timber.v("[Install] Default apps installer is offline")
-        // No-op
-    }
-
-    override fun observeReady(): Observable<Boolean> {
-        return Observable.just(true)
-    }
-
     override fun installPackageInternal(
-        localApkUri: Uri,
-        packageName: String
+        localUpdates: List<DownloadedUpdate>
     ) {
-        val installIntent = Intent(context, DefaultInstallerActivity::class.java)
-        // installIntent.addFlags(FLAG_ACTIVITY_CLEAR_TASK or FLAG_ACTIVITY_NEW_TASK)
-        installIntent.addFlags(FLAG_ACTIVITY_NEW_TASK)
-        installIntent.action = ACTION_INSTALL_APP
-        installIntent.putExtra(PROP_APP_FILE_URI, localApkUri)
-        installIntent.putExtra(PROP_APP_PACKAGE_NAME, packageName)
+        val remainingUpdates: Queue<DownloadedUpdate> = LinkedList(localUpdates)
+        val errors = mutableListOf<Throwable>()
 
-        context.startActivity(installIntent)
+        while (remainingUpdates.isNotEmpty()) {
+            val countDownLatch = CountDownLatch(1)
+            val update = remainingUpdates.poll()
+            val installIntent = Intent(context, DefaultInstallerActivity::class.java)
+            // val fileURI = Uri.fromFile(update.file)
+            val fileURI = ApkFileProvider.fromFile(context, update.file)
+            val packageName = update.fromUpdate.packageName
+            installIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+            installIntent.action = DefaultInstallerActivity.ACTION_INSTALL_PACKAGE
+            installIntent.putExtra(DefaultInstallerActivity.PROP_FILE_URI, fileURI)
+            installIntent.putExtra(DefaultInstallerActivity.PROP_PACKAGE_NAME, packageName)
+
+            val installReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    // val installComplete = intent.getBooleanExtra(DefaultInstallerActivity.PROP_RESULT_BOOLEAN)
+                    countDownLatch.countDown()
+                }
+            }
+            context.registerReceiver(installReceiver, IntentFilter(DefaultInstallerActivity.ACTION_INSTALL_PACKAGE))
+            context.startActivity(installIntent)
+
+            // Wait for response and then move on
+            countDownLatch.await(Intervals.TIMEOUT_INSTALL_MIN, TimeUnit.MINUTES)
+
+            context.unregisterReceiver(installReceiver)
+        }
+
+        // Throw the errors (if they present) when everything is done.
+        if (errors.isNotEmpty()) {
+            throw CompositeException(errors)
+        }
     }
 
     override fun uninstallPackage(
-        packageName: String
+        packageNames: List<String>
     ) {
-        val uninstallIntent = Intent(context, DefaultInstallerActivity::class.java)
-        uninstallIntent.action = ACTION_UNINSTALL_PACKAGE
-        uninstallIntent.addFlags(FLAG_ACTIVITY_NEW_TASK)
-        uninstallIntent.putExtra(PROP_APP_PACKAGE_NAME, packageName)
+        val remainingUninstalls: Queue<String> = LinkedList(packageNames)
+        val errors = mutableListOf<Throwable>()
 
-        context.startActivity(uninstallIntent)
+        while (remainingUninstalls.isNotEmpty()) {
+            val countDownLatch = CountDownLatch(1)
+            val packageName = remainingUninstalls.poll()
+            val uninstallIntent = Intent(context, DefaultInstallerActivity::class.java)
+            uninstallIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+            uninstallIntent.action = DefaultInstallerActivity.ACTION_UNINSTALL_PACKAGE
+            uninstallIntent.putExtra(DefaultInstallerActivity.PROP_PACKAGE_NAME, packageName)
+
+            val installReceiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) {
+                    countDownLatch.countDown()
+                }
+            }
+            context.registerReceiver(installReceiver, IntentFilter(DefaultInstallerActivity.ACTION_UNINSTALL_PACKAGE))
+            context.startActivity(uninstallIntent)
+
+            // Wait for response and then move on
+            countDownLatch.await(Intervals.TIMEOUT_INSTALL_MIN, TimeUnit.MINUTES)
+
+            context.unregisterReceiver(installReceiver)
+        }
+
+        // Throw the errors (if they present) when everything is done.
+        if (errors.isNotEmpty()) {
+            throw CompositeException(errors)
+        }
     }
-
-    override fun isReady(): Boolean = true
 }

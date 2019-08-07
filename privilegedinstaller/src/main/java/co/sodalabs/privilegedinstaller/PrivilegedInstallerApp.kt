@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package co.sodalabs.privilegedinstaller
 
 import androidx.multidex.MultiDexApplication

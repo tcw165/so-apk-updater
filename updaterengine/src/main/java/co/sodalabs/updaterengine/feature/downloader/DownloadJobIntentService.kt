@@ -5,12 +5,11 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.app.JobIntentService
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.data.AppUpdate
-import co.sodalabs.updaterengine.exception.CompositeException
+import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.exception.DownloadCancelledException
 import co.sodalabs.updaterengine.exception.DownloadFileIOException
 import co.sodalabs.updaterengine.exception.DownloadHttpException
@@ -20,6 +19,7 @@ import co.sodalabs.updaterengine.exception.DownloadUnknownErrorException
 import co.sodalabs.updaterengine.exception.HttpMalformedURIException
 import co.sodalabs.updaterengine.exception.HttpTooManyRedirectsException
 import co.sodalabs.updaterengine.extension.mbToBytes
+import co.sodalabs.updaterengine.feature.core.AppUpdaterService
 import co.sodalabs.updaterengine.feature.downloadmanager.DefaultRetryPolicy
 import co.sodalabs.updaterengine.feature.downloadmanager.DownloadManager
 import co.sodalabs.updaterengine.feature.downloadmanager.DownloadRequest
@@ -56,11 +56,7 @@ class DownloadJobIntentService : JobIntentService() {
         ) {
             val intent = Intent(context, DownloadJobIntentService::class.java)
             intent.action = IntentActions.ACTION_DOWNLOAD_UPDATES
-
-            val packageNames = updates.map { it.packageName }
-            intent.putStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES, ArrayList(packageNames))
-            val downloadURLs = updates.map { it.downloadUrl }
-            intent.putStringArrayListExtra(IntentActions.PROP_APP_DOWNLOAD_URIS, ArrayList(downloadURLs))
+            intent.putParcelableArrayListExtra(IntentActions.PROP_FOUND_UPDATES, ArrayList(updates))
 
             enqueueWork(context, ComponentName(context, DownloadJobIntentService::class.java), UpdaterJobs.JOB_ID_DOWNLOAD_UPDATES, intent)
         }
@@ -83,11 +79,10 @@ class DownloadJobIntentService : JobIntentService() {
     override fun onHandleWork(intent: Intent) {
         when (intent.action) {
             IntentActions.ACTION_DOWNLOAD_UPDATES -> {
-                val packageNames = intent.getStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES)
-                val downloadURLs = intent.getStringArrayListExtra(IntentActions.PROP_APP_DOWNLOAD_URIS)
-                download(packageNames, downloadURLs)
+                val updates = intent.getParcelableArrayListExtra<AppUpdate>(IntentActions.PROP_FOUND_UPDATES)
+                download(updates.toList())
             }
-            else -> throw IllegalArgumentException("Hey develop, DownloadJobIntentService is for downloading the app only!")
+            else -> throw IllegalArgumentException("Hey develop, DownloadJobIntentService is for downloading the updates only!")
         }
     }
 
@@ -114,30 +109,24 @@ class DownloadJobIntentService : JobIntentService() {
         ThinDownloadManager(loggingEnabled, THREAD_POOL_SIZE, diskCache)
     }
 
-    /**
-     * We use local broadcast to notify the async result.
-     */
-    private val broadcastManager by lazy { LocalBroadcastManager.getInstance(this) }
-
     private fun download(
-        packageNames: List<String>,
-        downloadURLs: List<String>
+        updates: List<AppUpdate>
     ) {
         // The latch for joint the thread of the JobIntentService and the
         // threads of download manager.
-        val countdownLatch = CountDownLatch(downloadURLs.size)
+        val countdownLatch = CountDownLatch(updates.size)
 
-        val downloadFileURIs = mutableListOf<Uri>()
-        val downloadFileIndices = mutableListOf<Int>()
+        val downloadedUpdates = mutableListOf<DownloadedUpdate>()
         val aggregateProgresses = mutableListOf<DownloadProgress>()
-        val failedDownloads = mutableListOf<Throwable>()
+        val errors = mutableListOf<Throwable>()
+        val requests = mutableListOf<DownloadRequest>()
 
         try {
             // Prepare the download request
-            val requests = mutableListOf<DownloadRequest>()
-            for (i in 0 until downloadURLs.size) {
-                val packageName = packageNames[i]
-                val url = downloadURLs[i]
+            for (i in 0 until updates.size) {
+                val update = updates[i]
+                val packageName = update.packageName
+                val url = update.downloadUrl
                 val uri = Uri.parse(url)
                 val request = DownloadRequest(uri)
                     .setRetryPolicy(DefaultRetryPolicy(DefaultRetryPolicy.DEFAULT_TIMEOUT_MS, MAX_RETRY_COUNT, BACKOFF_MULTIPLIER))
@@ -151,9 +140,13 @@ class DownloadJobIntentService : JobIntentService() {
                             val file = File(downloadRequest.destinationURI.path)
                             Timber.v("[Download] Download (ID: $id) finishes! {file: $file, package: \"$packageName\", URL: \"$uri\"")
 
-                            // Add to the success pool
-                            downloadFileURIs.add(downloadRequest.destinationURI)
-                            downloadFileIndices.add(i)
+                            synchronized(countdownLatch) {
+                                // Add to the success pool
+                                downloadedUpdates.add(DownloadedUpdate(
+                                    file = file,
+                                    fromUpdate = update
+                                ))
+                            }
 
                             countdownLatch.countDown()
                         }
@@ -166,8 +159,10 @@ class DownloadJobIntentService : JobIntentService() {
                             val id = downloadRequest.downloadId
                             Timber.e("[Download] Download(ID: $id) fails \"$$packageName\", error code: $errorCode")
 
-                            // Add to the failure pool
-                            failedDownloads.add(errorCode.toError(packageName, uri.path!!))
+                            synchronized(countdownLatch) {
+                                // Add to the failure pool
+                                errors.add(errorCode.errorCodeToError(packageName, uri.path!!))
+                            }
 
                             // Countdown for failure as well so that we could let the joint thread continue.
                             countdownLatch.countDown()
@@ -201,13 +196,13 @@ class DownloadJobIntentService : JobIntentService() {
             // Wait for the download manager library finishing.
             countdownLatch.await(Intervals.TIMEOUT_DOWNLOAD_HR, TimeUnit.HOURS)
 
-            reportAllDownloads(downloadFileURIs, downloadFileIndices, failedDownloads)
+            AppUpdaterService.notifyDownloadsComplete(this, downloadedUpdates, errors)
         } catch (error: Throwable) {
-            reportTimeout(error)
+            AppUpdaterService.notifyDownloadsComplete(this, emptyList(), listOf(error))
         }
     }
 
-    private fun Int.toError(
+    private fun Int.errorCodeToError(
         packageName: String,
         downloadURL: String
     ): Throwable {
@@ -224,38 +219,13 @@ class DownloadJobIntentService : JobIntentService() {
         }
     }
 
-    private fun reportAllDownloads(
-        downloadFileURIs: List<Uri>,
-        downloadFileIndices: List<Int>,
-        failedDownloads: List<Throwable>
-    ) {
-        val intent = Intent(IntentActions.ACTION_DOWNLOAD_UPDATES)
-
-        if (failedDownloads.isNotEmpty()) {
-            intent.putExtra(IntentActions.PROP_ERROR, CompositeException(failedDownloads))
-        }
-
-        intent.putParcelableArrayListExtra(IntentActions.PROP_APP_DOWNLOAD_FILE_URIS, ArrayList(downloadFileURIs))
-        intent.putIntegerArrayListExtra(IntentActions.PROP_APP_DOWNLOAD_FILE_URIS_TO_UPDATE_INDICES, ArrayList(downloadFileIndices))
-        broadcastManager.sendBroadcast(intent)
-    }
-
-    private fun reportTimeout(
-        error: Throwable
-    ) {
-        val failureIntent = Intent(IntentActions.ACTION_DOWNLOAD_UPDATES)
-        failureIntent.putExtra(IntentActions.PROP_ERROR, error)
-        broadcastManager.sendBroadcast(failureIntent)
-    }
-
     // Progress ///////////////////////////////////////////////////////////////
 
-    private val progressRelay = PublishRelay.create<List<DownloadProgress>>()
+    private val progressRelay = PublishRelay.create<List<DownloadProgress>>().toSerialized()
 
     private fun observeDownloadProgress() {
         val sb = StringBuilder()
         progressRelay
-            .distinctUntilChanged()
             .sample(Intervals.SAMPLE_INTERVAL_LONG, TimeUnit.MILLISECONDS)
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe({ progressList ->

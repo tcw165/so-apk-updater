@@ -51,41 +51,31 @@ android {
     }
 
     buildTypes {
-        all {
+        debug {
             // Keep IPackageInstallObserver and IPackageDeleteObserver
             minifyEnabled false
             useProguard false
             shrinkResources false
-        }
-
-        debug {
-            debuggable true
 
             signingConfig signingConfigs.platform
+        }
 
-            buildConfigField "String", "DATE_OF_BUILD", "\"00-00-00\""
-            buildConfigField "String", "GIT_SHA", "\"-\""
+        staging {
+            initWith(release)
+            matchingFallbacks = ['release']
+
+            debuggable true
         }
 
         release {
-            debuggable true
-
-            signingConfig signingConfigs.platform
-
+            debuggable false
+            useProguard true
+            shrinkResources true
+            minifyEnabled true
             // Disables PNG crunching for the release build type.
             crunchPngs false
-        }
-    }
 
-    flavorDimensions "APP"
-
-    productFlavors {
-        dev {
-            dimension "APP"
-        }
-
-        prod {
-            dimension "APP"
+            signingConfig signingConfigs.platform
         }
     }
 

@@ -13,8 +13,8 @@ import co.sodalabs.apkupdater.di.module.AppPreferenceModule
 import co.sodalabs.apkupdater.di.module.ThreadSchedulersModule
 import co.sodalabs.apkupdater.di.module.UpdaterModule
 import co.sodalabs.apkupdater.feature.adminui.SettingsActivity
-import co.sodalabs.apkupdater.feature.checker.CheckService
-import co.sodalabs.apkupdater.feature.heartbeat.HeartBeatService
+import co.sodalabs.apkupdater.feature.checker.CheckJobIntentService
+import co.sodalabs.apkupdater.feature.heartbeat.HeartBeatJobIntentService
 import co.sodalabs.apkupdater.feature.settings.ISharedSettings
 import co.sodalabs.updaterengine.IThreadSchedulers
 import dagger.Component
@@ -32,8 +32,8 @@ import dagger.Component
 interface AppComponent {
 
     fun inject(app: UpdaterApp)
-    fun inject(service: CheckService)
-    fun inject(service: HeartBeatService)
+    fun inject(service: CheckJobIntentService)
+    fun inject(service: HeartBeatJobIntentService)
     fun inject(activity: SettingsActivity)
 
     fun provideApplicationContext(): Context

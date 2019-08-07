@@ -19,6 +19,8 @@ import android.os.Build
 import android.os.IBinder
 import android.os.RemoteException
 import android.widget.Toast
+import co.sodalabs.privilegedinstaller.PrivilegedInstallStatusCode.INSTALL_FAILED_INTERNAL_ERROR
+import co.sodalabs.privilegedinstaller.PrivilegedInstallStatusCode.INSTALL_NO_PRIVILEGED_PERMISSIONS
 import timber.log.Timber
 import java.io.IOException
 import java.lang.reflect.Method
@@ -30,7 +32,7 @@ import java.lang.reflect.Method
  *
  * @see [https://gitlab.com/fdroid/privileged-extension/#f-droid-privileged-extension]
  */
-class PrivilegedService : Service() {
+class PrivilegedInstallerService : Service() {
 
     private lateinit var installMethod: Method
     private lateinit var deleteMethod: Method
@@ -90,9 +92,9 @@ class PrivilegedService : Service() {
 
     override fun onDestroy() {
         Timber.v("Privileged installer is offline")
+        unregisterReceiver(broadcastReceiver)
 
         super.onDestroy()
-        unregisterReceiver(broadcastReceiver)
     }
 
     /**
@@ -132,26 +134,30 @@ class PrivilegedService : Service() {
             @Throws(RemoteException::class)
             override fun packageInstalled(packageName: String?, returnCode: Int) {
                 // forward this internal callback to our callback
+                Timber.v("Install package from $packageURI... completes, the return code is $returnCode")
                 try {
-                    callback?.handleResult(packageName, returnCode)
-                } catch (e1: RemoteException) {
-                    Timber.e(e1, "RemoteException")
+                    // If error happens, AOSP might send a null package name.
+                    val safePackageName = packageName ?: ""
+                    callback?.handleResult(safePackageName, returnCode)
+                } catch (error: RemoteException) {
+                    Timber.e(error)
                 }
             }
         }
 
         // execute internal method
         try {
+            Timber.v("Install package from $packageURI...")
             installMethod.invoke(
                 packageManager, packageURI, installObserver,
                 flags, installerPackageName
             )
-        } catch (e: Exception) {
-            Timber.e(e, "Android not compatible!")
+        } catch (error: Exception) {
+            Timber.e(error, "Android not compatible!")
             try {
-                callback?.handleResult(null, 0)
-            } catch (e1: RemoteException) {
-                Timber.e(e1, "RemoteException")
+                callback?.handleResult("", INSTALL_FAILED_INTERNAL_ERROR)
+            } catch (remoteError: RemoteException) {
+                Timber.e(remoteError)
             }
         }
     }
@@ -208,9 +214,7 @@ class PrivilegedService : Service() {
     private val binder = object : IPrivilegedService.Stub() {
 
         override fun hasPrivilegedPermissions(): Boolean {
-            val isCallerAllowed = accessProtectionHelper.isCallerAllowed()
-            val hasPrivilegedPermissions = this@PrivilegedService.hasPrivilegedPermissions()
-            return isCallerAllowed && hasPrivilegedPermissions
+            return this@PrivilegedInstallerService.hasPrivilegedPermissions()
         }
 
         override fun installPackage(
@@ -220,10 +224,11 @@ class PrivilegedService : Service() {
             callback: IPrivilegedCallback?
         ) {
             if (!accessProtectionHelper.isCallerAllowed()) {
+                callback?.handleResult("", INSTALL_NO_PRIVILEGED_PERMISSIONS)
                 return
             }
 
-            if (Build.VERSION.SDK_INT >= 24) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 doPackageStage(packageURI)
                 privilegedCallback = callback
             } else {
@@ -249,7 +254,7 @@ class PrivilegedService : Service() {
                 // Create a PendingIntent and use it to generate the IntentSender
                 val broadcastIntent = Intent(BROADCAST_ACTION_UNINSTALL)
                 val pendingIntent = PendingIntent.getBroadcast(
-                    this@PrivilegedService, // context
+                    this@PrivilegedInstallerService, // context
                     0, // arbitary
                     broadcastIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT

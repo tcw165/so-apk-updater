@@ -1,18 +1,45 @@
 <manifest package="co.sodalabs.updaterengine"
-          xmlns:android="http://schemas.android.com/apk/res/android">
+          xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
+
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
     <application>
         <activity
             android:name="co.sodalabs.updaterengine.feature.installer.DefaultInstallerActivity"
             android:theme="@style/AppThemeTransparent" />
 
-        <!-- Updates Checker -->
+        <!-- Core -->
+        <service
+            android:name=".feature.core.AppUpdaterService"
+            android:enabled="true"
+            android:exported="true"
+            tools:ignore="ExportedService" />
+
+        <receiver
+            android:name=".feature.core.BootCompleteReceiver"
+            android:enabled="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Downloader -->
         <service
             android:name=".feature.downloader.DownloadJobIntentService"
             android:enabled="true"
@@ -21,7 +48,12 @@
 
         <!-- Installer (install dispatcher) -->
         <service
-            android:name=".feature.installer.InstallerService"
+            android:name=".feature.installer.InstallerJobService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service
+            android:name=".feature.installer.InstallerJobIntentService"
             android:enabled="true"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
