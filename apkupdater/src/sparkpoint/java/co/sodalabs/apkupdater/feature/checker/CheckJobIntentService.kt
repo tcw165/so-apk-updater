@@ -44,7 +44,7 @@ class CheckJobIntentService : JobIntentService() {
         fun scheduleRecurringUpdateCheck(
             context: Context,
             packageNames: Array<String>,
-            interval: Long
+            intervalMillis: Long
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
                 Timber.v("[Check] (< 21) Schedule a recurring update, using AlarmManager")
@@ -61,7 +61,7 @@ class CheckJobIntentService : JobIntentService() {
                 alarmManager.setInexactRepeating(
                     AlarmManager.ELAPSED_REALTIME_WAKEUP,
                     SystemClock.elapsedRealtime() + INITIAL_CHECK_DELAY,
-                    interval,
+                    intervalMillis,
                     pendingIntent
                 )
             } else {
@@ -74,7 +74,7 @@ class CheckJobIntentService : JobIntentService() {
 
                 val builder = JobInfo.Builder(JOB_ID_CHECK_UPDATES, componentName)
                     .setRequiresDeviceIdle(false)
-                    .setPeriodic(interval)
+                    .setPeriodic(intervalMillis)
                     .setExtras(bundle)
 
                 if (Build.VERSION.SDK_INT >= 26) {

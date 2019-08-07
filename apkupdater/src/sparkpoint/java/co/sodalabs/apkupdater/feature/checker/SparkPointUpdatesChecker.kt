@@ -24,11 +24,11 @@ class SparkPointUpdatesChecker @Inject constructor(
 
     override fun scheduleRecurringCheck(
         packageNames: List<String>,
-        interval: Long
+        intervalMs: Long
     ) {
         CheckJobIntentService.scheduleRecurringUpdateCheck(
             context,
             packageNames.toTypedArray(),
-            interval)
+            intervalMs)
     }
 }

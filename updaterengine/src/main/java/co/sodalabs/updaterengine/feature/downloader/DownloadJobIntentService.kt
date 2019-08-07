@@ -149,6 +149,8 @@ class DownloadJobIntentService : JobIntentService() {
                         ) {
                             val id = downloadRequest.downloadId
                             val file = File(downloadRequest.destinationURI.path)
+
+                            logDownloadProgressNow(aggregateProgresses)
                             Timber.v("[Download] Download (ID: $id) finishes! {file: $file, package: \"$packageName\", URL: \"$uri\"")
 
                             synchronized(countdownLatch) {
@@ -267,6 +269,22 @@ class DownloadJobIntentService : JobIntentService() {
 
             progressRelay.accept(aggregateProgresses.toList())
         }
+    }
+
+    private fun logDownloadProgressNow(
+        aggregateProgresses: MutableList<DownloadProgress>
+    ) {
+        val sb = StringBuilder()
+        sb.clear()
+        sb.appendln("[Download] download progress: [")
+        for (i in 0 until aggregateProgresses.size) {
+            val progress = aggregateProgresses[i]
+            val url = progress.downloadURL
+            val prettyProgress = progress.downloadProgress.toString().padStart(3)
+            sb.appendln("    download request $url is at $prettyProgress percentage,")
+        }
+        sb.appendln("]")
+        Timber.v(sb.toString())
     }
 
     private data class DownloadProgress(

@@ -12,8 +12,8 @@ import co.sodalabs.apkupdater.di.module.SharedSettingsModule
 import co.sodalabs.apkupdater.di.module.ThreadSchedulersModule
 import co.sodalabs.apkupdater.di.module.UpdaterModule
 import co.sodalabs.apkupdater.feature.settings.AndroidSharedSettings
+import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
-import co.sodalabs.apkupdater.utils.CrashlyticsTree
 import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.ApkUpdaterConfig
 import co.sodalabs.updaterengine.AppUpdaterHeartBeater
@@ -22,11 +22,9 @@ import co.sodalabs.updaterengine.AppUpdatesDownloader
 import co.sodalabs.updaterengine.AppUpdatesInstaller
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.extension.toMilliseconds
-import com.crashlytics.android.Crashlytics
-import com.crashlytics.android.core.CrashlyticsCore
+import com.bugsnag.android.Bugsnag
 import com.jakewharton.processphoenix.ProcessPhoenix
 import com.jakewharton.threetenabp.AndroidThreeTen
-import io.fabric.sdk.android.Fabric
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
@@ -86,19 +84,9 @@ class UpdaterApp : MultiDexApplication() {
     }
 
     private fun initCrashReporting() {
-        val crashlyticsCore = CrashlyticsCore.Builder()
-            .disabled(BuildUtils.isDebug())
-            .build()
-        val crashlytics = Crashlytics.Builder()
-            .core(crashlyticsCore)
-            .build()
-        val builder = Fabric.Builder(this)
-            .kits(crashlytics)
-
-        Fabric.with(builder.build())
-
         if (BuildUtils.isStaging() || BuildUtils.isRelease()) {
-            Timber.plant(CrashlyticsTree())
+            Bugsnag.init(this)
+            Timber.plant(BugsnagTree())
         }
     }
 
