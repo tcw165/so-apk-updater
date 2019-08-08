@@ -21,12 +21,15 @@ def versionProperties = new Properties()
 versionProperties.load(new FileInputStream(versionPropertiesFile))
 
 // Bugsnag service
-// If you are missing this file, please download from our internal file repo
-// https://drive.google.com/open?id=1eYL1lPB0mHgXj4rttdDycjmOFPoF4vfN
-def bugsnagPropertiesFile = project.file("bugsnag.properties")
-def bugsnagProperties = new Properties()
-bugsnagProperties.load(new FileInputStream(bugsnagPropertiesFile))
-def bugsnagAPIKey = System.getenv("BUGSNAG_API_KEY_FOR_UPDATER") ?: bugsnagProperties.bugsnag_api_key
+def getBugsnagAPIKeyFromFile = {
+    // If you are missing this file, please download from our internal file repo
+    // https://drive.google.com/open?id=1eYL1lPB0mHgXj4rttdDycjmOFPoF4vfN
+    def bugsnagPropertiesFile = project.file("bugsnag.properties")
+    def bugsnagProperties = new Properties()
+    bugsnagProperties.load(new FileInputStream(bugsnagPropertiesFile))
+    bugsnagProperties.bugsnag_api_key
+}
+def bugsnagAPIKey = System.getenv("BUGSNAG_API_KEY_FOR_UPDATER") ?: getBugsnagAPIKeyFromFile()
 
 android {
     compileSdkVersion deps.build.compileSdkVersion
