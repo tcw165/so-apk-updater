@@ -2,7 +2,6 @@ package co.sodalabs.updaterengine.feature.installer
 
 import android.content.Context
 import co.sodalabs.updaterengine.data.DownloadedUpdate
-import timber.log.Timber
 
 /**
  * The URI where the APK was originally downloaded from. This is also used
@@ -37,12 +36,7 @@ abstract class Installer(
     fun installPackages(
         localUpdates: List<DownloadedUpdate>
     ) {
-        try {
-            installPackageInternal(localUpdates)
-        } catch (e: Throwable) {
-            Timber.e(e)
-            return
-        }
+        installPackageInternal(localUpdates)
     }
 
     abstract fun installPackageInternal(localUpdates: List<DownloadedUpdate>)
