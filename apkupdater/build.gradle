@@ -20,6 +20,14 @@ def versionPropertiesFile = project.file("version.properties")
 def versionProperties = new Properties()
 versionProperties.load(new FileInputStream(versionPropertiesFile))
 
+// Bugsnag service
+// If you are missing this file, please download from our internal file repo
+// https://drive.google.com/open?id=1eYL1lPB0mHgXj4rttdDycjmOFPoF4vfN
+def bugsnagPropertiesFile = project.file("bugsnag.properties")
+def bugsnagProperties = new Properties()
+bugsnagProperties.load(new FileInputStream(bugsnagPropertiesFile))
+def bugsnagAPIKey = System.getenv("BUGSNAG_API_KEY_FOR_UPDATER") ?: bugsnagProperties.bugsnag_api_key
+
 android {
     compileSdkVersion deps.build.compileSdkVersion
     buildToolsVersion deps.build.buildToolsVersion
@@ -34,6 +42,8 @@ android {
         versionName versionProperties.artifact_version
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        buildConfigField "String", "BUGSNAG_API_KEY", "\"$bugsnagAPIKey\""
 
         buildConfigField "String", "BASE_URL", "\"make sure update this, please!\""
 
@@ -254,4 +264,9 @@ dependencies {
     // Instrumentation tests.
     androidTestImplementation deps.test.runner
     androidTestImplementation deps.test.espresso.core
+}
+
+bugsnag {
+    // For the Bugsnag Gradle plugin to upload the mapping file to this key.
+    apiKey bugsnagAPIKey
 }

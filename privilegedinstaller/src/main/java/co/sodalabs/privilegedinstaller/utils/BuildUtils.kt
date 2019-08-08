@@ -1,11 +1,9 @@
-package co.sodalabs.apkupdater.utils
+package co.sodalabs.privilegedinstaller.utils
 
-import co.sodalabs.apkupdater.BuildConfig
+import co.sodalabs.privilegedinstaller.BuildConfig
 
 @Suppress("TooGenericExceptionCaught")
 object BuildUtils {
-
-    val PACKAGES_TO_CHECK: Array<String> = BuildConfig.PACKAGES_TO_CHECK
 
     const val TYPE_DEBUG = "debug"
     const val TYPE_STAGING = "staging"

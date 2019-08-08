@@ -23,6 +23,7 @@ import co.sodalabs.updaterengine.AppUpdatesInstaller
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.extension.toMilliseconds
 import com.bugsnag.android.Bugsnag
+import com.bugsnag.android.Configuration
 import com.jakewharton.processphoenix.ProcessPhoenix
 import com.jakewharton.threetenabp.AndroidThreeTen
 import io.reactivex.disposables.CompositeDisposable
@@ -84,10 +85,13 @@ class UpdaterApp : MultiDexApplication() {
     }
 
     private fun initCrashReporting() {
-        if (BuildUtils.isStaging() || BuildUtils.isRelease()) {
-            Bugsnag.init(this)
-            Timber.plant(BugsnagTree())
+        val config = Configuration(BuildConfig.BUGSNAG_API_KEY).apply {
+            // Only send report for staging and release
+            notifyReleaseStages = arrayOf(BuildUtils.TYPE_STAGING, BuildUtils.TYPE_RELEASE)
+            releaseStage = BuildConfig.BUILD_TYPE
         }
+        Bugsnag.init(this, config)
+        Timber.plant(BugsnagTree())
     }
 
     private fun initDatetime() {

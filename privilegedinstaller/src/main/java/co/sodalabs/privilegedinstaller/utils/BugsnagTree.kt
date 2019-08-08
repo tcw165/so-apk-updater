@@ -1,4 +1,4 @@
-package co.sodalabs.apkupdater.utils
+package co.sodalabs.privilegedinstaller.utils
 
 import android.util.Log
 import com.bugsnag.android.Bugsnag
