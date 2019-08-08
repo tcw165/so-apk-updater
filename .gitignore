@@ -12,6 +12,8 @@
 # Release Signing
 **/*keystore.properties
 **/*.keystore
+# Sensitive API Keys
+**/*bugsnag*.properties
 
 # Fastlane Report
 fastlane/report.xml

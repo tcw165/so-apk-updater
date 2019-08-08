@@ -176,8 +176,9 @@ class ApkUpdater private constructor(
                 .atZone(ZoneId.systemDefault())
             val hour = currentTime.hour
             return if (hour in startHour..endHour) {
-                val triggerAtMillis = SystemClock.elapsedRealtime() + Intervals.DELAY_INSTALL
-                Timber.v("[Updater] It's currently within the install window, will install the updates after $triggerAtMillis milliseconds")
+                val delay = Intervals.DELAY_INSTALL
+                val triggerAtMillis = SystemClock.elapsedRealtime() + delay
+                Timber.v("[Updater] It's currently within the install window, will install the updates after $delay milliseconds")
                 triggerAtMillis
             } else {
                 // If the current time has past the window today, schedule for tomorrow
