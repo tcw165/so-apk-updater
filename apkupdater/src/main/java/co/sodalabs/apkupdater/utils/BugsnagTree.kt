@@ -18,7 +18,7 @@ class BugsnagTree : Timber.Tree() {
         t?.let {
             Bugsnag.notify(it)
         } ?: kotlin.run {
-            Bugsnag.notify(Exception(message))
+            Bugsnag.notify(RuntimeException(message))
         }
     }
 }
