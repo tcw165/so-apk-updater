@@ -20,6 +20,8 @@ import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.extension.ensureMainThread
 import co.sodalabs.updaterengine.feature.core.AppUpdaterService
+import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
+import com.squareup.moshi.Types
 import timber.log.Timber
 import java.util.Objects
 
@@ -72,6 +74,16 @@ class InstallerJobIntentService : JobIntentService() {
             val intent = Intent(context, InstallerJobIntentService::class.java)
             intent.action = IntentActions.ACTION_INSTALL_UPDATES
             intent.putParcelableArrayListExtra(IntentActions.PROP_DOWNLOADED_UPDATES, ArrayList(downloadedUpdates))
+            enqueueWork(context, intent)
+        }
+
+        fun installFromDiskCacheNow(
+            context: Context
+        ) {
+            ensureMainThread()
+
+            val intent = Intent(context, InstallerJobIntentService::class.java)
+            intent.action = IntentActions.ACTION_INSTALL_UPDATES_FROM_CACHE
             enqueueWork(context, intent)
         }
 
@@ -165,18 +177,69 @@ class InstallerJobIntentService : JobIntentService() {
             when (intent.action) {
                 IntentActions.ACTION_INSTALL_UPDATES -> {
                     val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
-                    installer.installPackages(downloadedUpdates)
+                    if (downloadedUpdates.isNotEmpty()) {
+                        installer.installPackages(downloadedUpdates)
+                    }
+                }
+                IntentActions.ACTION_INSTALL_UPDATES_FROM_CACHE -> {
+                    val downloadedUpdates = inflateUpdatesFromCache()
+                    downloadedUpdates?.let { safeUpdates ->
+                        if (safeUpdates.isNotEmpty()) {
+                            installer.installPackages(safeUpdates)
+                        }
+                    }
                 }
                 IntentActions.ACTION_UNINSTALL_PACKAGES -> {
                     val packageNames = intent.getStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES)
-                    installer.uninstallPackage(packageNames)
+                    if (packageNames.isNotEmpty()) {
+                        installer.uninstallPackage(packageNames)
+                    }
                 }
             }
         } catch (error: Throwable) {
             Timber.e(error)
             // TODO: Error handling
         } finally {
+            clearUpdatesCache()
+
             AppUpdaterService.notifyInstallComplete(this)
+        }
+    }
+
+    // Disk Cache /////////////////////////////////////////////////////////////
+
+    private fun inflateUpdatesFromCache(): List<DownloadedUpdate>? {
+        val diskCache = ApkUpdater.downloadedUpdateDiskCache()
+        if (diskCache.isClosed) {
+            diskCache.open()
+        }
+
+        val record: DiskLruCache.Value? = diskCache.get(ApkUpdater.KEY_DOWNLOADED_UPDATES)
+        return record?.let { safeRecord ->
+            val recordFile = safeRecord.getFile(0)
+            val jsonText = recordFile.readText()
+
+            return try {
+                val jsonBuilder = ApkUpdater.jsonBuilder()
+                val jsonType = Types.newParameterizedType(List::class.java, DownloadedUpdate::class.java)
+                val jsonAdapter = jsonBuilder.adapter<List<DownloadedUpdate>>(jsonType)
+                val downloadedUpdates = jsonAdapter.fromJson(jsonText)
+                downloadedUpdates?.trimGoneFiles()
+            } catch (error: Throwable) {
+                Timber.e(error)
+                null
+            }
+        }
+    }
+
+    private fun List<DownloadedUpdate>.trimGoneFiles(): List<DownloadedUpdate> {
+        return this.filter { it.file.exists() }
+    }
+
+    private fun clearUpdatesCache() {
+        val diskCache = ApkUpdater.downloadedUpdateDiskCache()
+        if (diskCache.isOpened) {
+            diskCache.delete()
         }
     }
 

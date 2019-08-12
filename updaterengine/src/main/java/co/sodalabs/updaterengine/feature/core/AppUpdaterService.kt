@@ -174,6 +174,8 @@ class AppUpdaterService : Service() {
 
     private fun start() {
         Timber.v("[Updater] engine starts ~~~~ .oO")
+        ApkUpdater.installUpdatesFromDiskCache()
+
         ApkUpdater.scheduleRecurringHeartbeat()
         ApkUpdater.scheduleRecurringCheck()
     }
