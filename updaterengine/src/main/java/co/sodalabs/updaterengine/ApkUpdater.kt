@@ -80,7 +80,7 @@ class ApkUpdater private constructor(
             return synchronized(ApkUpdater::class.java) {
                 engine?.apply {
                     val interval = config.heartBeatIntervalMs
-                    engineHeartBeater.scheduleRecurringHeartBeat(interval, true)
+                    engineHeartBeater.scheduleRecurringHeartBeat(interval)
                 }
             }
         }
