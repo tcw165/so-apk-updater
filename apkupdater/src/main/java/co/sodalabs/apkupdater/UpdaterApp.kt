@@ -9,9 +9,11 @@ import co.sodalabs.apkupdater.di.component.DaggerAppComponent
 import co.sodalabs.apkupdater.di.module.AppPreferenceModule
 import co.sodalabs.apkupdater.di.module.ApplicationContextModule
 import co.sodalabs.apkupdater.di.module.SharedSettingsModule
+import co.sodalabs.apkupdater.di.module.SystemPropertiesModule
 import co.sodalabs.apkupdater.di.module.ThreadSchedulersModule
 import co.sodalabs.apkupdater.di.module.UpdaterModule
 import co.sodalabs.apkupdater.feature.settings.AndroidSharedSettings
+import co.sodalabs.apkupdater.feature.settings.AndroidSystemProperties
 import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.updaterengine.ApkUpdater
@@ -104,6 +106,7 @@ class UpdaterApp : MultiDexApplication() {
     private val preferences by lazy { PreferenceManager.getDefaultSharedPreferences(this@UpdaterApp) }
     private val appPreferences by lazy { AppSharedPreference(preferences) }
     private val sharedSettings by lazy { AndroidSharedSettings(contentResolver, schedulers) }
+    private val systemProperties by lazy { AndroidSystemProperties() }
 
     private fun injectDependencies() {
         // Application singleton(s)
@@ -112,6 +115,7 @@ class UpdaterApp : MultiDexApplication() {
             .threadSchedulersModule(ThreadSchedulersModule(schedulers))
             .appPreferenceModule(AppPreferenceModule(appPreferences))
             .sharedSettingsModule(SharedSettingsModule(sharedSettings))
+            .systemPropertiesModule(SystemPropertiesModule(systemProperties))
             .updaterModule(UpdaterModule(this, appPreferences, schedulers))
             .build()
         appComponent.inject(this)

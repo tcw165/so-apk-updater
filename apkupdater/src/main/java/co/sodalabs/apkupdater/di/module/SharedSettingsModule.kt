@@ -4,7 +4,7 @@ package co.sodalabs.apkupdater.di.module
 
 import co.sodalabs.apkupdater.di.ApplicationScope
 import co.sodalabs.apkupdater.feature.settings.AndroidSharedSettings
-import co.sodalabs.apkupdater.feature.settings.ISharedSettings
+import co.sodalabs.apkupdater.ISharedSettings
 import dagger.Module
 import dagger.Provides
 

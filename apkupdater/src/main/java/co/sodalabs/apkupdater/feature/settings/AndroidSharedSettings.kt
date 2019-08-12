@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.HandlerThread
 import android.provider.Settings
+import co.sodalabs.apkupdater.ISharedSettings
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.feature.rx.InitialValueObservable
 import io.reactivex.Observable
@@ -19,7 +20,7 @@ class AndroidSharedSettings @Inject constructor(
 
     override fun isDeviceProvisioned(): Boolean {
         return try {
-            getGlobalInt(SystemProps.DEVICE_PROVISIONED, 0) == 1
+            getGlobalInt(SharedSettingsProps.DEVICE_PROVISIONED, 0) == 1
         } catch (error: Throwable) {
             false
         }
@@ -27,7 +28,7 @@ class AndroidSharedSettings @Inject constructor(
 
     override fun isUserSetupComplete(): Boolean {
         return try {
-            getSecureInt(SystemProps.USER_SETUP_COMPLETE, 0) == 1
+            getSecureInt(SharedSettingsProps.USER_SETUP_COMPLETE, 0) == 1
         } catch (error: Throwable) {
             false
         }
