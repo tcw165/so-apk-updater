@@ -43,7 +43,8 @@ class AppUpdaterService : Service() {
 
         /**
          * The method for the updater engine knows the update check finishes and
-         * to move on.
+         * to move on. The component responsible for the check should call this
+         * method when the check completes.
          */
         fun notifyUpdateCheckComplete(
             context: Context,
@@ -81,7 +82,8 @@ class AppUpdaterService : Service() {
 
         /**
          * The method for the updater engine knows the download finishes and
-         * to move on.
+         * to move on. The component responsible for download should call this
+         * method when the download completes.
          */
         fun notifyDownloadsComplete(
             context: Context,
@@ -117,7 +119,8 @@ class AppUpdaterService : Service() {
 
         /**
          * The method for the updater engine knows the install finishes and
-         * to move on.
+         * to move on. The component responsible for installing should call this
+         * method when the install completes.
          */
         fun notifyInstallComplete(
             context: Context

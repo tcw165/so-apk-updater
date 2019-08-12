@@ -279,7 +279,6 @@ class DownloadJobIntentService : JobIntentService() {
         aggregateProgresses: MutableList<DownloadProgress>
     ) {
         val found = aggregateProgresses.indexOfFirst { it.downloadURL == downloadRequest.uri.toString() }
-
         if (found in 0 until aggregateProgresses.size) {
             val newProgress = aggregateProgresses[found].copy(downloadProgress = progress)
             aggregateProgresses[found] = newProgress
