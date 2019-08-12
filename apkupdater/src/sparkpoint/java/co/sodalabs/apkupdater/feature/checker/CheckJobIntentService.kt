@@ -25,8 +25,6 @@ import retrofit2.HttpException
 import timber.log.Timber
 import javax.inject.Inject
 
-private const val INITIAL_CHECK_DELAY = 5000L
-
 class CheckJobIntentService : JobIntentService() {
 
     companion object {
@@ -60,7 +58,7 @@ class CheckJobIntentService : JobIntentService() {
                 alarmManager.cancel(pendingIntent)
                 alarmManager.setInexactRepeating(
                     AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    SystemClock.elapsedRealtime() + INITIAL_CHECK_DELAY,
+                    SystemClock.elapsedRealtime() + intervalMillis,
                     intervalMillis,
                     pendingIntent
                 )
