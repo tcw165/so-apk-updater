@@ -1,7 +1,6 @@
 package co.sodalabs.apkupdater.feature.heartbeat
 
 import Packages
-import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.app.job.JobInfo
@@ -17,7 +16,7 @@ import androidx.core.app.JobIntentService
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import co.sodalabs.apkupdater.ISharedSettings
 import co.sodalabs.apkupdater.ISystemProperties
-import co.sodalabs.apkupdater.SparkPointProps
+import co.sodalabs.apkupdater.SharedSettingsProps
 import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.data.SystemProps
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
@@ -30,8 +29,6 @@ import co.sodalabs.updaterengine.extension.benchmark
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import timber.log.Timber
 import javax.inject.Inject
-
-private const val DEBUG_DEVICE_ID = "660112"
 
 class HeartBeatJobIntentService : JobIntentService() {
 
@@ -113,7 +110,7 @@ class HeartBeatJobIntentService : JobIntentService() {
     @Inject
     lateinit var apiClient: ISparkPointHeartBeatApi
     @Inject
-    lateinit var settingsRepository: ISharedSettings
+    lateinit var sharedSettings: ISharedSettings
     @Inject
     lateinit var systemProperties: ISystemProperties
 
@@ -149,8 +146,8 @@ class HeartBeatJobIntentService : JobIntentService() {
             val firmwareVersion = getFirmwareVersion()
             val sparkpointPlayerVersion = getSparkpointPlayerVersion()
 
-            val provisioned = settingsRepository.isDeviceProvisioned()
-            val userSetupComplete = settingsRepository.isUserSetupComplete()
+            val provisioned = sharedSettings.isDeviceProvisioned()
+            val userSetupComplete = sharedSettings.isUserSetupComplete()
             Timber.v("[HeartBeat] provisioned: $provisioned, user setup complete: $userSetupComplete")
             if (!provisioned || !userSetupComplete) {
                 reportDeviceNotSetup(deviceID)
@@ -172,7 +169,7 @@ class HeartBeatJobIntentService : JobIntentService() {
             }
 
             if (timeMs >= 15000) {
-                Timber.e("Hey, heart-beat API call for device(ID: $DEBUG_DEVICE_ID) took $timeMs milliseconds!")
+                Timber.e("Hey, heart-beat API call for device(ID: $deviceID) took $timeMs milliseconds!")
             }
         } catch (error: Throwable) {
             Timber.e(error)
@@ -181,10 +178,9 @@ class HeartBeatJobIntentService : JobIntentService() {
     }
 
     private fun getDeviceID(): String {
-        return settingsRepository.getSecureString(SparkPointProps.DEVICE_ID) ?: DEBUG_DEVICE_ID
+        return sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: ""
     }
 
-    @SuppressLint("PrivateApi")
     private fun getFirmwareVersion(): String {
         return systemProperties.getString(SystemProps.FIRMWARE_VERSION_INCREMENTAL, "")
     }
