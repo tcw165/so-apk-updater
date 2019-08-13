@@ -1,4 +1,4 @@
-package co.sodalabs.apkupdater.feature.settings
+package co.sodalabs.apkupdater
 
 import co.sodalabs.updaterengine.feature.rx.InitialValueObservable
 

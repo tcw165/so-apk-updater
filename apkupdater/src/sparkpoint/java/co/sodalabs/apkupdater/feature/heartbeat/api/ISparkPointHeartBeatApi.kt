@@ -1,14 +1,15 @@
 package co.sodalabs.apkupdater.feature.heartbeat.api
 
-import co.sodalabs.updaterengine.data.HeartBeatResponse
+import co.sodalabs.apkupdater.feature.heartbeat.data.HeartBeatBody
+import co.sodalabs.apkupdater.feature.heartbeat.data.HeartBeatResponse
 import retrofit2.Call
-import retrofit2.http.PATCH
-import retrofit2.http.Path
+import retrofit2.http.Body
+import retrofit2.http.POST
 
 interface ISparkPointHeartBeatApi {
 
-    @PATCH("hey/{device_id}")
+    @POST("hey")
     fun poke(
-        @Path("device_id") deviceID: String
+        @Body body: HeartBeatBody
     ): Call<HeartBeatResponse>
 }

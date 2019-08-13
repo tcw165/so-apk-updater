@@ -1,5 +1,7 @@
 package co.sodalabs.apkupdater.feature.heartbeat
 
+import Packages
+import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.app.job.JobInfo
@@ -7,15 +9,19 @@ import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PersistableBundle
 import android.os.SystemClock
 import androidx.core.app.JobIntentService
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import co.sodalabs.apkupdater.ISharedSettings
+import co.sodalabs.apkupdater.ISystemProperties
 import co.sodalabs.apkupdater.SparkPointProps
 import co.sodalabs.apkupdater.UpdaterApp
+import co.sodalabs.apkupdater.data.SystemProps
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
-import co.sodalabs.apkupdater.feature.settings.ISharedSettings
+import co.sodalabs.apkupdater.feature.heartbeat.data.HeartBeatBody
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.data.HTTPResponseCode
@@ -108,6 +114,8 @@ class HeartBeatJobIntentService : JobIntentService() {
     lateinit var apiClient: ISparkPointHeartBeatApi
     @Inject
     lateinit var settingsRepository: ISharedSettings
+    @Inject
+    lateinit var systemProperties: ISystemProperties
 
     override fun onCreate() {
         super.onCreate()
@@ -138,8 +146,8 @@ class HeartBeatJobIntentService : JobIntentService() {
     private fun sendHeartBeat() {
         try {
             val deviceID = getDeviceID()
-            val now = getPrettyDateNow()
-            Timber.v("[HeartBeat] Health check at $now for device, \"$deviceID\"")
+            val firmwareVersion = getFirmwareVersion()
+            val sparkpointPlayerVersion = getSparkpointPlayerVersion()
 
             val provisioned = settingsRepository.isDeviceProvisioned()
             val userSetupComplete = settingsRepository.isUserSetupComplete()
@@ -150,7 +158,15 @@ class HeartBeatJobIntentService : JobIntentService() {
             }
 
             val timeMs = benchmark {
-                val apiRequest = apiClient.poke(deviceID)
+                val apiBody = HeartBeatBody(
+                    deviceID,
+                    firmwareVersion,
+                    sparkpointPlayerVersion
+                )
+                val now = getPrettyDateNow()
+                Timber.v("[HeartBeat] Health check at $now for device, API body:\n$apiBody")
+
+                val apiRequest = apiClient.poke(apiBody)
                 val apiResponse = apiRequest.execute()
                 reportAPIResponse(apiResponse.code())
             }
@@ -167,6 +183,23 @@ class HeartBeatJobIntentService : JobIntentService() {
     private fun getDeviceID(): String {
         return settingsRepository.getSecureString(SparkPointProps.DEVICE_ID) ?: DEBUG_DEVICE_ID
     }
+
+    @SuppressLint("PrivateApi")
+    private fun getFirmwareVersion(): String {
+        return systemProperties.getString(SystemProps.FIRMWARE_VERSION_INCREMENTAL, "")
+    }
+
+    private fun getSparkpointPlayerVersion(): String {
+        return try {
+            val info = packageManager.getPackageInfo(Packages.SPARKPOINT_PACKAGE_NAME, PackageManager.GET_META_DATA)
+            info.versionName
+        } catch (error: PackageManager.NameNotFoundException) {
+            // The package is not installed (or deleted)
+            ""
+        }
+    }
+
+    // Broadcast //////////////////////////////////////////////////////////////
 
     private fun generateHeartBeatIntent(
         responseCode: Int
