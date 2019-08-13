@@ -9,6 +9,9 @@ interface ISharedSettings {
     fun getGlobalInt(key: String, default: Int): Int
     fun putGlobalInt(key: String, value: Int): Boolean
     fun observeGlobalInt(key: String, default: Int): InitialValueObservable<Int>
+    fun getGlobalString(key: String, default: String): String
+    fun putGlobalString(key: String, value: String): Boolean
+    fun observeGlobalString(key: String, default: String): InitialValueObservable<String>
 
     fun getSecureInt(key: String, default: Int): Int
     fun putSecureInt(key: String, value: Int): Boolean

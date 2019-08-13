@@ -23,7 +23,7 @@ import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
 
 private const val KEY_HEART_BEAT_WATCHER = "heartbeat_watcher"
-private const val KEY_HEART_BEAT_NOW = "report_heartbeat_now"
+private const val KEY_HEART_BEAT_NOW = "send_heartbeat_now"
 private const val KEY_DOWNLOAD_TEST_APP_NOW = "download_test_app_now"
 
 class SettingsFragment : PreferenceFragmentCompat() {

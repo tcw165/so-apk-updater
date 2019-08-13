@@ -1,7 +1,6 @@
-package co.sodalabs.apkupdater.data
+package co.sodalabs.apkupdater
 
 import androidx.annotation.Keep
-import co.sodalabs.apkupdater.BuildConfig
 
 @Keep
 object PreferenceProps {

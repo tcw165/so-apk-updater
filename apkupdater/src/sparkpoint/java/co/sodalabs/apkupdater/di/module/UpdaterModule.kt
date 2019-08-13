@@ -5,7 +5,7 @@ package co.sodalabs.apkupdater.di.module
 import android.content.Context
 import co.sodalabs.apkupdater.BuildConfig
 import co.sodalabs.apkupdater.IAppPreference
-import co.sodalabs.apkupdater.data.PreferenceProps
+import co.sodalabs.apkupdater.PreferenceProps
 import co.sodalabs.apkupdater.di.ApplicationScope
 import co.sodalabs.apkupdater.feature.checker.SparkPointUpdatesChecker
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi

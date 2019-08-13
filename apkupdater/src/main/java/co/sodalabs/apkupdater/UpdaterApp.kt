@@ -3,7 +3,6 @@ package co.sodalabs.apkupdater
 import android.annotation.SuppressLint
 import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
-import co.sodalabs.apkupdater.data.PreferenceProps
 import co.sodalabs.apkupdater.di.component.AppComponent
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
 import co.sodalabs.apkupdater.di.module.AppPreferenceModule
@@ -34,6 +33,8 @@ import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
+private const val DEBUG_DEVICE_ID = "660112"
+
 class UpdaterApp : MultiDexApplication() {
 
     companion object {
@@ -55,8 +56,8 @@ class UpdaterApp : MultiDexApplication() {
     override fun onCreate() {
         super.onCreate()
 
-        Timber.v("App Version Name: ${BuildConfig.VERSION_NAME}")
-        Timber.v("App Version Code: ${BuildConfig.VERSION_CODE}")
+        Timber.v("[Updater] App Version Name: ${BuildConfig.VERSION_NAME}")
+        Timber.v("[Updater] App Version Code: ${BuildConfig.VERSION_CODE}")
 
         initLogging()
         initCrashReporting()
@@ -147,7 +148,16 @@ class UpdaterApp : MultiDexApplication() {
     // Preferences ////////////////////////////////////////////////////////////
 
     private fun injectDefaultPreferences() {
-        // Timeout
+        // Debug device ID
+        if (sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) == null &&
+            (BuildUtils.isDebug() || BuildUtils.isStaging())) {
+            Timber.w("[Updater] Inject the debug device ID as \"$DEBUG_DEVICE_ID\"")
+            sharedSettings.putSecureString(SharedSettingsProps.DEVICE_ID, DEBUG_DEVICE_ID)
+        }
+        val deviceID = sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID)
+        Timber.w("[Updater] The device ID is \"$deviceID\"")
+
+        // Network
         if (!appPreferences.containsKey(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS)) {
             appPreferences.putInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, BuildConfig.CONNECT_TIMEOUT_SECONDS)
         }
@@ -157,26 +167,23 @@ class UpdaterApp : MultiDexApplication() {
         if (!appPreferences.containsKey(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS)) {
             appPreferences.putInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.WRITE_TIMEOUT_SECONDS)
         }
-        // Updater
+
+        // Heartbeat
+        if (!appPreferences.containsKey(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)) {
+            appPreferences.putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
+        }
+
+        // Check
         if (!appPreferences.containsKey(PreferenceProps.CHECK_INTERVAL_SECONDS)) {
             appPreferences.putInt(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS)
         }
-        if (!appPreferences.containsKey(PreferenceProps.INSTALL_HOUR_BEGIN)) {
-            appPreferences.putInt(PreferenceProps.INSTALL_HOUR_BEGIN, BuildConfig.INSTALL_HOUR_BEGIN)
-        }
-        if (!appPreferences.containsKey(PreferenceProps.INSTALL_HOUR_END)) {
-            appPreferences.putInt(PreferenceProps.INSTALL_HOUR_END, BuildConfig.INSTALL_HOUR_END)
-        }
-        if (!appPreferences.containsKey(PreferenceProps.INSTALL_ALLOW_DOWNGRADE)) {
-            appPreferences.putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
-        }
+
+        // Download
         if (!appPreferences.containsKey(PreferenceProps.DOWNLOAD_USE_CACHE)) {
             appPreferences.putBoolean(PreferenceProps.DOWNLOAD_USE_CACHE, BuildConfig.DOWNLOAD_USE_CACHE)
         }
-        // Heartbeat
-        if (!appPreferences.containsKey(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)) {
-            appPreferences.putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
-        }
+
+        // Install
         if (!appPreferences.containsKey(PreferenceProps.INSTALL_HOUR_BEGIN)) {
             appPreferences.putInt(PreferenceProps.INSTALL_HOUR_BEGIN, BuildConfig.INSTALL_HOUR_BEGIN)
         }
@@ -185,10 +192,6 @@ class UpdaterApp : MultiDexApplication() {
         }
         if (!appPreferences.containsKey(PreferenceProps.INSTALL_ALLOW_DOWNGRADE)) {
             appPreferences.putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
-        }
-        // Heartbeat
-        if (!appPreferences.containsKey(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)) {
-            appPreferences.putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
         }
     }
 

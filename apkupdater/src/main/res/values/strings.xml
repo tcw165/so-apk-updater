@@ -7,6 +7,9 @@
     <string name="auto_download">Auto Download</string>
     <string name="check_for_updates">Check for Updates</string>
 
+    <string name="device_category">Device</string>
+    <string name="device_id">Device ID</string>
+
     <string name="network_category">Network</string>
     <string name="network_connection_timeout">Connection Timeout</string>
     <string name="network_read_timeout">Read Timeout</string>
@@ -15,13 +18,17 @@
     <string name="heartbeat_category">Heartbeat</string>
     <string name="heartbeat_interval">Heartbeat Interval</string>
 
-    <string name="update_category">Updater</string>
-    <string name="update_check_interval">Check Interval</string>
-    <string name="update_install_hour_begin">Install Window: Begin Hour of Day</string>
-    <string name="update_install_hour_end">Install Window: End Hour of Day</string>
-    <string name="update_install_allow_downgrade">Install Allow Downgrade</string>
-    <string name="update_download_use_cache">Download Use Cache</string>
-    <string name="update_download_cache_max_size">Download Cache Max Size</string>
+    <string name="check_category">Check</string>
+    <string name="check_interval">Check Interval</string>
+
+    <string name="download_category">Download</string>
+    <string name="download_use_cache">Download Use Cache</string>
+    <string name="download_cache_max_size">Download Cache Max Size</string>
+
+    <string name="install_category">Install</string>
+    <string name="install_hour_begin">Install Window: Begin Hour of Day</string>
+    <string name="install_hour_end">Install Window: End Hour of Day</string>
+    <string name="install_allow_downgrade">Install Allow Downgrade</string>
 
     <string name="other_category">Other</string>
 </resources>
