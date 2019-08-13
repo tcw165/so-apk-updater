@@ -20,12 +20,9 @@ class SparkPointHeartBeater constructor(
     }
 
     override fun scheduleRecurringHeartBeat(
-        intervalMs: Long,
-        sendImmediately: Boolean
+        intervalMs: Long
     ) {
-        // Delegate to the Service
-        val initialDelay = if (sendImmediately) intervalMs / 10 else 0
-        HeartBeatJobIntentService.scheduleRecurringHeartBeat(context, intervalMs, sendImmediately, initialDelay)
+        HeartBeatJobIntentService.scheduleRecurringHeartBeat(context, intervalMs)
     }
 
     override fun observeRecurringHeartBeat(): Observable<Int> {

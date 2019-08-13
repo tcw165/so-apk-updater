@@ -30,6 +30,8 @@ import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import timber.log.Timber
 import javax.inject.Inject
 
+private const val INITIAL_CHECK_DELAY_MILLIS = 1000L // 1 second
+
 class HeartBeatJobIntentService : JobIntentService() {
 
     companion object {
@@ -44,15 +46,8 @@ class HeartBeatJobIntentService : JobIntentService() {
 
         fun scheduleRecurringHeartBeat(
             context: Context,
-            intervalMs: Long,
-            sendImmediately: Boolean,
-            initialDelay: Long
+            intervalMs: Long
         ) {
-            if (sendImmediately) {
-                validateIntervalAndDelay(intervalMs, initialDelay)
-                sendHeartBeatNow(context)
-            }
-
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
                 Timber.v("[HeartBeat] (< 21) Schedule a recurring update, using AlarmManager")
 
@@ -66,7 +61,7 @@ class HeartBeatJobIntentService : JobIntentService() {
                 alarmManager.cancel(pendingIntent)
                 alarmManager.setInexactRepeating(
                     AlarmManager.ELAPSED_REALTIME,
-                    SystemClock.elapsedRealtime() + initialDelay,
+                    SystemClock.elapsedRealtime() + INITIAL_CHECK_DELAY_MILLIS,
                     intervalMs,
                     pendingIntent
                 )
@@ -93,16 +88,6 @@ class HeartBeatJobIntentService : JobIntentService() {
                 // to an Intent. Then the Intent is handled here in onHandleWork()!
                 jobScheduler.cancel(UpdaterJobs.JOB_ID_HEART_BEAT)
                 jobScheduler.schedule(builder.build())
-            }
-        }
-
-        private fun validateIntervalAndDelay(
-            interval: Long,
-            initialDelay: Long
-        ) {
-            val timesLarger = 10
-            if (interval < timesLarger * initialDelay) {
-                throw IllegalArgumentException("Interval ($interval) should be $timesLarger times larger than the initial delay ($initialDelay)")
             }
         }
     }
