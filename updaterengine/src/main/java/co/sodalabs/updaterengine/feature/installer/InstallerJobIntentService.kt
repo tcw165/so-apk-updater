@@ -188,6 +188,8 @@ class InstallerJobIntentService : JobIntentService() {
                             installer.installPackages(safeUpdates)
                         }
                     }
+                    // If the install finishes successfully, clean up the disk cache.
+                    clearUpdatesCache()
                 }
                 IntentActions.ACTION_UNINSTALL_PACKAGES -> {
                     val packageNames = intent.getStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES)
@@ -200,8 +202,6 @@ class InstallerJobIntentService : JobIntentService() {
             Timber.e(error)
             // TODO: Error handling
         } finally {
-            clearUpdatesCache()
-
             AppUpdaterService.notifyInstallComplete(this)
         }
     }
