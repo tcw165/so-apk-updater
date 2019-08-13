@@ -18,24 +18,34 @@ class SecureStringEditTextPreference : EditTextPreference {
     constructor(context: Context) : this(context, null)
     constructor(context: Context, attrs: AttributeSet?) : this(context, attrs, TypedArrayUtils.getAttr(context, R.attr.editTextPreferenceStyle, android.R.attr.editTextPreferenceStyle))
     constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int) : this(context, attrs, defStyleAttr, 0)
-    constructor(context: Context?, attrs: AttributeSet?, defStyleAttr: Int, defStyleRes: Int) : super(context, attrs, defStyleAttr, defStyleRes) {
-        Timber.wtf("This is really used!")
-    }
+    constructor(context: Context?, attrs: AttributeSet?, defStyleAttr: Int, defStyleRes: Int) : super(context, attrs, defStyleAttr, defStyleRes)
 
     override fun shouldPersist(): Boolean = true
 
+    /**
+     * Read/write the preference from/to secure settings.
+     */
     override fun getPreferenceDataStore(): PreferenceDataStore? {
         return object : PreferenceDataStore() {
 
             override fun getString(key: String, defValue: String?): String? {
                 val resolver = context.applicationContext.contentResolver
-                return Settings.Secure.getString(resolver, key)
+                return try {
+                    Settings.Secure.getString(resolver, key)
+                } catch (error: Throwable) {
+                    Timber.e(error)
+                    null
+                }
             }
 
             override fun putString(key: String, value: String?) {
                 val resolver = context.applicationContext.contentResolver
                 value?.let { nonNullValue ->
-                    Settings.Secure.putString(resolver, key, nonNullValue)
+                    try {
+                        Settings.Secure.putString(resolver, key, nonNullValue)
+                    } catch (error: Throwable) {
+                        Timber.e(error)
+                    }
                 }
             }
 
