@@ -30,7 +30,7 @@ import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import timber.log.Timber
 import javax.inject.Inject
 
-private const val INITIAL_CHECK_DELAY_MILLIS = 600000L // 10 min
+private const val INITIAL_CHECK_DELAY_MILLIS = 1000L // 1 second
 
 class HeartBeatJobIntentService : JobIntentService() {
 
