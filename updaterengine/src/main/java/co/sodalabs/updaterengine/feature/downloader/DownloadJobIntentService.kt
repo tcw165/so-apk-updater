@@ -14,6 +14,7 @@ import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.exception.DownloadCancelledException
 import co.sodalabs.updaterengine.exception.DownloadFileIOException
 import co.sodalabs.updaterengine.exception.DownloadHttpException
+import co.sodalabs.updaterengine.exception.DownloadProgressTooLargeException
 import co.sodalabs.updaterengine.exception.DownloadSizeUnknownException
 import co.sodalabs.updaterengine.exception.DownloadTimeoutException
 import co.sodalabs.updaterengine.exception.DownloadUnknownErrorException
@@ -100,7 +101,7 @@ class DownloadJobIntentService : JobIntentService() {
     ) {
         // The latch for joint the thread of the JobIntentService and the
         // threads of download manager.
-        var disposed = AtomicBoolean(false)
+        val disposed = AtomicBoolean(false)
         val countdownLatch = CountDownLatch(updates.size)
 
         val downloadedUpdates = mutableListOf<DownloadedUpdate>()
@@ -183,6 +184,11 @@ class DownloadJobIntentService : JobIntentService() {
                             downloadedBytes: Long,
                             progress: Int
                         ) {
+                            if (progress > 100) {
+                                val downloadURL = downloadRequest.uri.toString()
+                                throw DownloadProgressTooLargeException(downloadURL, progress)
+                            }
+
                             logDownloadProgress(downloadRequest, progress, aggregateProgresses)
                         }
                     })
@@ -245,7 +251,7 @@ class DownloadJobIntentService : JobIntentService() {
             DownloadManager.ERROR_HTTP_DATA_ERROR -> DownloadHttpException(packageName, downloadURL)
             DownloadManager.ERROR_TOO_MANY_REDIRECTS -> HttpTooManyRedirectsException(downloadURL)
             DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> DownloadUnknownErrorException(packageName, downloadURL)
-            else -> IllegalArgumentException("Unknown error code: $this")
+            else -> DownloadUnknownErrorException(packageName, downloadURL)
         }
     }
 
