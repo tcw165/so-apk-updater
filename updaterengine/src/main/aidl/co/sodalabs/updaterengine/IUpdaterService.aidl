@@ -1,7 +1,8 @@
 // IPrivilegedService.aidl
-package co.sodalabs.apkupdater;
+package co.sodalabs.updaterengine;
 
-import co.sodalabs.apkupdater.IUpdaterCallback;
+import co.sodalabs.updaterengine.IFirmwareCheckCallback;
+import co.sodalabs.updaterengine.IFirmwareInstallCallback;
 
 interface IUpdaterService {
 
@@ -13,6 +14,6 @@ interface IUpdaterService {
     long getInstallEndHourOfDay();
     oneway void setInstallEndHourOfDay(in int endHourOfDay);
 
-    void addUpdaterListener(in IUpdaterCallback listener);
-    void removeUpdaterListener(in IUpdaterCallback listener);
+    oneway void checkFirmwareUpdateNow(in IFirmwareCheckCallback callback);
+    oneway void installFirmwareUpdate(in IFirmwareInstallCallback callback);
 }
