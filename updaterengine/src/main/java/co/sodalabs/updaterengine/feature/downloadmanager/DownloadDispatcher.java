@@ -4,6 +4,9 @@ import android.net.Uri;
 import android.os.Process;
 
 import org.apache.http.conn.ConnectTimeoutException;
+import org.threeten.bp.Instant;
+import org.threeten.bp.ZoneOffset;
+import org.threeten.bp.format.DateTimeFormatter;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -151,7 +154,14 @@ class DownloadDispatcher extends Thread {
             if (destinationFile.exists()) {
                 mDownloadedCacheSize = (int) destinationFile.length();
             }
+            // The standard property for partial download.
             conn.setRequestProperty("Range", "bytes=" + mDownloadedCacheSize + "-");
+            // The Microsoft Azure property for partial download, which supports size larger than 2^64.
+            conn.setRequestProperty("x-ms-range", "bytes=" + mDownloadedCacheSize + "-");
+            conn.setRequestProperty("x-ms-version", "2018-03-28");
+            String dateString = Instant.now().atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE);
+            conn.setRequestProperty("x-ms-date", dateString);
+            conn.setRequestProperty("Date", dateString);
 
             Log.d(TAG, "Existing file mDownloadedCacheSize: " + mDownloadedCacheSize);
             conn.setInstanceFollowRedirects(false);
