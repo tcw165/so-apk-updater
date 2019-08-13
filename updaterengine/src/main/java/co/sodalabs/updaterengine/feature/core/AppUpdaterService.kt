@@ -15,6 +15,9 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import co.sodalabs.updaterengine.ApkUpdater
+import co.sodalabs.updaterengine.IFirmwareCheckCallback
+import co.sodalabs.updaterengine.IFirmwareInstallCallback
+import co.sodalabs.updaterengine.IUpdaterService
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.R
 import co.sodalabs.updaterengine.data.AppUpdate
@@ -163,11 +166,6 @@ class AppUpdaterService : Service() {
         return START_STICKY
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        // TODO: Provide binding
-        return null
-    }
-
     override fun onDestroy() {
         Timber.v("[Updater] engine stops!")
         super.onDestroy()
@@ -269,5 +267,45 @@ class AppUpdaterService : Service() {
         chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
         notificationManager.createNotificationChannel(chan)
         return channelId
+    }
+
+    // IBinder ////////////////////////////////////////////////////////////////
+
+    override fun onBind(intent: Intent?): IBinder? {
+        return remoteBinder
+    }
+
+    private val remoteBinder = object : IUpdaterService.Stub() {
+        override fun getCheckIntervalSecs(): Long {
+            TODO("not implemented")
+        }
+
+        override fun setCheckIntervalSecs(intervalSecs: Long) {
+            TODO("not implemented")
+        }
+
+        override fun getInstallStartHourOfDay(): Long {
+            TODO("not implemented")
+        }
+
+        override fun setInstallStartHourOfDay(startHourOfDay: Int) {
+            TODO("not implemented")
+        }
+
+        override fun getInstallEndHourOfDay(): Long {
+            TODO("not implemented")
+        }
+
+        override fun setInstallEndHourOfDay(endHourOfDay: Int) {
+            TODO("not implemented")
+        }
+
+        override fun checkFirmwareUpdateNow(callback: IFirmwareCheckCallback?) {
+            TODO("not implemented")
+        }
+
+        override fun installFirmwareUpdate(callback: IFirmwareInstallCallback?) {
+            TODO("not implemented")
+        }
     }
 }
