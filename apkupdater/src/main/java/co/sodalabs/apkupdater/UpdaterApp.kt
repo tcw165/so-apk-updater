@@ -151,11 +151,11 @@ class UpdaterApp : MultiDexApplication() {
         // Debug device ID
         if (sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) == null &&
             (BuildUtils.isDebug() || BuildUtils.isStaging())) {
-            Timber.w("[Updater] Inject the debug device ID as \"$DEBUG_DEVICE_ID\"")
+            Timber.v("[Updater] Inject the debug device ID as \"$DEBUG_DEVICE_ID\"")
             sharedSettings.putSecureString(SharedSettingsProps.DEVICE_ID, DEBUG_DEVICE_ID)
         }
         val deviceID = sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID)
-        Timber.w("[Updater] The device ID is \"$deviceID\"")
+        Timber.v("[Updater] The device ID is \"$deviceID\"")
 
         // Network
         if (!appPreferences.containsKey(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS)) {
