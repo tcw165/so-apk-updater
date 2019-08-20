@@ -58,12 +58,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
     // Heart Beat /////////////////////////////////////////////////////////////
 
     private val heartBeatWatcherPref by lazy {
-        findPreference<Preference>(KEY_HEART_BEAT_WATCHER) ?: throw IllegalStateException("Can't find preference!")
+        findPreference<Preference>(KEY_HEART_BEAT_WATCHER)
+            ?: throw IllegalStateException("Can't find preference!")
     }
     private val heartbeatWatcherTitle by lazy { heartBeatWatcherPref.title.toString() }
 
     private val sendHeartBeatNowPref by lazy {
-        findPreference<Preference>(KEY_HEART_BEAT_NOW) ?: throw IllegalStateException("Can't find preference!")
+        findPreference<Preference>(KEY_HEART_BEAT_NOW)
+            ?: throw IllegalStateException("Can't find preference!")
     }
     private val sendHeartbeatNowTitle by lazy { sendHeartBeatNowPref.title.toString() }
 
@@ -136,7 +138,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         sendHeartBeatNowPref.title = sendHeartbeatNowTitle
     }
 
-    // Check Update
+    // Check Update ///////////////////////////////////////////////////////////
 
     private val checkUpdateNowPref by lazy {
         findPreference<Preference>(KEY_CHECK_UPDATE_NOW)
@@ -209,8 +211,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 val intentFilter = IntentFilter(IntentActions.ACTION_DOWNLOAD_UPDATES)
                 RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
                     .map { intent ->
-                        val downloadedUpdates =
-                            intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
+                        val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
                         UiState.Done(downloadedUpdates.toList()) as UiState<List<DownloadedUpdate>>
                     }
                     .startWith(UiState.InProgress())
