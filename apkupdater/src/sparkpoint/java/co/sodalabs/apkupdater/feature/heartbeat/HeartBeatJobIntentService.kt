@@ -128,6 +128,7 @@ class HeartBeatJobIntentService : JobIntentService() {
     private fun sendHeartBeat() {
         try {
             val deviceID = getDeviceID()
+            val hardwareID = getHardwareID()
             val firmwareVersion = getFirmwareVersion()
             val sparkpointPlayerVersion = getSparkpointPlayerVersion()
 
@@ -142,6 +143,7 @@ class HeartBeatJobIntentService : JobIntentService() {
             val timeMs = benchmark {
                 val apiBody = HeartBeatBody(
                     deviceID,
+                    hardwareID,
                     firmwareVersion,
                     sparkpointPlayerVersion
                 )
@@ -164,6 +166,10 @@ class HeartBeatJobIntentService : JobIntentService() {
 
     private fun getDeviceID(): String {
         return sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: ""
+    }
+
+    private fun getHardwareID(): String {
+        return sharedSettings.getHardwareId()
     }
 
     private fun getFirmwareVersion(): String {
