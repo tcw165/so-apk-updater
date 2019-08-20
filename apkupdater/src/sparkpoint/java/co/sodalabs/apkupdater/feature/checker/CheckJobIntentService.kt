@@ -13,6 +13,8 @@ import android.os.Build
 import android.os.PersistableBundle
 import android.os.SystemClock
 import androidx.core.app.JobIntentService
+import co.sodalabs.apkupdater.ISharedSettings
+import co.sodalabs.apkupdater.SharedSettingsProps
 import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
 import co.sodalabs.updaterengine.ApkUpdater
@@ -36,7 +38,12 @@ class CheckJobIntentService : JobIntentService() {
             val intent = Intent(context, CheckJobIntentService::class.java)
             intent.action = IntentActions.ACTION_CHECK_UPDATES
             intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames)
-            enqueueWork(context, ComponentName(context, CheckJobIntentService::class.java), JOB_ID_CHECK_UPDATES, intent)
+            enqueueWork(
+                context,
+                ComponentName(context, CheckJobIntentService::class.java),
+                JOB_ID_CHECK_UPDATES,
+                intent
+            )
         }
 
         fun scheduleRecurringUpdateCheck(
@@ -114,6 +121,8 @@ class CheckJobIntentService : JobIntentService() {
 
     @Inject
     lateinit var apiClient: ISparkPointUpdateCheckApi
+    @Inject
+    lateinit var sharedSettings: ISharedSettings
 
     override fun onCreate() {
         super.onCreate()
@@ -139,7 +148,8 @@ class CheckJobIntentService : JobIntentService() {
     private fun checkAppUpdates(
         intent: Intent
     ) {
-        val packageNames = intent.getStringArrayExtra(IntentActions.PROP_APP_PACKAGE_NAMES) ?: throw IllegalArgumentException("Must provide a package name list")
+        val packageNames = intent.getStringArrayExtra(IntentActions.PROP_APP_PACKAGE_NAMES)
+            ?: throw IllegalArgumentException("Must provide a package name list")
 
         val updates = mutableListOf<AppUpdate>()
         var updatesError: Throwable? = null
@@ -171,7 +181,8 @@ class CheckJobIntentService : JobIntentService() {
         // }
 
         val apiRequest = apiClient.getAppUpdate(
-            packageName = packageName
+            packageName = packageName,
+            deviceId = getDeviceID()
         )
         val apiResponse = apiRequest.execute()
 
@@ -233,5 +244,9 @@ class CheckJobIntentService : JobIntentService() {
         } catch (error: PackageManager.NameNotFoundException) {
             false
         }
+    }
+
+    private fun getDeviceID(): String {
+        return sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: ""
     }
 }

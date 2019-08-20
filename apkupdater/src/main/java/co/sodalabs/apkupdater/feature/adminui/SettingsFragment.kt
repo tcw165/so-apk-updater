@@ -24,6 +24,7 @@ import timber.log.Timber
 
 private const val KEY_HEART_BEAT_WATCHER = "heartbeat_watcher"
 private const val KEY_HEART_BEAT_NOW = "send_heartbeat_now"
+private const val KEY_CHECK_UPDATE_NOW = "check_test_app_now"
 private const val KEY_DOWNLOAD_TEST_APP_NOW = "download_test_app_now"
 
 class SettingsFragment : PreferenceFragmentCompat() {
@@ -43,6 +44,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         observeHeartBeatNowClicks()
         observeRecurringHeartBeat()
 
+        observeCheckUpdateNowClicks()
         observeDownloadTestNowClicks()
 
         observeCaughtErrors()
@@ -55,10 +57,14 @@ class SettingsFragment : PreferenceFragmentCompat() {
 
     // Heart Beat /////////////////////////////////////////////////////////////
 
-    private val heartBeatWatcherPref by lazy { findPreference<Preference>(KEY_HEART_BEAT_WATCHER) ?: throw IllegalStateException("Can't find preference!") }
+    private val heartBeatWatcherPref by lazy {
+        findPreference<Preference>(KEY_HEART_BEAT_WATCHER) ?: throw IllegalStateException("Can't find preference!")
+    }
     private val heartbeatWatcherTitle by lazy { heartBeatWatcherPref.title.toString() }
 
-    private val sendHeartBeatNowPref by lazy { findPreference<Preference>(KEY_HEART_BEAT_NOW) ?: throw IllegalStateException("Can't find preference!") }
+    private val sendHeartBeatNowPref by lazy {
+        findPreference<Preference>(KEY_HEART_BEAT_NOW) ?: throw IllegalStateException("Can't find preference!")
+    }
     private val sendHeartbeatNowTitle by lazy { sendHeartBeatNowPref.title.toString() }
 
     @Suppress("USELESS_CAST")
@@ -130,9 +136,66 @@ class SettingsFragment : PreferenceFragmentCompat() {
         sendHeartBeatNowPref.title = sendHeartbeatNowTitle
     }
 
+    // Check Update
+
+    private val checkUpdateNowPref by lazy {
+        findPreference<Preference>(KEY_CHECK_UPDATE_NOW)
+            ?: throw java.lang.IllegalStateException("Can't find preference!")
+    }
+    private val checkUpdateNowTitle by lazy { checkUpdateNowPref.title.toString() }
+
+    @Suppress("USELESS_CAST")
+    private fun observeCheckUpdateNowClicks() {
+        val safeContext = context ?: throw NullPointerException("Context is null")
+
+        checkUpdateNowPref.clicks()
+            .flatMap {
+                ApkUpdater.checkForUpdatesNow()
+
+                val intentFilter = IntentFilter(IntentActions.ACTION_CHECK_UPDATES)
+                RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
+                    .map {
+                        UiState.Done(true) as UiState<Boolean>
+                    }
+                    .startWith(UiState.InProgress())
+                    .take(2)
+            }
+            .observeOn(AndroidSchedulers.mainThread())
+            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
+                markCheckUpdateDone()
+                caughtErrorRelay.accept(error)
+                true
+            }
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({ uiState ->
+                when (uiState) {
+                    is UiState.InProgress<Boolean> -> {
+                        markCheckUpdateWIP()
+                    }
+                    is UiState.Done<Boolean> -> {
+                        markCheckUpdateDone()
+                    }
+                }
+            }, Timber::e)
+            .addTo(disposables)
+    }
+
+    private fun markCheckUpdateWIP() {
+        checkUpdateNowPref.isEnabled = false
+        // Use title to present working state
+        checkUpdateNowPref.title = "$checkUpdateNowTitle (Working...)"
+    }
+
+    private fun markCheckUpdateDone() {
+        checkUpdateNowPref.isEnabled = true
+        checkUpdateNowPref.title = checkUpdateNowTitle
+    }
+
     // Update/Download ////////////////////////////////////////////////////////
 
-    private val downloadTestAppNowPref by lazy { findPreference<Preference>(KEY_DOWNLOAD_TEST_APP_NOW) ?: throw IllegalStateException("Can't find preference!") }
+    private val downloadTestAppNowPref by lazy {
+        findPreference<Preference>(KEY_DOWNLOAD_TEST_APP_NOW) ?: throw IllegalStateException("Can't find preference!")
+    }
     private val downloadTestAppNowTitle by lazy { downloadTestAppNowPref.title.toString() }
 
     @Suppress("USELESS_CAST")
@@ -146,7 +209,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 val intentFilter = IntentFilter(IntentActions.ACTION_DOWNLOAD_UPDATES)
                 RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
                     .map { intent ->
-                        val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
+                        val downloadedUpdates =
+                            intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
                         UiState.Done(downloadedUpdates.toList()) as UiState<List<DownloadedUpdate>>
                     }
                     .startWith(UiState.InProgress())

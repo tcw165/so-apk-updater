@@ -39,6 +39,11 @@
             app:key="co.sodalabs.apkupdater.check_interval"
             app:summary="Interval in seconds that the recurring update check happens"
             app:title="@string/check_interval" />
+
+        <Preference
+                app:icon="@drawable/bt_check"
+                app:key="check_test_app_now"
+                app:title="Check for Update Now" />
     </PreferenceCategory>
 
     <PreferenceCategory
