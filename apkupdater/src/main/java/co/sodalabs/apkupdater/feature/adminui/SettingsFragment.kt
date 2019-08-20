@@ -154,6 +154,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             .flatMap {
                 ApkUpdater.checkForUpdatesNow()
 
+                // TODO: Pull out to a function of ApkUpdater.
                 val intentFilter = IntentFilter(IntentActions.ACTION_CHECK_UPDATES)
                 RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
                     .map {
@@ -208,6 +209,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             .flatMap {
                 ApkUpdater.downloadUpdateNow(FakeUpdates.file170MB)
 
+                // TODO: Pull out to a function of ApkUpdater.
                 val intentFilter = IntentFilter(IntentActions.ACTION_DOWNLOAD_UPDATES)
                 RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
                     .map { intent ->
