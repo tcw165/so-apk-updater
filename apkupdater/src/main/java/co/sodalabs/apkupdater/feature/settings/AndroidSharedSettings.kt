@@ -1,11 +1,14 @@
 package co.sodalabs.apkupdater.feature.settings
 
+import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.database.ContentObserver
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.provider.Settings
+import co.sodalabs.apkupdater.BuildConfig
 import co.sodalabs.apkupdater.ISharedSettings
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.feature.rx.InitialValueObservable
@@ -35,6 +38,12 @@ class AndroidSharedSettings @Inject constructor(
             Timber.e(error)
             false
         }
+    }
+
+    @SuppressLint("HardwareIds")
+    override fun getHardwareId(): String {
+        val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        return "${Build.MANUFACTURER}:${BuildConfig.DEBUG}:$androidId"
     }
 
     override fun getGlobalInt(key: String, default: Int): Int {

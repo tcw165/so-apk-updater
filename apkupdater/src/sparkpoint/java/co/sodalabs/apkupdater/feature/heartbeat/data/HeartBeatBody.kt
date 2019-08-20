@@ -9,6 +9,8 @@ import com.squareup.moshi.JsonClass
 data class HeartBeatBody(
     @Json(name = "device_id")
     val deviceID: String,
+    @Json(name = "hardware_id")
+    val hardwareID: String,
     @Json(name = "firmware_version")
     val firmwareVersion: String,
     @Json(name = "apk_version")

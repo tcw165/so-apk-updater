@@ -6,6 +6,8 @@ interface ISharedSettings {
     fun isDeviceProvisioned(): Boolean
     fun isUserSetupComplete(): Boolean
 
+    fun getHardwareId(): String
+
     fun getGlobalInt(key: String, default: Int): Int
     fun putGlobalInt(key: String, value: Int): Boolean
     fun observeGlobalInt(key: String, default: Int): InitialValueObservable<Int>
