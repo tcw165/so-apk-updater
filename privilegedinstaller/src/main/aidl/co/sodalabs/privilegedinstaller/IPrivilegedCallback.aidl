@@ -1,4 +1,3 @@
-// IPrivilegedCallback.aidl
 package co.sodalabs.privilegedinstaller;
 
 interface IPrivilegedCallback {

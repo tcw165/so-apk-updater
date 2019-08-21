@@ -1,14 +1,19 @@
 package co.sodalabs.apkupdater.feature.settings
 
+import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.database.ContentObserver
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.provider.Settings
+import co.sodalabs.apkupdater.BuildConfig
+import co.sodalabs.apkupdater.ISharedSettings
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.feature.rx.InitialValueObservable
 import io.reactivex.Observable
+import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
 
@@ -19,24 +24,33 @@ class AndroidSharedSettings @Inject constructor(
 
     override fun isDeviceProvisioned(): Boolean {
         return try {
-            getGlobalInt(SystemProps.DEVICE_PROVISIONED, 0) == 1
+            getGlobalInt(SharedSettingsProps.DEVICE_PROVISIONED, 0) == 1
         } catch (error: Throwable) {
+            Timber.e(error)
             false
         }
     }
 
     override fun isUserSetupComplete(): Boolean {
         return try {
-            getSecureInt(SystemProps.USER_SETUP_COMPLETE, 0) == 1
+            getSecureInt(SharedSettingsProps.USER_SETUP_COMPLETE, 0) == 1
         } catch (error: Throwable) {
+            Timber.e(error)
             false
         }
+    }
+
+    @SuppressLint("HardwareIds")
+    override fun getHardwareId(): String {
+        val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        return "${Build.MANUFACTURER}:${BuildConfig.DEBUG}:$androidId"
     }
 
     override fun getGlobalInt(key: String, default: Int): Int {
         return try {
             Settings.Global.getInt(contentResolver, key, default)
         } catch (error: Throwable) {
+            Timber.e(error)
             default
         }
     }
@@ -45,6 +59,7 @@ class AndroidSharedSettings @Inject constructor(
         return try {
             Settings.Global.putInt(contentResolver, key, value)
         } catch (error: Throwable) {
+            Timber.e(error)
             false
         }
     }
@@ -56,6 +71,31 @@ class AndroidSharedSettings @Inject constructor(
         return observeWithNamespaceAndType(SettingsNamespace.Global, key, default)
     }
 
+    override fun getGlobalString(key: String, default: String): String {
+        return try {
+            Settings.Global.getString(contentResolver, key) ?: default
+        } catch (error: Throwable) {
+            Timber.e(error)
+            default
+        }
+    }
+
+    override fun putGlobalString(key: String, value: String): Boolean {
+        return try {
+            Settings.Global.putString(contentResolver, key, value)
+        } catch (error: Throwable) {
+            Timber.e(error)
+            false
+        }
+    }
+
+    override fun observeGlobalString(
+        key: String,
+        default: String
+    ): InitialValueObservable<String> {
+        return observeWithNamespaceAndType(SettingsNamespace.Global, key, default)
+    }
+
     override fun getSecureInt(
         key: String,
         default: Int
@@ -63,6 +103,7 @@ class AndroidSharedSettings @Inject constructor(
         return try {
             Settings.Secure.getInt(contentResolver, key, default)
         } catch (error: Throwable) {
+            Timber.e(error)
             default
         }
     }
@@ -74,6 +115,7 @@ class AndroidSharedSettings @Inject constructor(
         return try {
             Settings.Secure.putInt(contentResolver, key, value)
         } catch (error: Throwable) {
+            Timber.e(error)
             false
         }
     }
@@ -88,6 +130,7 @@ class AndroidSharedSettings @Inject constructor(
         return try {
             Settings.Secure.getString(contentResolver, key)
         } catch (error: Throwable) {
+            Timber.e(error)
             null
         }
     }
@@ -96,6 +139,7 @@ class AndroidSharedSettings @Inject constructor(
         return try {
             Settings.Secure.putString(contentResolver, key, value)
         } catch (error: Throwable) {
+            Timber.e(error)
             false
         }
     }
@@ -124,6 +168,7 @@ class AndroidSharedSettings @Inject constructor(
 
                             val value = when (default) {
                                 is Int -> namespace.getIntFor(key, default)
+                                is String -> namespace.getStringFor(key) ?: default
                                 else -> throw IllegalArgumentException()
                             }
                             emitter.onNext(value as T)

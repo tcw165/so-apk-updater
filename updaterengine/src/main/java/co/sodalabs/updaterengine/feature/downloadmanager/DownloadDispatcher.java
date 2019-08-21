@@ -4,6 +4,9 @@ import android.net.Uri;
 import android.os.Process;
 
 import org.apache.http.conn.ConnectTimeoutException;
+import org.threeten.bp.Instant;
+import org.threeten.bp.ZoneOffset;
+import org.threeten.bp.format.DateTimeFormatter;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -151,7 +154,14 @@ class DownloadDispatcher extends Thread {
             if (destinationFile.exists()) {
                 mDownloadedCacheSize = (int) destinationFile.length();
             }
+            // The standard property for partial download.
             conn.setRequestProperty("Range", "bytes=" + mDownloadedCacheSize + "-");
+            // The Microsoft Azure property for partial download, which supports size larger than 2^64.
+            conn.setRequestProperty("x-ms-range", "bytes=" + mDownloadedCacheSize + "-");
+            conn.setRequestProperty("x-ms-version", "2018-03-28");
+            String dateString = Instant.now().atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE);
+            conn.setRequestProperty("x-ms-date", dateString);
+            conn.setRequestProperty("Date", dateString);
 
             Log.d(TAG, "Existing file mDownloadedCacheSize: " + mDownloadedCacheSize);
             conn.setInstanceFollowRedirects(false);
@@ -183,8 +193,16 @@ class DownloadDispatcher extends Thread {
                         if (mDownloadedCacheSize == mContentLength) { // Mark as success, If end of stream already reached
                             updateDownloadComplete(request);
                             Log.d(TAG, "Download Completed");
-                        } else {
+                        } else if (mDownloadedCacheSize < mContentLength) {
                             transferData(request, conn);
+                        } else {
+                            // We have to delete the file since the file size is
+                            // too big.
+                            if (destinationFile.exists() && destinationFile.delete()) {
+                                Timber.e("Delete the cache file, " + destinationFile + ", cause it is corrupt and the size is too large.");
+                            }
+
+                            updateDownloadFailed(request, DownloadManager.ERROR_FILE_ERROR, "The cache file size is larger than the target download size");
                         }
                     } else {
                         updateDownloadFailed(request, DownloadManager.ERROR_DOWNLOAD_SIZE_UNKNOWN,
@@ -251,6 +269,8 @@ class DownloadDispatcher extends Thread {
     private void transferData(DownloadRequest request, HttpURLConnection conn) {
         BufferedInputStream in = null;
         RandomAccessFile accessFile = null;
+
+        // Don't clean the destination since we have the LRU cache manage the files.
         // cleanupDestination(request, false);
         try {
             try {
@@ -321,7 +341,9 @@ class DownloadDispatcher extends Thread {
                 e.printStackTrace();
             } finally {
                 try {
-                    if (accessFile != null) accessFile.close();
+                    if (accessFile != null) {
+                        accessFile.close();
+                    }
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -475,9 +497,12 @@ class DownloadDispatcher extends Thread {
         mDownloadedCacheSize = 0; // reset into Zero.
         shouldAllowRedirects = false;
         request.setDownloadState(DownloadManager.STATUS_FAILED);
+
+        // We don't delete the file since we have LRU cache manage the files.
         // if (request.getDeleteDestinationFileOnFailure()) {
         //     cleanupDestination(request, true);
         // }
+
         mDelivery.postDownloadFailed(request, errorCode, errorMsg);
         request.finish();
     }

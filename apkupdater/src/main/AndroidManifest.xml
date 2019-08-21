@@ -5,6 +5,13 @@
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!--Permissions for writing to system settings-->
+    <uses-permission
+        android:name="android.permission.WRITE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
 
     <application
         android:name=".UpdaterApp"
@@ -15,13 +22,19 @@
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
 
+        <!--<meta-data-->
+        <!--android:name="com.bugsnag.android.API_KEY"-->
+        <!--android:value="Key is hidden in the build pipeline" />-->
         <meta-data
-            android:name="io.fabric.ApiKey"
-            android:value="899dcee9306ec461449140c2bcf50da976c36991" />
+            android:name="com.bugsnag.android.DETECT_ANRS"
+            android:value="true" />
 
-        <activity android:name=".feature.adminui.SettingsActivity">
+        <activity
+            android:name=".feature.adminui.SettingsActivity"
+            android:screenOrientation="sensorPortrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+                <action android:name="co.sodalabs.intent.action.SHOW_ADMIN_SETTINGS" />
 
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.LAUNCHER" />

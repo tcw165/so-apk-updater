@@ -25,7 +25,6 @@
 # Top-level functions that can only be used by Kotlin.
 -dontwarn retrofit2.-KotlinExtensions
 
-
 -keepclasseswithmembers class * {
     @com.squareup.moshi.* <methods>;
 }

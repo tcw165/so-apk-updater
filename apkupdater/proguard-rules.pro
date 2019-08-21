@@ -23,3 +23,13 @@
 -dontwarn android.support.v7.**
 -keep class android.support.v7.** { *; }
 -keep interface android.support.v7.** { *; }
+
+# Bug tracking
+-keepattributes LineNumberTable,SourceFile
+-keep class com.bugsnag.android.NativeInterface { *; }
+-keep class com.bugsnag.android.Breadcrumb { *; }
+-keep class com.bugsnag.android.Breadcrumbs { *; }
+-keep class com.bugsnag.android.Breadcrumbs$Breadcrumb { *; }
+-keep class com.bugsnag.android.BreadcrumbType { *; }
+-keep class com.bugsnag.android.Severity { *; }
+-keep class com.bugsnag.android.ndk.BugsnagObserver { *; }

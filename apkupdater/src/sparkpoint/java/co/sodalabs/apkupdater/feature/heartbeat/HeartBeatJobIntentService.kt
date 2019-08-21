@@ -1,5 +1,6 @@
 package co.sodalabs.apkupdater.feature.heartbeat
 
+import Packages
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.app.job.JobInfo
@@ -7,15 +8,19 @@ import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PersistableBundle
 import android.os.SystemClock
 import androidx.core.app.JobIntentService
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import co.sodalabs.apkupdater.SparkPointProps
+import co.sodalabs.apkupdater.ISharedSettings
+import co.sodalabs.apkupdater.ISystemProperties
+import co.sodalabs.apkupdater.SharedSettingsProps
 import co.sodalabs.apkupdater.UpdaterApp
+import co.sodalabs.apkupdater.data.SystemProps
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
-import co.sodalabs.apkupdater.feature.settings.ISharedSettings
+import co.sodalabs.apkupdater.feature.heartbeat.data.HeartBeatBody
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.data.HTTPResponseCode
@@ -25,7 +30,7 @@ import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import timber.log.Timber
 import javax.inject.Inject
 
-private const val DEBUG_DEVICE_ID = "660112"
+private const val INITIAL_CHECK_DELAY_MILLIS = 1000L // 1 second
 
 class HeartBeatJobIntentService : JobIntentService() {
 
@@ -41,15 +46,8 @@ class HeartBeatJobIntentService : JobIntentService() {
 
         fun scheduleRecurringHeartBeat(
             context: Context,
-            intervalMs: Long,
-            sendImmediately: Boolean,
-            initialDelay: Long
+            intervalMs: Long
         ) {
-            if (sendImmediately) {
-                validateIntervalAndDelay(intervalMs, initialDelay)
-                sendHeartBeatNow(context)
-            }
-
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
                 Timber.v("[HeartBeat] (< 21) Schedule a recurring update, using AlarmManager")
 
@@ -63,7 +61,7 @@ class HeartBeatJobIntentService : JobIntentService() {
                 alarmManager.cancel(pendingIntent)
                 alarmManager.setInexactRepeating(
                     AlarmManager.ELAPSED_REALTIME,
-                    SystemClock.elapsedRealtime() + initialDelay,
+                    SystemClock.elapsedRealtime() + INITIAL_CHECK_DELAY_MILLIS,
                     intervalMs,
                     pendingIntent
                 )
@@ -92,22 +90,14 @@ class HeartBeatJobIntentService : JobIntentService() {
                 jobScheduler.schedule(builder.build())
             }
         }
-
-        private fun validateIntervalAndDelay(
-            interval: Long,
-            initialDelay: Long
-        ) {
-            val timesLarger = 10
-            if (interval < timesLarger * initialDelay) {
-                throw IllegalArgumentException("Interval ($interval) should be $timesLarger times larger than the initial delay ($initialDelay)")
-            }
-        }
     }
 
     @Inject
     lateinit var apiClient: ISparkPointHeartBeatApi
     @Inject
-    lateinit var settingsRepository: ISharedSettings
+    lateinit var sharedSettings: ISharedSettings
+    @Inject
+    lateinit var systemProperties: ISystemProperties
 
     override fun onCreate() {
         super.onCreate()
@@ -138,11 +128,12 @@ class HeartBeatJobIntentService : JobIntentService() {
     private fun sendHeartBeat() {
         try {
             val deviceID = getDeviceID()
-            val now = getPrettyDateNow()
-            Timber.v("[HeartBeat] Health check at $now for device, \"$deviceID\"")
+            val hardwareID = getHardwareID()
+            val firmwareVersion = getFirmwareVersion()
+            val sparkpointPlayerVersion = getSparkpointPlayerVersion()
 
-            val provisioned = settingsRepository.isDeviceProvisioned()
-            val userSetupComplete = settingsRepository.isUserSetupComplete()
+            val provisioned = sharedSettings.isDeviceProvisioned()
+            val userSetupComplete = sharedSettings.isUserSetupComplete()
             Timber.v("[HeartBeat] provisioned: $provisioned, user setup complete: $userSetupComplete")
             if (!provisioned || !userSetupComplete) {
                 reportDeviceNotSetup(deviceID)
@@ -150,13 +141,22 @@ class HeartBeatJobIntentService : JobIntentService() {
             }
 
             val timeMs = benchmark {
-                val apiRequest = apiClient.poke(deviceID)
+                val apiBody = HeartBeatBody(
+                    deviceID,
+                    hardwareID,
+                    firmwareVersion,
+                    sparkpointPlayerVersion
+                )
+                val now = getPrettyDateNow()
+                Timber.v("[HeartBeat] Health check at $now for device, API body:\n$apiBody")
+
+                val apiRequest = apiClient.poke(apiBody)
                 val apiResponse = apiRequest.execute()
                 reportAPIResponse(apiResponse.code())
             }
 
             if (timeMs >= 15000) {
-                Timber.e("Hey, heart-beat API call for device(ID: $DEBUG_DEVICE_ID) took $timeMs milliseconds!")
+                Timber.e("Hey, heart-beat API call for device(ID: $deviceID) took $timeMs milliseconds!")
             }
         } catch (error: Throwable) {
             Timber.e(error)
@@ -165,8 +165,28 @@ class HeartBeatJobIntentService : JobIntentService() {
     }
 
     private fun getDeviceID(): String {
-        return settingsRepository.getSecureString(SparkPointProps.DEVICE_ID) ?: DEBUG_DEVICE_ID
+        return sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: ""
     }
+
+    private fun getHardwareID(): String {
+        return sharedSettings.getHardwareId()
+    }
+
+    private fun getFirmwareVersion(): String {
+        return systemProperties.getString(SystemProps.FIRMWARE_VERSION_INCREMENTAL, "")
+    }
+
+    private fun getSparkpointPlayerVersion(): String {
+        return try {
+            val info = packageManager.getPackageInfo(Packages.SPARKPOINT_PACKAGE_NAME, PackageManager.GET_META_DATA)
+            info.versionName
+        } catch (error: PackageManager.NameNotFoundException) {
+            // The package is not installed (or deleted)
+            ""
+        }
+    }
+
+    // Broadcast //////////////////////////////////////////////////////////////
 
     private fun generateHeartBeatIntent(
         responseCode: Int

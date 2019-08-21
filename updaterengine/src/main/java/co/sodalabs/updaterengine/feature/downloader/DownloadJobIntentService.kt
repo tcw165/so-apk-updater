@@ -14,22 +14,21 @@ import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.exception.DownloadCancelledException
 import co.sodalabs.updaterengine.exception.DownloadFileIOException
 import co.sodalabs.updaterengine.exception.DownloadHttpException
+import co.sodalabs.updaterengine.exception.DownloadProgressTooLargeException
 import co.sodalabs.updaterengine.exception.DownloadSizeUnknownException
 import co.sodalabs.updaterengine.exception.DownloadTimeoutException
 import co.sodalabs.updaterengine.exception.DownloadUnknownErrorException
 import co.sodalabs.updaterengine.exception.HttpMalformedURIException
 import co.sodalabs.updaterengine.exception.HttpTooManyRedirectsException
-import co.sodalabs.updaterengine.extension.mbToBytes
 import co.sodalabs.updaterengine.feature.core.AppUpdaterService
 import co.sodalabs.updaterengine.feature.downloadmanager.DefaultRetryPolicy
 import co.sodalabs.updaterengine.feature.downloadmanager.DownloadManager
 import co.sodalabs.updaterengine.feature.downloadmanager.DownloadRequest
 import co.sodalabs.updaterengine.feature.downloadmanager.DownloadStatusListenerV1
 import co.sodalabs.updaterengine.feature.downloadmanager.ThinDownloadManager
-import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
 import co.sodalabs.updaterengine.utils.BuildUtils
-import co.sodalabs.updaterengine.utils.StorageUtils
 import com.jakewharton.rxrelay2.PublishRelay
+import com.squareup.moshi.Types
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
@@ -37,12 +36,9 @@ import timber.log.Timber
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-
-private const val CACHE_DIR = "apks"
-private const val CACHE_JOURNAL_VERSION = 1
+import java.util.concurrent.atomic.AtomicBoolean
 
 private const val THREAD_POOL_SIZE = 3
-private const val CACHE_SIZE_MB = 1024
 
 private const val MAX_RETRY_COUNT = 3
 private const val BACKOFF_MULTIPLIER = 2f
@@ -95,20 +91,9 @@ class DownloadJobIntentService : JobIntentService() {
 
     // Download ///////////////////////////////////////////////////////////////
 
-    // TODO: Shall we close the cache when the app is killed?
-    private val diskCache by lazy {
-        // The cache dir would be "/storage/emulated/legacy/co.sodalabs.apkupdater/apks/apks/"
-        DiskLruCache(
-            File(StorageUtils.getCacheDirectory(this, true), CACHE_DIR),
-            CACHE_JOURNAL_VERSION,
-            1,
-            CACHE_SIZE_MB.mbToBytes()
-        )
-    }
-
     private val downloadManager by lazy {
         val loggingEnabled = BuildUtils.isDebug()
-        ThinDownloadManager(loggingEnabled, THREAD_POOL_SIZE, diskCache)
+        ThinDownloadManager(loggingEnabled, THREAD_POOL_SIZE, ApkUpdater.apkDiskCache())
     }
 
     private fun download(
@@ -116,6 +101,7 @@ class DownloadJobIntentService : JobIntentService() {
     ) {
         // The latch for joint the thread of the JobIntentService and the
         // threads of download manager.
+        val disposed = AtomicBoolean(false)
         val countdownLatch = CountDownLatch(updates.size)
 
         val downloadedUpdates = mutableListOf<DownloadedUpdate>()
@@ -124,12 +110,13 @@ class DownloadJobIntentService : JobIntentService() {
         val requests = mutableListOf<DownloadRequest>()
 
         // Delete the cache before downloading if we don't use cache.
+        val apkDiskCache = ApkUpdater.apkDiskCache()
         if (!ApkUpdater.downloadUseCache()) {
-            diskCache.delete()
+            apkDiskCache.delete()
         }
         // Open the cache
-        if (!diskCache.isOpened) {
-            diskCache.open()
+        if (!apkDiskCache.isOpened) {
+            apkDiskCache.open()
         }
 
         try {
@@ -147,8 +134,15 @@ class DownloadJobIntentService : JobIntentService() {
                         override fun onDownloadComplete(
                             downloadRequest: DownloadRequest
                         ) {
+                            if (disposed.get()) {
+                                // Stop if the task is disposed!
+                                return
+                            }
+
                             val id = downloadRequest.downloadId
                             val file = File(downloadRequest.destinationURI.path)
+
+                            logDownloadProgressNow(aggregateProgresses)
                             Timber.v("[Download] Download (ID: $id) finishes! {file: $file, package: \"$packageName\", URL: \"$uri\"")
 
                             synchronized(countdownLatch) {
@@ -167,6 +161,11 @@ class DownloadJobIntentService : JobIntentService() {
                             errorCode: Int,
                             errorMessage: String?
                         ) {
+                            if (disposed.get()) {
+                                // Stop if the task is disposed!
+                                return
+                            }
+
                             val id = downloadRequest.downloadId
                             Timber.e("[Download] Download(ID: $id) fails \"$$packageName\", error code: $errorCode")
 
@@ -185,6 +184,11 @@ class DownloadJobIntentService : JobIntentService() {
                             downloadedBytes: Long,
                             progress: Int
                         ) {
+                            if (progress > 100) {
+                                val downloadURL = downloadRequest.uri.toString()
+                                throw DownloadProgressTooLargeException(downloadURL, progress)
+                            }
+
                             logDownloadProgress(downloadRequest, progress, aggregateProgresses)
                         }
                     })
@@ -206,11 +210,32 @@ class DownloadJobIntentService : JobIntentService() {
 
             // Wait for the download manager library finishing.
             countdownLatch.await(Intervals.TIMEOUT_DOWNLOAD_HR, TimeUnit.HOURS)
+            disposed.set(true)
+
+            persistDownloadedUpdates(downloadedUpdates)
 
             AppUpdaterService.notifyDownloadsComplete(this, downloadedUpdates, errors)
         } catch (error: Throwable) {
             AppUpdaterService.notifyDownloadsComplete(this, emptyList(), listOf(error))
         }
+    }
+
+    private fun persistDownloadedUpdates(
+        downloadedUpdates: List<DownloadedUpdate>
+    ) {
+        Timber.v("[Download] Persist the downloaded updates")
+        val jsonBuilder = ApkUpdater.jsonBuilder()
+        val jsonType = Types.newParameterizedType(List::class.java, DownloadedUpdate::class.java)
+        val jsonAdapter = jsonBuilder.adapter<List<DownloadedUpdate>>(jsonType)
+        val jsonText = jsonAdapter.toJson(downloadedUpdates)
+
+        val diskCache = ApkUpdater.downloadedUpdateDiskCache()
+        if (diskCache.isClosed) {
+            diskCache.open()
+        }
+        val editor = diskCache.edit(ApkUpdater.KEY_DOWNLOADED_UPDATES)
+        val editorFile = editor.getFile(0)
+        editorFile.writeText(jsonText)
     }
 
     private fun Int.errorCodeToError(
@@ -226,7 +251,7 @@ class DownloadJobIntentService : JobIntentService() {
             DownloadManager.ERROR_HTTP_DATA_ERROR -> DownloadHttpException(packageName, downloadURL)
             DownloadManager.ERROR_TOO_MANY_REDIRECTS -> HttpTooManyRedirectsException(downloadURL)
             DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> DownloadUnknownErrorException(packageName, downloadURL)
-            else -> IllegalArgumentException("Unknown error code: $this")
+            else -> DownloadUnknownErrorException(packageName, downloadURL)
         }
     }
 
@@ -260,13 +285,28 @@ class DownloadJobIntentService : JobIntentService() {
         aggregateProgresses: MutableList<DownloadProgress>
     ) {
         val found = aggregateProgresses.indexOfFirst { it.downloadURL == downloadRequest.uri.toString() }
-
         if (found in 0 until aggregateProgresses.size) {
             val newProgress = aggregateProgresses[found].copy(downloadProgress = progress)
             aggregateProgresses[found] = newProgress
 
             progressRelay.accept(aggregateProgresses.toList())
         }
+    }
+
+    private fun logDownloadProgressNow(
+        aggregateProgresses: MutableList<DownloadProgress>
+    ) {
+        val sb = StringBuilder()
+        sb.clear()
+        sb.appendln("[Download] download progress: [")
+        for (i in 0 until aggregateProgresses.size) {
+            val progress = aggregateProgresses[i]
+            val url = progress.downloadURL
+            val prettyProgress = progress.downloadProgress.toString().padStart(3)
+            sb.appendln("    download request $url is at $prettyProgress percentage,")
+        }
+        sb.appendln("]")
+        Timber.v(sb.toString())
     }
 
     private data class DownloadProgress(

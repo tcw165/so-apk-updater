@@ -1,7 +1,6 @@
-package co.sodalabs.apkupdater.data
+package co.sodalabs.apkupdater
 
 import androidx.annotation.Keep
-import co.sodalabs.apkupdater.BuildConfig
 
 @Keep
 object PreferenceProps {
@@ -17,9 +16,9 @@ object PreferenceProps {
     const val CHECK_INTERVAL_SECONDS = "$PREFIX.check_interval"
 
     const val DOWNLOAD_USE_CACHE = "$PREFIX.download_use_cache"
-    const val DOWNLOAD_CACHE_MAX_SIZE_MB = "$PREFIX.update_download_cache_max_size"
+    const val DOWNLOAD_CACHE_MAX_SIZE_MB = "$PREFIX.download_cache_max_size"
 
-    const val INSTALL_HOUR_BEGIN = "$PREFIX.update_install_hour_begin"
-    const val INSTALL_HOUR_END = "$PREFIX.update_install_hour_end"
-    const val INSTALL_ALLOW_DOWNGRADE = "$PREFIX.update_install_allow_downgrade"
+    const val INSTALL_HOUR_BEGIN = "$PREFIX.install_hour_begin"
+    const val INSTALL_HOUR_END = "$PREFIX.install_hour_end"
+    const val INSTALL_ALLOW_DOWNGRADE = "$PREFIX.install_allow_downgrade"
 }

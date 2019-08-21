@@ -2,6 +2,9 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
+// For full integration of bugs tracking. e.g. mapping upload
+apply plugin: 'com.bugsnag.android.gradle'
+
 apply from: rootProject.file("gradleScripts/android_app_extension.gradle")
 apply from: rootProject.file("gradleScripts/version_extension.gradle")
 
@@ -16,6 +19,17 @@ keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 def versionPropertiesFile = project.file("version.properties")
 def versionProperties = new Properties()
 versionProperties.load(new FileInputStream(versionPropertiesFile))
+
+// Bugsnag service
+def getBugsnagAPIKeyFromFile = {
+    // If you are missing this file, please download from our internal file repo
+    // https://drive.google.com/open?id=18RoriHpDFS5cptAl560H59Tsb_vrJscf
+    def bugsnagPropertiesFile = project.file("bugsnag.properties")
+    def bugsnagProperties = new Properties()
+    bugsnagProperties.load(new FileInputStream(bugsnagPropertiesFile))
+    bugsnagProperties.bugsnag_api_key
+}
+def bugsnagAPIKey = System.getenv("BUGSNAG_API_KEY_FOR_PRIVILEGED_INSTALLER") ?: getBugsnagAPIKeyFromFile()
 
 android {
     compileSdkVersion deps.build.compileSdkVersion
@@ -33,6 +47,8 @@ android {
         multiDexEnabled true
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+        buildConfigField "String", "BUGSNAG_API_KEY", "\"$bugsnagAPIKey\""
 
         // Command to extract the public key hash:
         // keytool -printcert -jarfile your.apk | sed -n 's,SHA256:\s*\([A-F0-9:]*\),\1,p' | sed 's,:,,g' | tr A-f a-f
@@ -53,25 +69,34 @@ android {
     buildTypes {
         debug {
             // Keep IPackageInstallObserver and IPackageDeleteObserver
-            minifyEnabled false
             useProguard false
+            minifyEnabled false
             shrinkResources false
 
             signingConfig signingConfigs.platform
         }
 
         staging {
-            initWith(release)
+            initWith release
             matchingFallbacks = ['release']
 
             debuggable true
+            useProguard true
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // Disables PNG crunching for the release build type.
+            crunchPngs false
+
+            signingConfig signingConfigs.platform
         }
 
         release {
             debuggable false
             useProguard true
-            shrinkResources true
             minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             // Disables PNG crunching for the release build type.
             crunchPngs false
 
@@ -158,8 +183,9 @@ dependencies {
     implementation deps.rx.binding.lib
     implementation deps.rx.binding.appcompat
 
-    // Log
+    // Tracking
     implementation deps.tracking.timber
+    implementation 'com.bugsnag:bugsnag-android:4.17.2'
 
     // Unit tests.
     testImplementation deps.test.junit
@@ -172,4 +198,9 @@ dependencies {
 
 repositories {
     mavenCentral()
+}
+
+bugsnag {
+    // For the Bugsnag Gradle plugin to upload the mapping file to this key.
+    apiKey bugsnagAPIKey
 }

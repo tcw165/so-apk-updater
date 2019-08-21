@@ -3,6 +3,15 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory
+        app:title="@string/device_category">
+
+        <!--suppress AndroidElementNotAllowed -->
+        <co.sodalabs.apkupdater.feature.adminui.SecureStringEditTextPreference
+            app:key="co.sodalabs.shared.device_id"
+            app:title="@string/device_id" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
         app:title="@string/heartbeat_category">
 
         <!--suppress AndroidElementNotAllowed -->
@@ -18,54 +27,62 @@
 
         <Preference
             app:icon="@drawable/bt_heartbeat"
-            app:key="report_heartbeat_now"
+            app:key="send_heartbeat_now"
             app:title="Test Heart-Beat Now" />
     </PreferenceCategory>
 
     <PreferenceCategory
-        app:title="@string/update_category">
+        app:title="@string/check_category">
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
             app:key="co.sodalabs.apkupdater.check_interval"
             app:summary="Interval in seconds that the recurring update check happens"
-            app:title="@string/update_check_interval" />
+            app:title="@string/check_interval" />
 
         <Preference
-            app:icon="@drawable/bt_meteor"
-            app:key="update_now"
-            app:title="Test Update Now" />
+                app:icon="@drawable/bt_check"
+                app:key="check_test_app_now"
+                app:title="Check for Update Now" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:title="@string/download_category">
 
         <SwitchPreference
             app:key="co.sodalabs.apkupdater.download_use_cache"
-            app:title="@string/update_download_use_cache" />
+            app:title="@string/download_use_cache" />
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
             app:key="co.sodalabs.apkupdater.download_cache_max_size"
             app:summary="The maximum size of cache for storing the download files (in MB)"
-            app:title="@string/update_download_cache_max_size" />
+            app:title="@string/download_cache_max_size" />
 
         <Preference
             app:icon="@drawable/bt_meteor"
             app:key="download_test_app_now"
             app:title="Test Download Now" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:title="@string/install_category">
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
             app:key="co.sodalabs.apkupdater.install_hour_begin"
             app:summary="The begin hour of the day of install window"
-            app:title="@string/update_install_hour_begin" />
+            app:title="@string/install_hour_begin" />
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
             app:key="co.sodalabs.apkupdater.install_hour_end"
             app:summary="The end hour of the day of install window"
-            app:title="@string/update_install_hour_end" />
+            app:title="@string/install_hour_end" />
 
         <SwitchPreference
             app:key="co.sodalabs.apkupdater.install_allow_downgrade"
-            app:title="@string/update_install_allow_downgrade" />
+            app:title="@string/install_allow_downgrade" />
     </PreferenceCategory>
 
     <PreferenceCategory

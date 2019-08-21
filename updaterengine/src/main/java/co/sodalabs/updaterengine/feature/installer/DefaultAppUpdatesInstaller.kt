@@ -16,6 +16,10 @@ class DefaultAppUpdatesInstaller constructor(
         InstallerJobIntentService.installNow(context, downloadedUpdates)
     }
 
+    override fun installFromDiskCache() {
+        InstallerJobIntentService.installFromDiskCacheNow(context)
+    }
+
     override fun scheduleInstall(
         downloadedUpdates: List<DownloadedUpdate>,
         triggerAtMillis: Long

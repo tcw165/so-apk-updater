@@ -3,17 +3,18 @@ package co.sodalabs.apkupdater
 import android.annotation.SuppressLint
 import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
-import co.sodalabs.apkupdater.data.PreferenceProps
 import co.sodalabs.apkupdater.di.component.AppComponent
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
 import co.sodalabs.apkupdater.di.module.AppPreferenceModule
 import co.sodalabs.apkupdater.di.module.ApplicationContextModule
 import co.sodalabs.apkupdater.di.module.SharedSettingsModule
+import co.sodalabs.apkupdater.di.module.SystemPropertiesModule
 import co.sodalabs.apkupdater.di.module.ThreadSchedulersModule
 import co.sodalabs.apkupdater.di.module.UpdaterModule
 import co.sodalabs.apkupdater.feature.settings.AndroidSharedSettings
+import co.sodalabs.apkupdater.feature.settings.AndroidSystemProperties
+import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
-import co.sodalabs.apkupdater.utils.CrashlyticsTree
 import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.ApkUpdaterConfig
 import co.sodalabs.updaterengine.AppUpdaterHeartBeater
@@ -22,16 +23,17 @@ import co.sodalabs.updaterengine.AppUpdatesDownloader
 import co.sodalabs.updaterengine.AppUpdatesInstaller
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.extension.toMilliseconds
-import com.crashlytics.android.Crashlytics
-import com.crashlytics.android.core.CrashlyticsCore
+import com.bugsnag.android.Bugsnag
+import com.bugsnag.android.Configuration
 import com.jakewharton.processphoenix.ProcessPhoenix
 import com.jakewharton.threetenabp.AndroidThreeTen
-import io.fabric.sdk.android.Fabric
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+
+private const val DEBUG_DEVICE_ID = "660112"
 
 class UpdaterApp : MultiDexApplication() {
 
@@ -54,8 +56,8 @@ class UpdaterApp : MultiDexApplication() {
     override fun onCreate() {
         super.onCreate()
 
-        Timber.v("App Version Name: ${BuildConfig.VERSION_NAME}")
-        Timber.v("App Version Code: ${BuildConfig.VERSION_CODE}")
+        Timber.v("[Updater] App Version Name: ${BuildConfig.VERSION_NAME}")
+        Timber.v("[Updater] App Version Code: ${BuildConfig.VERSION_CODE}")
 
         initLogging()
         initCrashReporting()
@@ -86,20 +88,13 @@ class UpdaterApp : MultiDexApplication() {
     }
 
     private fun initCrashReporting() {
-        val crashlyticsCore = CrashlyticsCore.Builder()
-            .disabled(BuildUtils.isDebug())
-            .build()
-        val crashlytics = Crashlytics.Builder()
-            .core(crashlyticsCore)
-            .build()
-        val builder = Fabric.Builder(this)
-            .kits(crashlytics)
-
-        Fabric.with(builder.build())
-
-        if (BuildUtils.isStaging() || BuildUtils.isRelease()) {
-            Timber.plant(CrashlyticsTree())
+        val config = Configuration(BuildConfig.BUGSNAG_API_KEY).apply {
+            // Only send report for staging and release
+            notifyReleaseStages = arrayOf(BuildUtils.TYPE_STAGING, BuildUtils.TYPE_RELEASE)
+            releaseStage = BuildConfig.BUILD_TYPE
         }
+        Bugsnag.init(this, config)
+        Timber.plant(BugsnagTree())
     }
 
     private fun initDatetime() {
@@ -112,6 +107,7 @@ class UpdaterApp : MultiDexApplication() {
     private val preferences by lazy { PreferenceManager.getDefaultSharedPreferences(this@UpdaterApp) }
     private val appPreferences by lazy { AppSharedPreference(preferences) }
     private val sharedSettings by lazy { AndroidSharedSettings(contentResolver, schedulers) }
+    private val systemProperties by lazy { AndroidSystemProperties() }
 
     private fun injectDependencies() {
         // Application singleton(s)
@@ -120,6 +116,7 @@ class UpdaterApp : MultiDexApplication() {
             .threadSchedulersModule(ThreadSchedulersModule(schedulers))
             .appPreferenceModule(AppPreferenceModule(appPreferences))
             .sharedSettingsModule(SharedSettingsModule(sharedSettings))
+            .systemPropertiesModule(SystemPropertiesModule(systemProperties))
             .updaterModule(UpdaterModule(this, appPreferences, schedulers))
             .build()
         appComponent.inject(this)
@@ -140,8 +137,8 @@ class UpdaterApp : MultiDexApplication() {
             hostPackageName = hostPackageName,
             // packageNames = listOf(hostPackageName, *BuildUtils.PACKAGES_TO_CHECK)
             packageNames = listOf(*BuildUtils.PACKAGES_TO_CHECK),
-            heartBeatIntervalMs = heartbeatInterval,
-            checkIntervalMs = checkInterval,
+            heartbeatIntervalMillis = heartbeatInterval,
+            checkIntervalMillis = checkInterval,
             downloadUseCache = downloadUseCache,
             installWindow = IntRange(installHourBegin, installHourEnd),
             installAllowDowngrade = installAllowDowngrade
@@ -151,7 +148,16 @@ class UpdaterApp : MultiDexApplication() {
     // Preferences ////////////////////////////////////////////////////////////
 
     private fun injectDefaultPreferences() {
-        // Timeout
+        // Debug device ID
+        if (sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) == null &&
+            (BuildUtils.isDebug() || BuildUtils.isStaging())) {
+            Timber.v("[Updater] Inject the debug device ID as \"$DEBUG_DEVICE_ID\"")
+            sharedSettings.putSecureString(SharedSettingsProps.DEVICE_ID, DEBUG_DEVICE_ID)
+        }
+        val deviceID = sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID)
+        Timber.v("[Updater] The device ID is \"$deviceID\"")
+
+        // Network
         if (!appPreferences.containsKey(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS)) {
             appPreferences.putInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, BuildConfig.CONNECT_TIMEOUT_SECONDS)
         }
@@ -161,26 +167,23 @@ class UpdaterApp : MultiDexApplication() {
         if (!appPreferences.containsKey(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS)) {
             appPreferences.putInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.WRITE_TIMEOUT_SECONDS)
         }
-        // Updater
+
+        // Heartbeat
+        if (!appPreferences.containsKey(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)) {
+            appPreferences.putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
+        }
+
+        // Check
         if (!appPreferences.containsKey(PreferenceProps.CHECK_INTERVAL_SECONDS)) {
             appPreferences.putInt(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS)
         }
-        if (!appPreferences.containsKey(PreferenceProps.INSTALL_HOUR_BEGIN)) {
-            appPreferences.putInt(PreferenceProps.INSTALL_HOUR_BEGIN, BuildConfig.INSTALL_HOUR_BEGIN)
-        }
-        if (!appPreferences.containsKey(PreferenceProps.INSTALL_HOUR_END)) {
-            appPreferences.putInt(PreferenceProps.INSTALL_HOUR_END, BuildConfig.INSTALL_HOUR_END)
-        }
-        if (!appPreferences.containsKey(PreferenceProps.INSTALL_ALLOW_DOWNGRADE)) {
-            appPreferences.putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
-        }
+
+        // Download
         if (!appPreferences.containsKey(PreferenceProps.DOWNLOAD_USE_CACHE)) {
             appPreferences.putBoolean(PreferenceProps.DOWNLOAD_USE_CACHE, BuildConfig.DOWNLOAD_USE_CACHE)
         }
-        // Heartbeat
-        if (!appPreferences.containsKey(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)) {
-            appPreferences.putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
-        }
+
+        // Install
         if (!appPreferences.containsKey(PreferenceProps.INSTALL_HOUR_BEGIN)) {
             appPreferences.putInt(PreferenceProps.INSTALL_HOUR_BEGIN, BuildConfig.INSTALL_HOUR_BEGIN)
         }
@@ -189,10 +192,6 @@ class UpdaterApp : MultiDexApplication() {
         }
         if (!appPreferences.containsKey(PreferenceProps.INSTALL_ALLOW_DOWNGRADE)) {
             appPreferences.putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
-        }
-        // Heartbeat
-        if (!appPreferences.containsKey(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)) {
-            appPreferences.putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
         }
     }
 

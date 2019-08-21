@@ -1,4 +1,4 @@
-package co.sodalabs.updaterengine.data
+package co.sodalabs.apkupdater.feature.heartbeat.data
 
 import androidx.annotation.Keep
 import com.squareup.moshi.Json

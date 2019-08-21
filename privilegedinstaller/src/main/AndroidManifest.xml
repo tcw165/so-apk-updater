@@ -20,6 +20,13 @@
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
 
+        <!--<meta-data-->
+        <!--android:name="com.bugsnag.android.API_KEY"-->
+        <!--android:value="Key is hidden in the build pipeline" />-->
+        <meta-data
+            android:name="com.bugsnag.android.DETECT_ANRS"
+            android:value="true" />
+
         <!--
         Android requires a default Activity for adb-install, otherwise we'll bake
         this app in the Android Image.

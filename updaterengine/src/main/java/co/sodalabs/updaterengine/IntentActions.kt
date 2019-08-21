@@ -7,6 +7,7 @@ object IntentActions {
     const val ACTION_CHECK_UPDATES = "$ACTION_PREFIX.check_updates"
     const val ACTION_DOWNLOAD_UPDATES = "$ACTION_PREFIX.download_updates"
     const val ACTION_INSTALL_UPDATES = "$ACTION_PREFIX.install_updates"
+    const val ACTION_INSTALL_UPDATES_FROM_CACHE = "$ACTION_PREFIX.install_updates_from_cache"
     const val ACTION_UNINSTALL_PACKAGES = "$ACTION_PREFIX.uninstall_packages"
     // Heart-beat
     const val ACTION_SEND_HEART_BEAT_NOW = "$ACTION_PREFIX.send_heart_beat_now"

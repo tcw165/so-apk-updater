@@ -15,6 +15,9 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import co.sodalabs.updaterengine.ApkUpdater
+import co.sodalabs.updaterengine.IFirmwareCheckCallback
+import co.sodalabs.updaterengine.IFirmwareInstallCallback
+import co.sodalabs.updaterengine.IUpdaterService
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.R
 import co.sodalabs.updaterengine.data.AppUpdate
@@ -43,7 +46,8 @@ class AppUpdaterService : Service() {
 
         /**
          * The method for the updater engine knows the update check finishes and
-         * to move on.
+         * to move on. The component responsible for the check should call this
+         * method when the check completes.
          */
         fun notifyUpdateCheckComplete(
             context: Context,
@@ -81,7 +85,8 @@ class AppUpdaterService : Service() {
 
         /**
          * The method for the updater engine knows the download finishes and
-         * to move on.
+         * to move on. The component responsible for download should call this
+         * method when the download completes.
          */
         fun notifyDownloadsComplete(
             context: Context,
@@ -117,7 +122,8 @@ class AppUpdaterService : Service() {
 
         /**
          * The method for the updater engine knows the install finishes and
-         * to move on.
+         * to move on. The component responsible for installing should call this
+         * method when the install completes.
          */
         fun notifyInstallComplete(
             context: Context
@@ -160,11 +166,6 @@ class AppUpdaterService : Service() {
         return START_STICKY
     }
 
-    override fun onBind(intent: Intent?): IBinder? {
-        // TODO: Provide binding
-        return null
-    }
-
     override fun onDestroy() {
         Timber.v("[Updater] engine stops!")
         super.onDestroy()
@@ -174,6 +175,8 @@ class AppUpdaterService : Service() {
 
     private fun start() {
         Timber.v("[Updater] engine starts ~~~~ .oO")
+        ApkUpdater.installUpdatesFromDiskCache()
+
         ApkUpdater.scheduleRecurringHeartbeat()
         ApkUpdater.scheduleRecurringCheck()
     }
@@ -264,5 +267,45 @@ class AppUpdaterService : Service() {
         chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
         notificationManager.createNotificationChannel(chan)
         return channelId
+    }
+
+    // IBinder ////////////////////////////////////////////////////////////////
+
+    override fun onBind(intent: Intent?): IBinder? {
+        return remoteBinder
+    }
+
+    private val remoteBinder = object : IUpdaterService.Stub() {
+        override fun getCheckIntervalSecs(): Long {
+            TODO("not implemented")
+        }
+
+        override fun setCheckIntervalSecs(intervalSecs: Long) {
+            TODO("not implemented")
+        }
+
+        override fun getInstallStartHourOfDay(): Long {
+            TODO("not implemented")
+        }
+
+        override fun setInstallStartHourOfDay(startHourOfDay: Int) {
+            TODO("not implemented")
+        }
+
+        override fun getInstallEndHourOfDay(): Long {
+            TODO("not implemented")
+        }
+
+        override fun setInstallEndHourOfDay(endHourOfDay: Int) {
+            TODO("not implemented")
+        }
+
+        override fun checkFirmwareUpdateNow(callback: IFirmwareCheckCallback?) {
+            TODO("not implemented")
+        }
+
+        override fun installFirmwareUpdate(callback: IFirmwareInstallCallback?) {
+            TODO("not implemented")
+        }
     }
 }
