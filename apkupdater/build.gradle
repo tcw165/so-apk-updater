@@ -142,8 +142,8 @@ android {
             dimension "PRODUCT"
             buildConfigField "String[]", "BASE_URLS", "{" +
                 "\"http://localhost:3000/api/v0/\"," +
-                "\"ec2-34-207-218-152.compute-1.amazonaws.com/api/v0/\"," +
-                "\"ec2-3-220-232-161.compute-1.amazonaws.com/api/v0/\"" +
+                "\"https://staging.sparkpoint.services/api/v0/\"," +
+                "\"https://sparkpoint.services/api/v0/\"" +
                 "}"
             buildConfigField "String[]", "PACKAGES_TO_CHECK", "{" +
                 "\"co.sodalabs.sparkpoint\"," +
