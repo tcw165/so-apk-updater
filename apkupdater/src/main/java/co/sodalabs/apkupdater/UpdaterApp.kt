@@ -159,8 +159,7 @@ class UpdaterApp :
             val deviceID = Settings.Secure.getString(contentResolver, SharedSettingsProps.DEVICE_ID)
             Timber.v("[Updater] The device ID is \"$deviceID\"")
         } catch (error: Throwable) {
-            Timber.e("[Updater] Unable to access device ID due to no WRITE_SECURE_SETTINGS!")
-            Timber.e(error)
+            Timber.w("[Updater] Unable to access device ID due to no WRITE_SECURE_SETTINGS!\n$error")
         }
 
         // Network
