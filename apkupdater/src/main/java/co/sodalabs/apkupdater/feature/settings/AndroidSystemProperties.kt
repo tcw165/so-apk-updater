@@ -13,14 +13,26 @@ class AndroidSystemProperties @Inject constructor() : ISystemProperties {
     private var getBooleanMethod: Method? = null
 
     init {
+        val propClazz = Class.forName("android.os.SystemProperties")
         try {
-            val propClazz = Class.forName("android.os.SystemProperties")
             getStringMethod = propClazz.getDeclaredMethod("get", String::class.java, String::class.java)
-            getIntMethod = propClazz.getDeclaredMethod("get", String::class.java, Integer::class.java)
-            getLongMethod = propClazz.getDeclaredMethod("get", String::class.java, Long::class.java)
-            getBooleanMethod = propClazz.getDeclaredMethod("get", String::class.java, Boolean::class.java)
         } catch (error: Throwable) {
-            Timber.w(error)
+            Timber.w(error, "Can't reflect android.os.SystemProperties.get(String)")
+        }
+        try {
+            getIntMethod = propClazz.getDeclaredMethod("getInt", String::class.java, Int::class.java)
+        } catch (error: Throwable) {
+            Timber.w(error, "Can't reflect android.os.SystemProperties.getInt(int)")
+        }
+        try {
+            getLongMethod = propClazz.getDeclaredMethod("getLong", String::class.java, Long::class.java)
+        } catch (error: Throwable) {
+            Timber.w(error, "Can't reflect android.os.SystemProperties.getLong(long)")
+        }
+        try {
+            getBooleanMethod = propClazz.getDeclaredMethod("getBoolean", String::class.java, Boolean::class.java)
+        } catch (error: Throwable) {
+            Timber.w(error, "Can't reflect android.os.SystemProperties.getBoolean(boolean)")
         }
     }
 

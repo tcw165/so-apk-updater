@@ -188,6 +188,8 @@ class UpdaterApp :
                 .putString(PreferenceProps.API_BASE_URL, defaultURL)
                 .apply()
         }
+        val apiBaseURL = rawPreference.getString(PreferenceProps.API_BASE_URL, "")
+        Timber.v("[Updater] API base URL, \"$apiBaseURL\"")
 
         // Heartbeat
         if (!rawPreference.contains(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)) {

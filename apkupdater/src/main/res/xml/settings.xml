@@ -9,6 +9,11 @@
         <co.sodalabs.apkupdater.feature.adminui.SecureStringEditTextPreference
             app:key="co.sodalabs.shared.device_id"
             app:title="@string/device_id" />
+
+        <ListPreference
+            app:key="co.sodalabs.apkupdater.api_base_url"
+            app:summary="The base URL of the API"
+            app:title="@string/api_base_urls" />
     </PreferenceCategory>
 
     <PreferenceCategory
