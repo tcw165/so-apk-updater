@@ -50,7 +50,7 @@ android {
 
         buildConfigField "String", "BUGSNAG_API_KEY", "\"$bugsnagAPIKey\""
 
-        buildConfigField "String", "BASE_URL", "\"make sure update this, please!\""
+        buildConfigField "String[]", "BASE_URLS", "{\"Hey developer, make sure update this!\"}"
 
         buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "15"
         buildConfigField "int", "CHECK_INTERVAL_SECONDS", "1440" // 1 day
@@ -140,7 +140,11 @@ android {
     productFlavors {
         sparkpoint {
             dimension "PRODUCT"
-            buildConfigField "String", "BASE_URL", "\"https://spark-api-v0-prod.azurewebsites.net/api/v0/\""
+            buildConfigField "String[]", "BASE_URLS", "{" +
+                "\"http://localhost:3000/api/v0/\"," +
+                "\"ec2-34-207-218-152.compute-1.amazonaws.com/api/v0/\"" +
+                "\"ec2-3-220-232-161.compute-1.amazonaws.com/api/v0/\"" +
+                "}"
             buildConfigField "String[]", "PACKAGES_TO_CHECK", "{" +
                 "\"co.sodalabs.sparkpoint\"" +
                 "}"

@@ -37,6 +37,25 @@ class AppSharedPreference @Inject constructor(
             .apply()
     }
 
+    override fun observeStringChange(
+        prop: String,
+        default: String
+    ): Observable<String> {
+        return observePropertyChange(prop) { p ->
+            p.getString(prop, default) ?: default
+        }
+    }
+
+    override fun getString(prop: String, default: String): String {
+        return preferences.getString(prop, default) ?: default
+    }
+
+    override fun putString(prop: String, value: String) {
+        preferences.edit()
+            .putString(prop, value)
+            .apply()
+    }
+
     override fun observeBooleanChange(
         prop: String,
         default: Boolean

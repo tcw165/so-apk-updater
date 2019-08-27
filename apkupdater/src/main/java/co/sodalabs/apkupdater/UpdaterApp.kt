@@ -168,6 +168,14 @@ class UpdaterApp : MultiDexApplication() {
             appPreferences.putInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.WRITE_TIMEOUT_SECONDS)
         }
 
+        // API General
+        if (!appPreferences.containsKey(PreferenceProps.API_BASE_URL)) {
+            val urls = BuildConfig.BASE_URLS
+            val defaultURL = urls.last()
+            Timber.v("[Updater] Inject the default API base URL, \"$defaultURL\"")
+            appPreferences.putString(PreferenceProps.API_BASE_URL, defaultURL)
+        }
+
         // Heartbeat
         if (!appPreferences.containsKey(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)) {
             appPreferences.putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)

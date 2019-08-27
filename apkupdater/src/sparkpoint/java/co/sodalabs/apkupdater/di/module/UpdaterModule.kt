@@ -98,10 +98,11 @@ class UpdaterModule @Inject constructor(
     }
 
     private val retrofit by lazy {
+        val defaultBaseURL = appPreferences.getString(PreferenceProps.API_BASE_URL, "Can't find a default API base URL")
         Retrofit.Builder()
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
-            .baseUrl(BuildConfig.BASE_URL)
+            .baseUrl(defaultBaseURL)
             .client(okHttpClient)
             .build()
     }
