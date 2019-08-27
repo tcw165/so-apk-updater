@@ -17,4 +17,6 @@ interface IAppPreference {
 
     fun containsKey(prop: String): Boolean
     fun observeAnyChange(): Observable<Unit>
+
+    fun forceFlush()
 }

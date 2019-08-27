@@ -4,8 +4,9 @@ import android.content.Context
 import co.sodalabs.updaterengine.AppUpdatesDownloader
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.data.AppUpdate
+import javax.inject.Inject
 
-class DefaultUpdatesDownloader constructor(
+class DefaultUpdatesDownloader @Inject constructor(
     private val context: Context,
     private val schedulers: IThreadSchedulers
 ) : AppUpdatesDownloader {
@@ -17,7 +18,7 @@ class DefaultUpdatesDownloader constructor(
     }
 
     override fun scheduleDownloadAfter(updates: List<AppUpdate>, afterMs: Long) {
-        // TODO("not implemented")
+        TODO("not implemented")
     }
 
     override fun setDownloadCacheMaxSize(sizeInMB: Long) {

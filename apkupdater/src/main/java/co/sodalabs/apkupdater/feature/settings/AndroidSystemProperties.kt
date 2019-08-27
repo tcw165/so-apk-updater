@@ -3,8 +3,9 @@ package co.sodalabs.apkupdater.feature.settings
 import co.sodalabs.apkupdater.ISystemProperties
 import timber.log.Timber
 import java.lang.reflect.Method
+import javax.inject.Inject
 
-class AndroidSystemProperties : ISystemProperties {
+class AndroidSystemProperties @Inject constructor() : ISystemProperties {
 
     private var getStringMethod: Method? = null
     private var getIntMethod: Method? = null

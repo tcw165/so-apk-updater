@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
+import co.sodalabs.apkupdater.IAppPreference
 import co.sodalabs.apkupdater.R
 import co.sodalabs.apkupdater.data.UiState
 import co.sodalabs.privilegedinstaller.RxLocalBroadcastReceiver
@@ -16,20 +17,32 @@ import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import co.sodalabs.updaterengine.extension.smartRetryWhen
 import com.jakewharton.rxrelay2.PublishRelay
+import dagger.android.support.AndroidSupportInjection
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
+import javax.inject.Inject
 
 private const val KEY_HEART_BEAT_WATCHER = "heartbeat_watcher"
 private const val KEY_HEART_BEAT_NOW = "send_heartbeat_now"
 private const val KEY_CHECK_UPDATE_NOW = "check_test_app_now"
 private const val KEY_DOWNLOAD_TEST_APP_NOW = "download_test_app_now"
 
-class SettingsFragment : PreferenceFragmentCompat() {
+class SettingsFragment :
+    PreferenceFragmentCompat(),
+    ISettingsScreen {
+
+    @Inject
+    lateinit var appPreference: IAppPreference
 
     private val disposables = CompositeDisposable()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        AndroidSupportInjection.inject(this)
+        super.onCreate(savedInstanceState)
+    }
 
     override fun onCreatePreferences(
         savedInstanceState: Bundle?,

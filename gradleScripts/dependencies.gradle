@@ -66,11 +66,11 @@ def support = [
 ]
 
 def dagger = [
-    lib            : 'com.google.dagger:dagger:2.23.2',
-    compiler       : 'com.google.dagger:dagger-compiler:2.23.2',
-    android        : 'com.google.dagger:dagger-android:2.23.2',
-    androidSupport : 'com.google.dagger:dagger-android-support:2.23.2',
-    androidCompiler: 'com.google.dagger:dagger-android-processor:2.23.2'
+    lib            : 'com.google.dagger:dagger:2.24',
+    compiler       : 'com.google.dagger:dagger-compiler:2.24',
+    android        : 'com.google.dagger:dagger-android:2.24',
+    androidSupport : 'com.google.dagger:dagger-android-support:2.24',
+    androidCompiler: 'com.google.dagger:dagger-android-processor:2.24'
 ]
 
 def process = [

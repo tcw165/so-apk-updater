@@ -1,5 +1,6 @@
 package co.sodalabs.apkupdater
 
+import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import io.reactivex.Observable
 import javax.inject.Inject
@@ -99,5 +100,10 @@ class AppSharedPreference @Inject constructor(
 
             // Don't emit the initial value
         }
+    }
+
+    @SuppressLint("ApplySharedPref")
+    override fun forceFlush() {
+        preferences.edit().commit()
     }
 }

@@ -15,7 +15,6 @@ import android.os.SystemClock
 import androidx.core.app.JobIntentService
 import co.sodalabs.apkupdater.ISharedSettings
 import co.sodalabs.apkupdater.SharedSettingsProps
-import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
 import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.IntentActions
@@ -23,6 +22,7 @@ import co.sodalabs.updaterengine.UpdaterJobs.JOB_ID_CHECK_UPDATES
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.extension.isGreaterThanOrEqualTo
 import co.sodalabs.updaterengine.feature.core.AppUpdaterService
+import dagger.android.AndroidInjection
 import retrofit2.HttpException
 import timber.log.Timber
 import javax.inject.Inject
@@ -125,8 +125,8 @@ class CheckJobIntentService : JobIntentService() {
     lateinit var sharedSettings: ISharedSettings
 
     override fun onCreate() {
+        AndroidInjection.inject(this)
         super.onCreate()
-        injectDependencies()
     }
 
     override fun onHandleWork(intent: Intent) {
@@ -134,13 +134,6 @@ class CheckJobIntentService : JobIntentService() {
             IntentActions.ACTION_CHECK_UPDATES -> checkAppUpdates(intent)
             else -> Timber.e("Hey develop, this $this is for checking version only!")
         }
-    }
-
-    // DI /////////////////////////////////////////////////////////////////////
-
-    private fun injectDependencies() {
-        val appComponent = UpdaterApp.appComponent
-        appComponent.inject(this)
     }
 
     // Check Updates //////////////////////////////////////////////////////////

@@ -118,6 +118,12 @@ dependencies {
     // Kotlin
     api deps.kotlin.stdlibJdk7
 
+    // DI
+    api deps.dagger.android
+    api deps.dagger.androidSupport
+    kapt deps.dagger.compiler
+    kapt deps.dagger.androidCompiler
+
     // Tracking
     api deps.tracking.timber
 

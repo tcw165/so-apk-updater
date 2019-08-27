@@ -3,17 +3,17 @@
 package co.sodalabs.apkupdater.di.module
 
 import co.sodalabs.apkupdater.ISystemProperties
-import co.sodalabs.apkupdater.di.ApplicationScope
+import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.apkupdater.feature.settings.AndroidSystemProperties
+import dagger.Binds
 import dagger.Module
-import dagger.Provides
 
 @Module
-class SystemPropertiesModule(
-    private val systemProperties: AndroidSystemProperties
-) {
+abstract class SystemPropertiesModule {
 
-    @Provides
+    @Binds
     @ApplicationScope
-    fun provideSystemProperties(): ISystemProperties = systemProperties
+    abstract fun provideSystemProperties(
+        systemProperties: AndroidSystemProperties
+    ): ISystemProperties
 }

@@ -4,8 +4,9 @@ import android.content.Context
 import co.sodalabs.updaterengine.AppUpdatesInstaller
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.data.DownloadedUpdate
+import javax.inject.Inject
 
-class DefaultAppUpdatesInstaller constructor(
+class DefaultAppUpdatesInstaller @Inject constructor(
     private val context: Context,
     private val schedulers: IThreadSchedulers
 ) : AppUpdatesInstaller {

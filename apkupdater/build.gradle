@@ -228,7 +228,7 @@ dependencies {
     implementation deps.kotlin.stdlibJdk7
 
     // DI
-    compileOnly deps.dagger.lib
+    implementation deps.dagger.android
     implementation deps.dagger.androidSupport
     kapt deps.dagger.compiler
     kapt deps.dagger.androidCompiler
