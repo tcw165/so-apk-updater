@@ -12,7 +12,11 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import co.sodalabs.apkupdater.R
 import co.sodalabs.apkupdater.UpdaterApp
+import com.jakewharton.rxbinding3.view.clicks
+import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.rxkotlin.addTo
+import kotlinx.android.synthetic.main.activity_settings.btBack
 import timber.log.Timber
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLParameters
@@ -33,6 +37,8 @@ class SettingsActivity : AppCompatActivity() {
         logSSLProtocols()
         requestPermissions()
 
+        observeCloseClicks()
+
         supportFragmentManager
             .beginTransaction()
             .replace(R.id.settings_container, SettingsFragment())
@@ -48,6 +54,15 @@ class SettingsActivity : AppCompatActivity() {
     private fun injectDependencies() {
         val appComponent = UpdaterApp.appComponent
         appComponent.inject(this)
+    }
+
+    private fun observeCloseClicks() {
+        btBack.clicks()
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({
+                finish()
+            }, Timber::e)
+            .addTo(disposes)
     }
 
     private fun requestPermissions() {
