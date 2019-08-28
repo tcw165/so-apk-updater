@@ -9,6 +9,8 @@
 
     <string name="device_category">Device</string>
     <string name="device_id">Device ID</string>
+    <string name="device_mock_firmware_version">Mock Firmware Version</string>
+    <string name="device_mock_sparkpoint_version">Mock Sparkpoint Version</string>
 
     <string name="network_category">Network</string>
     <string name="network_connection_timeout">Connection Timeout</string>
