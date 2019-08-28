@@ -44,6 +44,8 @@ android {
         versionCode buildVersionCode(versionProperties.artifact_version)
         versionName versionProperties.artifact_version
 
+        vectorDrawables.useSupportLibrary = true
+
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
         buildConfigField "String", "BUGSNAG_API_KEY", "\"$bugsnagAPIKey\""
