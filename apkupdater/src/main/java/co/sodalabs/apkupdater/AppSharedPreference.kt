@@ -1,5 +1,6 @@
 package co.sodalabs.apkupdater
 
+import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import io.reactivex.Observable
 import javax.inject.Inject
@@ -34,6 +35,25 @@ class AppSharedPreference @Inject constructor(
     override fun putBoolean(prop: String, value: Boolean) {
         preferences.edit()
             .putBoolean(prop, value)
+            .apply()
+    }
+
+    override fun observeStringChange(
+        prop: String,
+        default: String
+    ): Observable<String> {
+        return observePropertyChange(prop) { p ->
+            p.getString(prop, default) ?: default
+        }
+    }
+
+    override fun getString(prop: String, default: String): String {
+        return preferences.getString(prop, default) ?: default
+    }
+
+    override fun putString(prop: String, value: String) {
+        preferences.edit()
+            .putString(prop, value)
             .apply()
     }
 
@@ -80,5 +100,10 @@ class AppSharedPreference @Inject constructor(
 
             // Don't emit the initial value
         }
+    }
+
+    @SuppressLint("ApplySharedPref")
+    override fun forceFlush() {
+        preferences.edit().commit()
     }
 }

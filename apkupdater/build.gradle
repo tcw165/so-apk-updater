@@ -44,11 +44,13 @@ android {
         versionCode buildVersionCode(versionProperties.artifact_version)
         versionName versionProperties.artifact_version
 
+        vectorDrawables.useSupportLibrary = true
+
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
         buildConfigField "String", "BUGSNAG_API_KEY", "\"$bugsnagAPIKey\""
 
-        buildConfigField "String", "BASE_URL", "\"make sure update this, please!\""
+        buildConfigField "String[]", "BASE_URLS", "{\"Hey developer, make sure update this!\"}"
 
         buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "15"
         buildConfigField "int", "CHECK_INTERVAL_SECONDS", "1440" // 1 day
@@ -80,7 +82,7 @@ android {
 
             buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "15"
 
-            buildConfigField "int", "CHECK_INTERVAL_SECONDS", "300" // 5 min
+            buildConfigField "int", "CHECK_INTERVAL_SECONDS", "120" // 2 min
 
             buildConfigField "int", "INSTALL_HOUR_BEGIN", "0" // 00:00
             buildConfigField "int", "INSTALL_HOUR_END", "23" // 23:00
@@ -117,7 +119,7 @@ android {
             // Disables PNG crunching for the release build type.
             crunchPngs false
 
-            buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "300" // 5 min
+            buildConfigField "int", "HEARTBEAT_INTERVAL_SECONDS", "120" // 2 min
 
             buildConfigField "int", "CHECK_INTERVAL_SECONDS", "86400" // 1 day
 
@@ -138,9 +140,15 @@ android {
     productFlavors {
         sparkpoint {
             dimension "PRODUCT"
-            buildConfigField "String", "BASE_URL", "\"https://spark-api-v0-prod.azurewebsites.net/api/v0/\""
+            buildConfigField "String[]", "BASE_URLS", "{" +
+                "\"http://localhost:3000/api/v0/\"," +
+                "\"https://staging.sparkpoint.services/api/v0/\"," +
+                "\"https://sparkpoint.services/api/v0/\"" +
+                "}"
             buildConfigField "String[]", "PACKAGES_TO_CHECK", "{" +
-                "\"co.sodalabs.sparkpoint\"" +
+                "\"co.sodalabs.sparkpoint\"," +
+                "\"co.sodalabs.privilegedinstaller\"," +
+                "\"co.sodalabs.apkupdater\"" +
                 "}"
         }
     }
@@ -220,7 +228,7 @@ dependencies {
     implementation deps.kotlin.stdlibJdk7
 
     // DI
-    compileOnly deps.dagger.lib
+    implementation deps.dagger.android
     implementation deps.dagger.androidSupport
     kapt deps.dagger.compiler
     kapt deps.dagger.androidCompiler

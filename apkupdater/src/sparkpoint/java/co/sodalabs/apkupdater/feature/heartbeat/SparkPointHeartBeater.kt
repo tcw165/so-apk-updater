@@ -9,8 +9,9 @@ import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.data.HTTPResponseCode
 import io.reactivex.Observable
+import javax.inject.Inject
 
-class SparkPointHeartBeater constructor(
+class SparkPointHeartBeater @Inject constructor(
     private val context: Context,
     private val schedulers: IThreadSchedulers
 ) : AppUpdaterHeartBeater {

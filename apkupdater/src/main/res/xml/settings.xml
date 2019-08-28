@@ -9,6 +9,19 @@
         <co.sodalabs.apkupdater.feature.adminui.SecureStringEditTextPreference
             app:key="co.sodalabs.shared.device_id"
             app:title="@string/device_id" />
+
+        <EditTextPreference
+            app:key="co.sodalabs.apkupdater.mock_firmware_version"
+            app:title="@string/device_mock_firmware_version" />
+
+        <EditTextPreference
+            app:key="co.sodalabs.apkupdater.mock_sparkpoint_version"
+            app:title="@string/device_mock_sparkpoint_version" />
+
+        <ListPreference
+            app:key="co.sodalabs.apkupdater.api_base_url"
+            app:summary="The base URL of the API"
+            app:title="@string/api_base_urls" />
     </PreferenceCategory>
 
     <PreferenceCategory
@@ -41,9 +54,9 @@
             app:title="@string/check_interval" />
 
         <Preference
-                app:icon="@drawable/bt_check"
-                app:key="check_test_app_now"
-                app:title="Check for Update Now" />
+            app:icon="@drawable/bt_check"
+            app:key="check_test_app_now"
+            app:title="Check for Update Now" />
     </PreferenceCategory>
 
     <PreferenceCategory

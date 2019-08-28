@@ -14,10 +14,11 @@ import android.os.PersistableBundle
 import android.os.SystemClock
 import androidx.core.app.JobIntentService
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import co.sodalabs.apkupdater.IAppPreference
 import co.sodalabs.apkupdater.ISharedSettings
 import co.sodalabs.apkupdater.ISystemProperties
+import co.sodalabs.apkupdater.PreferenceProps
 import co.sodalabs.apkupdater.SharedSettingsProps
-import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.data.SystemProps
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
 import co.sodalabs.apkupdater.feature.heartbeat.data.HeartBeatBody
@@ -27,6 +28,7 @@ import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.benchmark
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
+import dagger.android.AndroidInjection
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -95,13 +97,15 @@ class HeartBeatJobIntentService : JobIntentService() {
     @Inject
     lateinit var apiClient: ISparkPointHeartBeatApi
     @Inject
+    lateinit var appPreference: IAppPreference
+    @Inject
     lateinit var sharedSettings: ISharedSettings
     @Inject
     lateinit var systemProperties: ISystemProperties
 
     override fun onCreate() {
+        AndroidInjection.inject(this)
         super.onCreate()
-        injectDependencies()
     }
 
     override fun onHandleWork(intent: Intent) {
@@ -109,13 +113,6 @@ class HeartBeatJobIntentService : JobIntentService() {
             IntentActions.ACTION_SEND_HEART_BEAT_NOW -> sendHeartBeat()
             else -> throw IllegalArgumentException("Hey develop, HeartBeatJobIntentService is for checking version only!")
         }
-    }
-
-    // DI /////////////////////////////////////////////////////////////////////
-
-    private fun injectDependencies() {
-        val appComponent = UpdaterApp.appComponent
-        appComponent.inject(this)
     }
 
     // Heart Beat /////////////////////////////////////////////////////////////
@@ -173,16 +170,28 @@ class HeartBeatJobIntentService : JobIntentService() {
     }
 
     private fun getFirmwareVersion(): String {
-        return systemProperties.getString(SystemProps.FIRMWARE_VERSION_INCREMENTAL, "")
+        val debugVersion = appPreference.getString(PreferenceProps.MOCK_FIRMWARE_VERSION, "")
+        return if (debugVersion.isNotBlank()) {
+            debugVersion
+        } else {
+            // Actual firmware version from system.
+            systemProperties.getString(SystemProps.FIRMWARE_VERSION_INCREMENTAL, "")
+        }
     }
 
     private fun getSparkpointPlayerVersion(): String {
-        return try {
-            val info = packageManager.getPackageInfo(Packages.SPARKPOINT_PACKAGE_NAME, PackageManager.GET_META_DATA)
-            info.versionName
-        } catch (error: PackageManager.NameNotFoundException) {
-            // The package is not installed (or deleted)
-            ""
+        val debugVersion = appPreference.getString(PreferenceProps.MOCK_SPARKPOINT_VERSION, "")
+        return if (debugVersion.isNotBlank()) {
+            debugVersion
+        } else {
+            // Actual Sparkpoint version.
+            try {
+                val info = packageManager.getPackageInfo(Packages.SPARKPOINT_PACKAGE_NAME, PackageManager.GET_META_DATA)
+                info.versionName
+            } catch (error: PackageManager.NameNotFoundException) {
+                // The package is not installed (or deleted)
+                ""
+            }
         }
     }
 

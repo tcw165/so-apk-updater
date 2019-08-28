@@ -11,27 +11,43 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import co.sodalabs.apkupdater.R
-import co.sodalabs.apkupdater.UpdaterApp
+import com.jakewharton.rxbinding3.view.clicks
+import dagger.android.AndroidInjection
+import dagger.android.AndroidInjector
+import dagger.android.DispatchingAndroidInjector
+import dagger.android.HasAndroidInjector
+import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.rxkotlin.addTo
+import kotlinx.android.synthetic.main.activity_settings.btBack
 import timber.log.Timber
+import javax.inject.Inject
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLParameters
 
 private val REQUEST_CODE_PERMISSIONS = 123
 
-class SettingsActivity : AppCompatActivity() {
+class SettingsActivity :
+    AppCompatActivity(),
+    HasAndroidInjector {
+
+    @Inject
+    lateinit var actualInjector: DispatchingAndroidInjector<Any>
+
+    override fun androidInjector(): AndroidInjector<Any> = actualInjector
 
     private val disposes = CompositeDisposable()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        Timber.v("App Updater UI is online")
-        injectDependencies()
-
+        AndroidInjection.inject(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
+        Timber.v("App Updater UI is online")
         logSSLProtocols()
         requestPermissions()
+
+        observeCloseClicks()
 
         supportFragmentManager
             .beginTransaction()
@@ -45,9 +61,13 @@ class SettingsActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun injectDependencies() {
-        val appComponent = UpdaterApp.appComponent
-        appComponent.inject(this)
+    private fun observeCloseClicks() {
+        btBack.clicks()
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({
+                finish()
+            }, Timber::e)
+            .addTo(disposes)
     }
 
     private fun requestPermissions() {

@@ -1,6 +1,6 @@
 package co.sodalabs.apkupdater
 
-import co.sodalabs.updaterengine.feature.rx.InitialValueObservable
+import co.sodalabs.updaterengine.rx.InitialValueObservable
 
 interface ISharedSettings {
     fun isDeviceProvisioned(): Boolean
