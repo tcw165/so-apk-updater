@@ -1,18 +1,10 @@
 package co.sodalabs.apkupdater
 
 import android.annotation.SuppressLint
+import android.provider.Settings
 import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
-import co.sodalabs.apkupdater.di.component.AppComponent
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
-import co.sodalabs.apkupdater.di.module.AppPreferenceModule
-import co.sodalabs.apkupdater.di.module.ApplicationContextModule
-import co.sodalabs.apkupdater.di.module.SharedSettingsModule
-import co.sodalabs.apkupdater.di.module.SystemPropertiesModule
-import co.sodalabs.apkupdater.di.module.ThreadSchedulersModule
-import co.sodalabs.apkupdater.di.module.UpdaterModule
-import co.sodalabs.apkupdater.feature.settings.AndroidSharedSettings
-import co.sodalabs.apkupdater.feature.settings.AndroidSystemProperties
 import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.updaterengine.ApkUpdater
@@ -21,12 +13,16 @@ import co.sodalabs.updaterengine.AppUpdaterHeartBeater
 import co.sodalabs.updaterengine.AppUpdatesChecker
 import co.sodalabs.updaterengine.AppUpdatesDownloader
 import co.sodalabs.updaterengine.AppUpdatesInstaller
+import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.extension.toMilliseconds
 import com.bugsnag.android.Bugsnag
 import com.bugsnag.android.Configuration
 import com.jakewharton.processphoenix.ProcessPhoenix
 import com.jakewharton.threetenabp.AndroidThreeTen
+import dagger.android.AndroidInjector
+import dagger.android.DispatchingAndroidInjector
+import dagger.android.HasAndroidInjector
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
@@ -35,12 +31,14 @@ import javax.inject.Inject
 
 private const val DEBUG_DEVICE_ID = "660112"
 
-class UpdaterApp : MultiDexApplication() {
+class UpdaterApp :
+    MultiDexApplication(),
+    HasAndroidInjector {
 
-    companion object {
+    @Inject
+    lateinit var actualInjector: DispatchingAndroidInjector<UpdaterApp>
 
-        lateinit var appComponent: AppComponent
-    }
+    override fun androidInjector(): AndroidInjector<Any> = actualInjector as AndroidInjector<Any>
 
     @Inject
     lateinit var appUpdatesChecker: AppUpdatesChecker
@@ -63,8 +61,9 @@ class UpdaterApp : MultiDexApplication() {
         initCrashReporting()
         initDatetime()
 
-        // Note: Injection of default preference must be prior than dependencies
-        // injection!
+        // Note: Injection of default rawPreference must be prior than dependencies
+        // injection! Because the modules like network depends on the default
+        // preference to instantiate.
         injectDefaultPreferences()
         injectDependencies()
 
@@ -103,35 +102,32 @@ class UpdaterApp : MultiDexApplication() {
 
     // Application Singletons /////////////////////////////////////////////////
 
-    private val schedulers = AppThreadSchedulers()
-    private val preferences by lazy { PreferenceManager.getDefaultSharedPreferences(this@UpdaterApp) }
-    private val appPreferences by lazy { AppSharedPreference(preferences) }
-    private val sharedSettings by lazy { AndroidSharedSettings(contentResolver, schedulers) }
-    private val systemProperties by lazy { AndroidSystemProperties() }
+    @Inject
+    lateinit var schedulers: IThreadSchedulers
+    @Inject
+    lateinit var appPreference: IAppPreference
 
     private fun injectDependencies() {
-        // Application singleton(s)
-        appComponent = DaggerAppComponent.builder()
-            .applicationContextModule(ApplicationContextModule(this))
-            .threadSchedulersModule(ThreadSchedulersModule(schedulers))
-            .appPreferenceModule(AppPreferenceModule(appPreferences))
-            .sharedSettingsModule(SharedSettingsModule(sharedSettings))
-            .systemPropertiesModule(SystemPropertiesModule(systemProperties))
-            .updaterModule(UpdaterModule(this, appPreferences, schedulers))
+        DaggerAppComponent.builder()
+            .setApplication(this)
+            .setAppPreference(rawPreference)
+            .setContentResolver(contentResolver)
             .build()
-        appComponent.inject(this)
+            .inject(this)
     }
 
     // Updater Engine /////////////////////////////////////////////////////////
 
+    private val rawPreference by lazy { PreferenceManager.getDefaultSharedPreferences(this) }
+
     private fun generateUpdaterConfig(): ApkUpdaterConfig {
         val hostPackageName = packageName
-        val heartbeatInterval = appPreferences.getInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS).toMilliseconds()
-        val checkInterval = appPreferences.getInt(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS).toMilliseconds()
-        val downloadUseCache = appPreferences.getBoolean(PreferenceProps.DOWNLOAD_USE_CACHE, BuildConfig.DOWNLOAD_USE_CACHE)
-        val installHourBegin = appPreferences.getInt(PreferenceProps.INSTALL_HOUR_BEGIN, BuildConfig.INSTALL_HOUR_BEGIN)
-        val installHourEnd = appPreferences.getInt(PreferenceProps.INSTALL_HOUR_END, BuildConfig.INSTALL_HOUR_END)
-        val installAllowDowngrade = appPreferences.getBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
+        val heartbeatInterval = rawPreference.getInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS).toMilliseconds()
+        val checkInterval = rawPreference.getInt(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS).toMilliseconds()
+        val downloadUseCache = rawPreference.getBoolean(PreferenceProps.DOWNLOAD_USE_CACHE, BuildConfig.DOWNLOAD_USE_CACHE)
+        val installHourBegin = rawPreference.getInt(PreferenceProps.INSTALL_HOUR_BEGIN, BuildConfig.INSTALL_HOUR_BEGIN)
+        val installHourEnd = rawPreference.getInt(PreferenceProps.INSTALL_HOUR_END, BuildConfig.INSTALL_HOUR_END)
+        val installAllowDowngrade = rawPreference.getBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
 
         return ApkUpdaterConfig(
             hostPackageName = hostPackageName,
@@ -147,64 +143,103 @@ class UpdaterApp : MultiDexApplication() {
 
     // Preferences ////////////////////////////////////////////////////////////
 
+    /**
+     * Inject the necessary default configuration to the application preference.
+     * Note: Don't use injected instance in this method cause the app will crash
+     * since the DI isn't setup yet.
+     */
     private fun injectDefaultPreferences() {
         // Debug device ID
-        if (sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) == null &&
-            (BuildUtils.isDebug() || BuildUtils.isStaging())) {
-            Timber.v("[Updater] Inject the debug device ID as \"$DEBUG_DEVICE_ID\"")
-            sharedSettings.putSecureString(SharedSettingsProps.DEVICE_ID, DEBUG_DEVICE_ID)
+        try {
+            if (Settings.Secure.getString(contentResolver, SharedSettingsProps.DEVICE_ID) == null &&
+                (BuildUtils.isDebug() || BuildUtils.isStaging())) {
+                Timber.v("[Updater] Inject the debug device ID as \"$DEBUG_DEVICE_ID\"")
+                Settings.Secure.putString(contentResolver, SharedSettingsProps.DEVICE_ID, DEBUG_DEVICE_ID)
+            }
+            val deviceID = Settings.Secure.getString(contentResolver, SharedSettingsProps.DEVICE_ID)
+            Timber.v("[Updater] The device ID is \"$deviceID\"")
+        } catch (error: Throwable) {
+            Timber.w("[Updater] Unable to access device ID due to no WRITE_SECURE_SETTINGS!\n$error")
         }
-        val deviceID = sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID)
-        Timber.v("[Updater] The device ID is \"$deviceID\"")
 
         // Network
-        if (!appPreferences.containsKey(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS)) {
-            appPreferences.putInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, BuildConfig.CONNECT_TIMEOUT_SECONDS)
+        if (!rawPreference.contains(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS)) {
+            rawPreference.edit()
+                .putInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, BuildConfig.CONNECT_TIMEOUT_SECONDS)
+                .apply()
         }
-        if (!appPreferences.containsKey(PreferenceProps.NETWORK_WRITE_TIMEOUT_SECONDS)) {
-            appPreferences.putInt(PreferenceProps.NETWORK_WRITE_TIMEOUT_SECONDS, BuildConfig.READ_TIMEOUT_SECONDS)
+        if (!rawPreference.contains(PreferenceProps.NETWORK_WRITE_TIMEOUT_SECONDS)) {
+            rawPreference.edit()
+                .putInt(PreferenceProps.NETWORK_WRITE_TIMEOUT_SECONDS, BuildConfig.READ_TIMEOUT_SECONDS)
+                .apply()
         }
-        if (!appPreferences.containsKey(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS)) {
-            appPreferences.putInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.WRITE_TIMEOUT_SECONDS)
+        if (!rawPreference.contains(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS)) {
+            rawPreference.edit()
+                .putInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.WRITE_TIMEOUT_SECONDS)
+                .apply()
         }
 
+        // API General
+        if (!rawPreference.contains(PreferenceProps.API_BASE_URL)) {
+            val urls = BuildConfig.BASE_URLS
+            val defaultURL = urls.last()
+            Timber.v("[Updater] Inject the default API base URL, \"$defaultURL\"")
+            rawPreference.edit()
+                .putString(PreferenceProps.API_BASE_URL, defaultURL)
+                .apply()
+        }
+        val apiBaseURL = rawPreference.getString(PreferenceProps.API_BASE_URL, "")
+        Timber.v("[Updater] API base URL, \"$apiBaseURL\"")
+
         // Heartbeat
-        if (!appPreferences.containsKey(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)) {
-            appPreferences.putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
+        if (!rawPreference.contains(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)) {
+            rawPreference.edit()
+                .putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
+                .apply()
         }
 
         // Check
-        if (!appPreferences.containsKey(PreferenceProps.CHECK_INTERVAL_SECONDS)) {
-            appPreferences.putInt(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS)
+        if (!rawPreference.contains(PreferenceProps.CHECK_INTERVAL_SECONDS)) {
+            rawPreference.edit()
+                .putInt(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS)
+                .apply()
         }
 
         // Download
-        if (!appPreferences.containsKey(PreferenceProps.DOWNLOAD_USE_CACHE)) {
-            appPreferences.putBoolean(PreferenceProps.DOWNLOAD_USE_CACHE, BuildConfig.DOWNLOAD_USE_CACHE)
+        if (!rawPreference.contains(PreferenceProps.DOWNLOAD_USE_CACHE)) {
+            rawPreference.edit()
+                .putBoolean(PreferenceProps.DOWNLOAD_USE_CACHE, BuildConfig.DOWNLOAD_USE_CACHE)
+                .apply()
         }
 
         // Install
-        if (!appPreferences.containsKey(PreferenceProps.INSTALL_HOUR_BEGIN)) {
-            appPreferences.putInt(PreferenceProps.INSTALL_HOUR_BEGIN, BuildConfig.INSTALL_HOUR_BEGIN)
+        if (!rawPreference.contains(PreferenceProps.INSTALL_HOUR_BEGIN)) {
+            rawPreference.edit()
+                .putInt(PreferenceProps.INSTALL_HOUR_BEGIN, BuildConfig.INSTALL_HOUR_BEGIN)
+                .apply()
         }
-        if (!appPreferences.containsKey(PreferenceProps.INSTALL_HOUR_END)) {
-            appPreferences.putInt(PreferenceProps.INSTALL_HOUR_END, BuildConfig.INSTALL_HOUR_END)
+        if (!rawPreference.contains(PreferenceProps.INSTALL_HOUR_END)) {
+            rawPreference.edit()
+                .putInt(PreferenceProps.INSTALL_HOUR_END, BuildConfig.INSTALL_HOUR_END)
+                .apply()
         }
-        if (!appPreferences.containsKey(PreferenceProps.INSTALL_ALLOW_DOWNGRADE)) {
-            appPreferences.putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
+        if (!rawPreference.contains(PreferenceProps.INSTALL_ALLOW_DOWNGRADE)) {
+            rawPreference.edit()
+                .putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
+                .apply()
         }
     }
 
     @SuppressLint("ApplySharedPref")
     private fun observeSystemConfigChange() {
-        // Restart the process for all kinds of preference change!
-        appPreferences.observeAnyChange()
+        // Restart the process for all kinds of rawPreference change!
+        appPreference.observeAnyChange()
             .debounce(Intervals.DEBOUNCE_VALUE_CHANGE, TimeUnit.MILLISECONDS)
             .observeOn(schedulers.main())
             .subscribe({
                 Timber.v("[Updater] System configuration changes, so restart the process!")
                 // Forcefully flush
-                preferences.edit().commit()
+                appPreference.forceFlush()
                 // Then restart the process
                 ProcessPhoenix.triggerRebirth(this@UpdaterApp)
             }, Timber::e)

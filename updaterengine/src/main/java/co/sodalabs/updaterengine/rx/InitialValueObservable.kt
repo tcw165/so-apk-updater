@@ -1,4 +1,4 @@
-package co.sodalabs.updaterengine.feature.rx
+package co.sodalabs.updaterengine.rx
 
 import io.reactivex.Observable
 

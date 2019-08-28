@@ -17,7 +17,6 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import co.sodalabs.apkupdater.ISharedSettings
 import co.sodalabs.apkupdater.ISystemProperties
 import co.sodalabs.apkupdater.SharedSettingsProps
-import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.data.SystemProps
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
 import co.sodalabs.apkupdater.feature.heartbeat.data.HeartBeatBody
@@ -27,6 +26,7 @@ import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.benchmark
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
+import dagger.android.AndroidInjection
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -100,8 +100,8 @@ class HeartBeatJobIntentService : JobIntentService() {
     lateinit var systemProperties: ISystemProperties
 
     override fun onCreate() {
+        AndroidInjection.inject(this)
         super.onCreate()
-        injectDependencies()
     }
 
     override fun onHandleWork(intent: Intent) {
@@ -109,13 +109,6 @@ class HeartBeatJobIntentService : JobIntentService() {
             IntentActions.ACTION_SEND_HEART_BEAT_NOW -> sendHeartBeat()
             else -> throw IllegalArgumentException("Hey develop, HeartBeatJobIntentService is for checking version only!")
         }
-    }
-
-    // DI /////////////////////////////////////////////////////////////////////
-
-    private fun injectDependencies() {
-        val appComponent = UpdaterApp.appComponent
-        appComponent.inject(this)
     }
 
     // Heart Beat /////////////////////////////////////////////////////////////

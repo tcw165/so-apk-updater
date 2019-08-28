@@ -11,7 +11,15 @@ object PreferenceProps {
     const val NETWORK_READ_TIMEOUT_SECONDS = "$PREFIX.network_read_timeout"
     const val NETWORK_WRITE_TIMEOUT_SECONDS = "$PREFIX.network_write_timeout"
 
+    // API ////////////////////////////////////////////////////////////////////
+
+    const val API_BASE_URL = "$PREFIX.api_base_url"
+
+    // Heartbeat //////////////////////////////////////////////////////////////
+
     const val HEARTBEAT_INTERVAL_SECONDS = "$PREFIX.heartbeat_interval"
+
+    // Updater ////////////////////////////////////////////////////////////////
 
     const val CHECK_INTERVAL_SECONDS = "$PREFIX.check_interval"
 
