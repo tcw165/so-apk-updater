@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.provider.Settings
 import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
+import co.sodalabs.apkupdater.data.SystemProps
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
 import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
@@ -30,6 +31,8 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 private const val DEBUG_DEVICE_ID = "660112"
+private const val DEBUG_FIRMWARE_VERSION = "1.0.0"
+private const val DEBUG_SPARKPOINT_VERSION = "0.2.6.1"
 
 class UpdaterApp :
     MultiDexApplication(),
@@ -64,8 +67,9 @@ class UpdaterApp :
         // Note: Injection of default rawPreference must be prior than dependencies
         // injection! Because the modules like network depends on the default
         // preference to instantiate.
-        injectDefaultPreferences()
+        injectDefaultPreferencesBeforeInjectingDep()
         injectDependencies()
+        logSystemInfo()
 
         observeSystemConfigChange()
 
@@ -100,12 +104,23 @@ class UpdaterApp :
         AndroidThreeTen.init(this)
     }
 
+    /**
+     * Note: Call this after the dependencies are injected.
+     */
+    private fun logSystemInfo() {
+        val firmwareVersion = rawPreference.getString(PreferenceProps.MOCK_FIRMWARE_VERSION, null)
+            ?: systemProperties.getString(SystemProps.FIRMWARE_VERSION_INCREMENTAL, "")
+        Timber.v("[Updater] The firmware version is \"$firmwareVersion\"")
+    }
+
     // Application Singletons /////////////////////////////////////////////////
 
     @Inject
     lateinit var schedulers: IThreadSchedulers
     @Inject
     lateinit var appPreference: IAppPreference
+    @Inject
+    lateinit var systemProperties: ISystemProperties
 
     private fun injectDependencies() {
         DaggerAppComponent.builder()
@@ -148,7 +163,7 @@ class UpdaterApp :
      * Note: Don't use injected instance in this method cause the app will crash
      * since the DI isn't setup yet.
      */
-    private fun injectDefaultPreferences() {
+    private fun injectDefaultPreferencesBeforeInjectingDep() {
         // Debug device ID
         try {
             if (Settings.Secure.getString(contentResolver, SharedSettingsProps.DEVICE_ID) == null &&
@@ -160,6 +175,22 @@ class UpdaterApp :
             Timber.v("[Updater] The device ID is \"$deviceID\"")
         } catch (error: Throwable) {
             Timber.w("[Updater] Unable to access device ID due to no WRITE_SECURE_SETTINGS!\n$error")
+        }
+
+        // Mock firmware version
+        if (!rawPreference.contains(PreferenceProps.MOCK_FIRMWARE_VERSION)) {
+            if (BuildUtils.isDebug() || BuildUtils.isStaging()) {
+                rawPreference.edit()
+                    .putString(PreferenceProps.MOCK_FIRMWARE_VERSION, DEBUG_FIRMWARE_VERSION)
+                    .apply()
+            }
+        }
+        if (!rawPreference.contains(PreferenceProps.MOCK_SPARKPOINT_VERSION)) {
+            if (BuildUtils.isDebug() || BuildUtils.isStaging()) {
+                rawPreference.edit()
+                    .putString(PreferenceProps.MOCK_SPARKPOINT_VERSION, DEBUG_SPARKPOINT_VERSION)
+                    .apply()
+            }
         }
 
         // Network
