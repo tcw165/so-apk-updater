@@ -1,4 +1,4 @@
-package co.sodalabs.apkupdater.feature.settings
+package co.sodalabs.apkupdater
 
 import android.annotation.SuppressLint
 import android.content.ContentResolver
@@ -8,10 +8,8 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.provider.Settings
-import co.sodalabs.apkupdater.BuildConfig
-import co.sodalabs.apkupdater.ISharedSettings
 import co.sodalabs.updaterengine.IThreadSchedulers
-import co.sodalabs.updaterengine.feature.rx.InitialValueObservable
+import co.sodalabs.updaterengine.rx.InitialValueObservable
 import io.reactivex.Observable
 import timber.log.Timber
 import java.util.UUID
@@ -68,7 +66,7 @@ class AndroidSharedSettings @Inject constructor(
         key: String,
         default: Int
     ): InitialValueObservable<Int> {
-        return observeWithNamespaceAndType(SettingsNamespace.Global, key, default)
+        return observeWithNamespaceAndType(SharedSettingsNamespace.Global, key, default)
     }
 
     override fun getGlobalString(key: String, default: String): String {
@@ -93,7 +91,7 @@ class AndroidSharedSettings @Inject constructor(
         key: String,
         default: String
     ): InitialValueObservable<String> {
-        return observeWithNamespaceAndType(SettingsNamespace.Global, key, default)
+        return observeWithNamespaceAndType(SharedSettingsNamespace.Global, key, default)
     }
 
     override fun getSecureInt(
@@ -121,7 +119,7 @@ class AndroidSharedSettings @Inject constructor(
     }
 
     override fun observeSecureInt(key: String, default: Int): InitialValueObservable<Int> {
-        return observeWithNamespaceAndType(SettingsNamespace.Secure, key, default)
+        return observeWithNamespaceAndType(SharedSettingsNamespace.Secure, key, default)
     }
 
     override fun getSecureString(
@@ -145,12 +143,12 @@ class AndroidSharedSettings @Inject constructor(
     }
 
     override fun observeSecureString(key: String, default: String): InitialValueObservable<String> {
-        return observeWithNamespaceAndType(SettingsNamespace.Secure, key, default)
+        return observeWithNamespaceAndType(SharedSettingsNamespace.Secure, key, default)
     }
 
     @Suppress("UNCHECKED_CAST")
     private fun <T> observeWithNamespaceAndType(
-        namespace: SettingsNamespace,
+        namespace: SharedSettingsNamespace,
         key: String,
         default: T
     ): InitialValueObservable<T> {
@@ -198,34 +196,34 @@ class AndroidSharedSettings @Inject constructor(
             .subscribeOn(schedulers.io())
     }
 
-    private fun SettingsNamespace.getUriFor(
+    private fun SharedSettingsNamespace.getUriFor(
         key: String
     ): Uri {
         return when (this) {
-            SettingsNamespace.Global -> Settings.Global.getUriFor(key)
-            SettingsNamespace.Secure -> Settings.Secure.getUriFor(key)
-            SettingsNamespace.System -> Settings.System.getUriFor(key)
+            SharedSettingsNamespace.Global -> Settings.Global.getUriFor(key)
+            SharedSettingsNamespace.Secure -> Settings.Secure.getUriFor(key)
+            SharedSettingsNamespace.System -> Settings.System.getUriFor(key)
         }
     }
 
-    private fun SettingsNamespace.getIntFor(
+    private fun SharedSettingsNamespace.getIntFor(
         key: String,
         default: Int
     ): Int {
         return when (this) {
-            SettingsNamespace.Global -> Settings.Global.getInt(contentResolver, key, default)
-            SettingsNamespace.Secure -> Settings.Secure.getInt(contentResolver, key, default)
-            SettingsNamespace.System -> Settings.System.getInt(contentResolver, key, default)
+            SharedSettingsNamespace.Global -> Settings.Global.getInt(contentResolver, key, default)
+            SharedSettingsNamespace.Secure -> Settings.Secure.getInt(contentResolver, key, default)
+            SharedSettingsNamespace.System -> Settings.System.getInt(contentResolver, key, default)
         }
     }
 
-    private fun SettingsNamespace.getStringFor(
+    private fun SharedSettingsNamespace.getStringFor(
         key: String
     ): String? {
         return when (this) {
-            SettingsNamespace.Global -> Settings.Global.getString(contentResolver, key)
-            SettingsNamespace.Secure -> Settings.Secure.getString(contentResolver, key)
-            SettingsNamespace.System -> Settings.System.getString(contentResolver, key)
+            SharedSettingsNamespace.Global -> Settings.Global.getString(contentResolver, key)
+            SharedSettingsNamespace.Secure -> Settings.Secure.getString(contentResolver, key)
+            SharedSettingsNamespace.System -> Settings.System.getString(contentResolver, key)
         }
     }
 }

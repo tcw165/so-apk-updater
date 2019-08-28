@@ -4,7 +4,7 @@ package co.sodalabs.apkupdater.di.module
 
 import co.sodalabs.apkupdater.ISystemProperties
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
-import co.sodalabs.apkupdater.feature.settings.AndroidSystemProperties
+import co.sodalabs.apkupdater.AndroidSystemProperties
 import dagger.Binds
 import dagger.Module
 

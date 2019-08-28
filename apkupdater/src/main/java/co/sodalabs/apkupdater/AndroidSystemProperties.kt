@@ -1,6 +1,5 @@
-package co.sodalabs.apkupdater.feature.settings
+package co.sodalabs.apkupdater
 
-import co.sodalabs.apkupdater.ISystemProperties
 import timber.log.Timber
 import java.lang.reflect.Method
 import javax.inject.Inject

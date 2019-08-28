@@ -3,9 +3,12 @@ package co.sodalabs.apkupdater.feature.adminui
 import android.content.IntentFilter
 import android.os.Bundle
 import android.widget.Toast
+import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
+import co.sodalabs.apkupdater.BuildConfig
 import co.sodalabs.apkupdater.IAppPreference
+import co.sodalabs.apkupdater.PreferenceProps
 import co.sodalabs.apkupdater.R
 import co.sodalabs.apkupdater.data.UiState
 import co.sodalabs.privilegedinstaller.RxLocalBroadcastReceiver
