@@ -17,6 +17,7 @@ object PreferenceProps {
 
     // Mocking Info ///////////////////////////////////////////////////////////
 
+    const val MOCK_DEVICE_ID = "$PREFIX.mock_device_id"
     const val MOCK_FIRMWARE_VERSION = "$PREFIX.mock_firmware_version"
     const val MOCK_SPARKPOINT_VERSION = "$PREFIX.mock_sparkpoint_version"
 

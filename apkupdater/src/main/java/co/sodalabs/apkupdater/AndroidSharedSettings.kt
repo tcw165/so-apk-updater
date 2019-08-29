@@ -40,8 +40,13 @@ class AndroidSharedSettings @Inject constructor(
 
     @SuppressLint("HardwareIds")
     override fun getHardwareId(): String {
-        val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-        return "${Build.MANUFACTURER}:${BuildConfig.DEBUG}:$androidId"
+        return try {
+            val androidId = getSecureString(Settings.Secure.ANDROID_ID)
+            "${Build.MANUFACTURER}:${BuildConfig.DEBUG}:$androidId"
+        } catch (error: Throwable) {
+            Timber.e(error)
+            ""
+        }
     }
 
     override fun getGlobalInt(key: String, default: Int): Int {
