@@ -17,8 +17,5 @@ data class AppUpdate(
     @Json(name = "file_hash")
     val hash: String? = null,
     @Json(name = "version_name")
-    val versionName: String,
-    @Deprecated("Updater engine ignores this field")
-    @Json(name = "version_code")
-    val versionCode: Int
+    val versionName: String
 ) : Parcelable

@@ -99,6 +99,8 @@ class DownloadJobIntentService : JobIntentService() {
     private fun download(
         updates: List<AppUpdate>
     ) {
+        Timber.v("[Download] Start downloading ${updates.size} updates")
+
         // The latch for joint the thread of the JobIntentService and the
         // threads of download manager.
         val disposed = AtomicBoolean(false)

@@ -198,6 +198,7 @@ class AppUpdaterService : Service() {
             // TODO error-handling
             ++checkAttempts
             // ApkUpdater.scheduleCheckUpdate(Intervals.RETRY_CHECK)
+            Timber.e(it)
         } ?: kotlin.run {
             // Reset check attempts since we successfully find the updates to download
             checkAttempts = 0
