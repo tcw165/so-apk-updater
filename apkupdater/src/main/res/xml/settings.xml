@@ -7,7 +7,8 @@
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.SecureStringEditTextPreference
-            app:key="co.sodalabs.shared.device_id"
+            app:key="device_id"
+            app:summary="Actual device ID stored in the secure settings and sharable among the apps with the permission."
             app:title="@string/device_id" />
 
         <EditTextPreference
