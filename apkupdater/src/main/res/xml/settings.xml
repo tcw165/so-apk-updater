@@ -11,11 +11,18 @@
             app:title="@string/device_id" />
 
         <EditTextPreference
+            app:key="co.sodalabs.apkupdater.mock_device_id"
+            app:summary="Mock the device ID for testing. Set the empty string to clear the mock."
+            app:title="@string/device_mock_device_id" />
+
+        <EditTextPreference
             app:key="co.sodalabs.apkupdater.mock_firmware_version"
+            app:summary="Mock the firmware version for testing. Set the empty string to clear the mock."
             app:title="@string/device_mock_firmware_version" />
 
         <EditTextPreference
             app:key="co.sodalabs.apkupdater.mock_sparkpoint_version"
+            app:summary="Mock the Sparkpoint version for testing. Set the empty string to clear the mock."
             app:title="@string/device_mock_sparkpoint_version" />
 
         <ListPreference

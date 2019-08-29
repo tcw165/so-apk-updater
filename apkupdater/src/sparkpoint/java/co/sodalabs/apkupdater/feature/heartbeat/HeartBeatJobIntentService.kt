@@ -162,7 +162,12 @@ class HeartBeatJobIntentService : JobIntentService() {
     }
 
     private fun getDeviceID(): String {
-        return sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: ""
+        val debugID = appPreference.getString(PreferenceProps.MOCK_DEVICE_ID, "")
+        return if (debugID.isNotBlank()) {
+            debugID
+        } else {
+            sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: ""
+        }
     }
 
     private fun getHardwareID(): String {
