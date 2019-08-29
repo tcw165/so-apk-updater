@@ -169,7 +169,7 @@ class DownloadJobIntentService : JobIntentService() {
                             }
 
                             val id = downloadRequest.downloadId
-                            Timber.e("[Download] Download(ID: $id) fails \"$$packageName\", error code: $errorCode")
+                            Timber.e("[Download] Download(ID: $id) fails \"$packageName\", error code: $errorCode")
 
                             synchronized(countdownLatch) {
                                 // Add to the failure pool
