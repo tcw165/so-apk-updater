@@ -17,7 +17,6 @@ class JsonTest {
             fromUpdate = AppUpdate(
                 packageName = "co.sodalabs.test",
                 versionName = "1.0.0",
-                versionCode = 1000000,
                 downloadUrl = "http://co.sodalabs.blob/test.apk",
                 hash = "hash"
             )
@@ -30,7 +29,7 @@ class JsonTest {
         val jsonText = adapter.toJson(data)
 
         println(jsonText)
-        assert(jsonText == "{\"file\":\"/tmp/test.apk\",\"from_update\":{\"app_id\":\"co.sodalabs.test\",\"download_url\":\"http://co.sodalabs.blob/test.apk\",\"file_hash\":\"hash\",\"version_name\":\"1.0.0\",\"version_code\":1000000}}")
+        assert(jsonText == "{\"file\":\"/tmp/test.apk\",\"from_update\":{\"app_id\":\"co.sodalabs.test\",\"download_url\":\"http://co.sodalabs.blob/test.apk\",\"file_hash\":\"hash\",\"version_name\":\"1.0.0\"}}")
     }
 
     @Test
@@ -40,7 +39,6 @@ class JsonTest {
             fromUpdate = AppUpdate(
                 packageName = "co.sodalabs.test",
                 versionName = "1.0.0",
-                versionCode = 1000000,
                 downloadUrl = "http://co.sodalabs.blob/test.apk",
                 hash = "hash"
             )
@@ -56,12 +54,12 @@ class JsonTest {
 
         println(jsonText)
         assert(
-            jsonText == "[{\"file\":\"/tmp/test.apk\",\"from_update\":{\"app_id\":\"co.sodalabs.test\",\"download_url\":\"http://co.sodalabs.blob/test.apk\",\"file_hash\":\"hash\",\"version_name\":\"1.0.0\",\"version_code\":1000000}},{\"file\":\"/tmp/test.apk\",\"from_update\":{\"app_id\":\"co.sodalabs.test\",\"download_url\":\"http://co.sodalabs.blob/test.apk\",\"file_hash\":\"hash\",\"version_name\":\"1.0.0\",\"version_code\":1000000}}]")
+            jsonText == "[{\"file\":\"/tmp/test.apk\",\"from_update\":{\"app_id\":\"co.sodalabs.test\",\"download_url\":\"http://co.sodalabs.blob/test.apk\",\"file_hash\":\"hash\",\"version_name\":\"1.0.0\"}},{\"file\":\"/tmp/test.apk\",\"from_update\":{\"app_id\":\"co.sodalabs.test\",\"download_url\":\"http://co.sodalabs.blob/test.apk\",\"file_hash\":\"hash\",\"version_name\":\"1.0.0\"}}]")
     }
 
     @Test
     fun `deserialize downloaded update`() {
-        val jsonText = "{\"file\":\"/tmp/test.apk\",\"from_update\":{\"app_id\":\"co.sodalabs.test\",\"download_url\":\"http://co.sodalabs.blob/test.apk\",\"file_hash\":\"hash\",\"version_name\":\"1.0.0\",\"version_code\":1000000}}"
+        val jsonText = "{\"file\":\"/tmp/test.apk\",\"from_update\":{\"app_id\":\"co.sodalabs.test\",\"download_url\":\"http://co.sodalabs.blob/test.apk\",\"file_hash\":\"hash\",\"version_name\":\"1.0.0\"}}"
 
         val jsonBuilder = Moshi.Builder()
             .add(FileAdapter())
