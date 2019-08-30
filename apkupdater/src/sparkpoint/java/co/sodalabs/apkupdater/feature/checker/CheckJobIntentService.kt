@@ -125,8 +125,14 @@ class CheckJobIntentService : JobIntentService() {
     lateinit var sharedSettings: ISharedSettings
 
     override fun onCreate() {
+        Timber.v("[Check] Check Service is online")
         AndroidInjection.inject(this)
         super.onCreate()
+    }
+
+    override fun onDestroy() {
+        Timber.v("[Check] Check Service is offline")
+        super.onDestroy()
     }
 
     override fun onHandleWork(intent: Intent) {

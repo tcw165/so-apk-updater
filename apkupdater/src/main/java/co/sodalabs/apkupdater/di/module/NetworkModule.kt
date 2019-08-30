@@ -8,9 +8,11 @@ import co.sodalabs.apkupdater.PreferenceProps
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
+import co.sodalabs.apkupdater.net.HostResolutionInterceptor
 import com.squareup.moshi.Moshi
 import dagger.Module
 import dagger.Provides
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -33,12 +35,8 @@ class NetworkModule {
     fun provideSystemProperties(
         appPreference: IAppPreference
     ): OkHttpClient {
-        val logging = HttpLoggingInterceptor()
-        logging.level = if (BuildConfig.DEBUG) {
-            HttpLoggingInterceptor.Level.BODY
-        } else {
-            HttpLoggingInterceptor.Level.NONE
-        }
+        val hostResolutionInterceptor = provideHostResolutionInterceptor()
+        val logsInterceptor = provideLogsInterceptor()
 
         val timeoutConnect = appPreference.getInt(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS, BuildConfig.CONNECT_TIMEOUT_SECONDS).toLong()
         val timeoutRead = appPreference.getInt(PreferenceProps.NETWORK_READ_TIMEOUT_SECONDS, BuildConfig.READ_TIMEOUT_SECONDS).toLong()
@@ -56,8 +54,27 @@ class NetworkModule {
             .connectTimeout(timeoutConnect, TimeUnit.SECONDS)
             .readTimeout(timeoutRead, TimeUnit.SECONDS)
             .writeTimeout(timeoutWrite, TimeUnit.SECONDS)
-            .addInterceptor(logging)
+            .addInterceptor(logsInterceptor)
+            // Smartly add host to speed up the domain resolution
+            .addInterceptor(hostResolutionInterceptor)
             .build()
+    }
+
+    private fun provideLogsInterceptor(): Interceptor {
+        val logsInterceptor = HttpLoggingInterceptor()
+        logsInterceptor.level = if (BuildConfig.DEBUG) {
+            HttpLoggingInterceptor.Level.BODY
+        } else {
+            HttpLoggingInterceptor.Level.NONE
+        }
+        return logsInterceptor
+    }
+
+    private fun provideHostResolutionInterceptor(): Interceptor {
+        // val baseURLString = appPreference.getString(PreferenceProps.API_BASE_URL, "")
+        // val baseURL = Uri.parse(baseURLString)
+        // val host = baseURL.host
+        return HostResolutionInterceptor()
     }
 
     @Provides

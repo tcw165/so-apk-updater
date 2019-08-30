@@ -5,6 +5,7 @@ package co.sodalabs.apkupdater.di.module
 import co.sodalabs.apkupdater.di.scopes.ActivityScope
 import co.sodalabs.apkupdater.feature.checker.CheckJobIntentService
 import co.sodalabs.apkupdater.feature.heartbeat.HeartBeatJobIntentService
+import co.sodalabs.updaterengine.feature.core.AppUpdaterService
 import co.sodalabs.updaterengine.feature.downloader.DownloadJobIntentService
 import co.sodalabs.updaterengine.feature.installer.InstallerJobIntentService
 import dagger.Module
@@ -12,6 +13,13 @@ import dagger.android.ContributesAndroidInjector
 
 @Module
 abstract class SubComponentServiceModule {
+
+    /**
+     * The sub-component of updater Service (core component)
+     */
+    @ActivityScope
+    @ContributesAndroidInjector
+    abstract fun contributeUpdaterServiceInjector(): AppUpdaterService
 
     /**
      * The sub-component of heartbeat Service

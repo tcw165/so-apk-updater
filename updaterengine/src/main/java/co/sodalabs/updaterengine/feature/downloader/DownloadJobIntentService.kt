@@ -29,6 +29,7 @@ import co.sodalabs.updaterengine.feature.downloadmanager.ThinDownloadManager
 import co.sodalabs.updaterengine.utils.BuildUtils
 import com.jakewharton.rxrelay2.PublishRelay
 import com.squareup.moshi.Types
+import dagger.android.AndroidInjection
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
@@ -62,13 +63,16 @@ class DownloadJobIntentService : JobIntentService() {
     private val disposables = CompositeDisposable()
 
     override fun onCreate() {
+        Timber.v("[Download] Downloader Service is online")
+        AndroidInjection.inject(this)
+
         super.onCreate()
-        injectDependencies()
 
         observeDownloadProgress()
     }
 
     override fun onDestroy() {
+        Timber.v("[Download] Downloader Service is offline")
         disposables.clear()
         super.onDestroy()
     }
@@ -81,12 +85,6 @@ class DownloadJobIntentService : JobIntentService() {
             }
             else -> throw IllegalArgumentException("Hey develop, DownloadJobIntentService is for downloading the updates only!")
         }
-    }
-
-    // DI /////////////////////////////////////////////////////////////////////
-
-    private fun injectDependencies() {
-        // No-op
     }
 
     // Download ///////////////////////////////////////////////////////////////

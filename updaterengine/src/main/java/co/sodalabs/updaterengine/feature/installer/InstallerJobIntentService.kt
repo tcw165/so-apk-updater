@@ -22,6 +22,7 @@ import co.sodalabs.updaterengine.extension.ensureMainThread
 import co.sodalabs.updaterengine.feature.core.AppUpdaterService
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
 import com.squareup.moshi.Types
+import dagger.android.AndroidInjection
 import timber.log.Timber
 import java.util.Objects
 
@@ -169,6 +170,17 @@ class InstallerJobIntentService : JobIntentService() {
         private fun enqueueWork(context: Context, intent: Intent) {
             enqueueWork(context, InstallerJobIntentService::class.java, UpdaterJobs.JOB_ID_INSTALL_UPDATES, intent)
         }
+    }
+
+    override fun onCreate() {
+        Timber.v("[Install] Installer Service is online")
+        AndroidInjection.inject(this)
+        super.onCreate()
+    }
+
+    override fun onDestroy() {
+        Timber.v("[Install] Installer Service is offline")
+        super.onDestroy()
     }
 
     override fun onHandleWork(intent: Intent) {

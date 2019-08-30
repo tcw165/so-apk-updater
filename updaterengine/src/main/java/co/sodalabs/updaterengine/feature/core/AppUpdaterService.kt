@@ -23,6 +23,7 @@ import co.sodalabs.updaterengine.R
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
+import dagger.android.AndroidInjection
 import timber.log.Timber
 
 private const val NOTIFICATION_CHANNEL_ID = "updater_engine"
@@ -166,15 +167,20 @@ class AppUpdaterService : Service() {
         return START_STICKY
     }
 
+    override fun onCreate() {
+        Timber.v("[Updater] Updater Service is online (should runs in the background as long as possible)")
+        AndroidInjection.inject(this)
+        super.onCreate()
+    }
+
     override fun onDestroy() {
-        Timber.v("[Updater] engine stops!")
+        Timber.v("[Updater] Updater Service is offline")
         super.onDestroy()
     }
 
     // Init ///////////////////////////////////////////////////////////////////
 
     private fun start() {
-        Timber.v("[Updater] engine starts ~~~~ .oO")
         ApkUpdater.installUpdatesFromDiskCache()
 
         ApkUpdater.scheduleRecurringHeartbeat()
