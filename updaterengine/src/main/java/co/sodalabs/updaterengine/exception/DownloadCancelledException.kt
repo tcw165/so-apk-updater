@@ -4,6 +4,5 @@ import androidx.annotation.Keep
 
 @Keep
 data class DownloadCancelledException(
-    val packageName: String,
-    val downloadURL: String
-) : RuntimeException("Download for \"$packageName\" is cancelled. URL is \"$downloadURL\"")
+    val url: String
+) : RuntimeException("Download for \"$url\" is cancelled.")

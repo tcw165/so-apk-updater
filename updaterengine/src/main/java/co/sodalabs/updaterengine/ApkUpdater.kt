@@ -237,7 +237,7 @@ class ApkUpdater private constructor(
                     .withHour(startHour)
                     .plusDays(1)
                 val triggerAtMillis = triggerTimeTomorrow.toInstant().toEpochMilli()
-                Timber.v("[Updater] It's currently out of the install window, will install the updates at $triggerTimeTomorrow, which is $triggerAtMillis milliseconds after")
+                Timber.v("[Updater] It's currently outside the install window, will install the updates at $triggerTimeTomorrow, which is $triggerAtMillis milliseconds after")
                 triggerAtMillis
             }
         }

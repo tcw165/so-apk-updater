@@ -4,6 +4,6 @@ import androidx.annotation.Keep
 
 @Keep
 data class DownloadUnknownErrorException(
-    val packageName: String,
+    val errorCode: Int,
     val downloadURL: String
-) : RuntimeException("Download for \"$packageName\" is failed by unknown error code. URL is \"$downloadURL\"")
+) : RuntimeException("Download error $errorCode for \"$downloadURL\"")
