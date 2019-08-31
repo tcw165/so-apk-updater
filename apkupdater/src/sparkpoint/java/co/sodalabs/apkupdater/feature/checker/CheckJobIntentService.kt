@@ -179,22 +179,22 @@ class CheckJobIntentService : JobIntentService() {
         //     else -> TODO()
         // }
 
-        val apiRequest = apiClient.getAppUpdate(
+        val request = apiClient.getAppUpdate(
             packageName = packageName,
             deviceId = getDeviceID()
         )
-        val apiResponse = apiRequest.execute()
+        val response = request.execute()
 
-        return if (apiResponse.isSuccessful) {
-            val body = apiResponse.body() ?: throw NullPointerException("Couldn't get AppUpdate body")
-            Timber.i("[Check] Found updates, \"${body.versionName}\" for \"$packageName\"")
+        return if (response.isSuccessful) {
+            val body = response.body() ?: throw NullPointerException("Couldn't get AppUpdate body")
+            val bodyClone = body.copy()
 
             // Close the connection to avoid leak!
-            // apiResponse.raw().close()
+            // response.raw().body()?.close()
 
-            body
+            bodyClone
         } else {
-            throw HttpException(apiResponse)
+            throw HttpException(response)
         }
     }
 
