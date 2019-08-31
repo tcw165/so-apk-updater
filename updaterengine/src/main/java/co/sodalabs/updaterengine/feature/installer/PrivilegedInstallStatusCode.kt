@@ -126,6 +126,7 @@ fun Int.toError(
     filePath: String
 ): Throwable {
     return when (this) {
+        PrivilegedInstallStatusCode.INSTALL_FAILED_INTERNAL_ERROR -> UnknownError("Cannot install $filePath")
         PrivilegedInstallStatusCode.INSTALL_FAILED_INVALID_APK -> InstallInvalidApkException(filePath)
         PrivilegedInstallStatusCode.INSTALL_PARSE_FAILED_NOT_APK -> InstallInvalidApkException(filePath)
         PrivilegedInstallStatusCode.INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES -> InstallInconsistentCertificateException(filePath)

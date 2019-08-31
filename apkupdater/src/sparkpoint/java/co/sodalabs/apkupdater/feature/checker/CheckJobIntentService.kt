@@ -199,13 +199,7 @@ class CheckJobIntentService : JobIntentService() {
     }
 
     private fun MutableList<AppUpdate>.trimInvalidUpdates() {
-        if (ApkUpdater.installAllowDowngrade()) {
-            // We install these updates regardless if the configuration says
-            // it allows downgrade.
-            Timber.v("[Check] Filter invalid updates... All are kept!")
-            return
-        }
-
+        Timber.v("[Check] Filter invalid updates...")
         val toTrimUpdates = mutableListOf<AppUpdate>()
         for (i in 0 until this.size) {
             val update = this[i]
@@ -215,13 +209,17 @@ class CheckJobIntentService : JobIntentService() {
             if (isPackageInstalled(packageName)) {
                 val localPackageInfo = packageManager.getPackageInfo(packageName, GET_META_DATA)
                 val localVersionName = localPackageInfo.versionName
-                val validVersion = remoteVersionName.isGreaterThanOrEqualTo(localVersionName)
 
-                if (!validVersion) {
+                if (ApkUpdater.installAllowDowngrade() ||
+                    remoteVersionName.isGreaterThanOrEqualTo(localVersionName)) {
+                    Timber.v("[Check] \"$packageName\" from $localVersionName to $remoteVersionName ... allowed!")
+                } else {
                     // Sorry, we will discard this update cause the version isn't
                     // greater than the current local version.
                     toTrimUpdates.add(update)
                 }
+            } else {
+                Timber.v("[Check] \"$packageName\" from null to $remoteVersionName ... allowed!")
             }
         }
 
@@ -229,11 +227,7 @@ class CheckJobIntentService : JobIntentService() {
         this.removeAll(toTrimUpdates)
         val newSize = this.size
 
-        if (originalSize == newSize) {
-            Timber.v("[Check] Filter invalid updates... All are kept!")
-        } else {
-            Timber.v("[Check] Filter invalid updates... from $originalSize updates to $newSize updates")
-        }
+        Timber.v("[Check] Filter invalid updates... drop ${originalSize - newSize} updates")
     }
 
     private fun isPackageInstalled(packageName: String): Boolean {
