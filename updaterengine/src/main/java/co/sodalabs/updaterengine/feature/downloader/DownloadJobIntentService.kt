@@ -119,6 +119,7 @@ class DownloadJobIntentService : JobIntentService() {
                 requestFileSize(url)
             } catch (error: Throwable) {
                 Timber.e(error)
+                // We'll collect the error and continue.
                 errors.add(error)
                 continue
             }
@@ -133,6 +134,7 @@ class DownloadJobIntentService : JobIntentService() {
                 downloadedUpdates.add(downloadedUpdate)
             } catch (error: Throwable) {
                 Timber.e(error)
+                // We'll collect the error and continue.
                 errors.add(error)
             } finally {
                 Timber.v("[Download] Close the cache \"$cacheFile\"")
@@ -140,8 +142,11 @@ class DownloadJobIntentService : JobIntentService() {
             }
         }
 
+        // Serialize the downloaded updates on storage for the case if the device
+        // reboots, we'll continue the install on boot.
         persistDownloadedUpdates(downloadedUpdates)
 
+        // Let the engine know the download finishes.
         AppUpdaterService.notifyDownloadsComplete(this, downloadedUpdates, errors)
     }
 
@@ -190,7 +195,7 @@ class DownloadJobIntentService : JobIntentService() {
             val buff = ByteArray(BUFFER_IN_BYTES)
             var currentSize = cacheFileSize
 
-            // Download the file chunk by chunk
+            // Download the file chunk by chunk (progressive download)
             while (canRun.get() && currentSize < totalSize) {
                 val endSize = if (currentSize + CHUNK_IN_BYTES < totalSize) {
                     currentSize + CHUNK_IN_BYTES
@@ -217,7 +222,7 @@ class DownloadJobIntentService : JobIntentService() {
                     try {
                         inputStream = response.body()?.byteStream()
 
-                        // Progressively download
+                        // Write the response to the local file piece by piece.
                         while (canRun.get()) {
                             val read = inputStream?.read(buff) ?: -1
                             if (read <= 0) break
