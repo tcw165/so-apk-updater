@@ -276,7 +276,14 @@ class DownloadJobIntentService : JobIntentService() {
             }
             val editor = diskCache.edit(ApkUpdater.KEY_DOWNLOADED_UPDATES)
             val editorFile = editor.getFile(0)
-            editorFile.writeText(jsonText)
+
+            try {
+                editorFile.writeText(jsonText)
+            } catch (error: Throwable) {
+                Timber.e(error)
+            } finally {
+                editor.commit()
+            }
         }
     }
 }
