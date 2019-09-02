@@ -32,6 +32,8 @@ import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
+private const val INVALID_CONTENT_LENGTH_STRING = "-1"
+
 private const val CHUNK_IN_BYTES = 3 * 1024 * 1024
 private const val BUFFER_IN_BYTES = 4 * 1024
 
@@ -168,7 +170,7 @@ class DownloadJobIntentService : JobIntentService() {
             .head()
             .build()
         val headResponse = okHttpClient.newCall(headRequest).execute()
-        val lengthString = headResponse.header("Content-Length", "-1")
+        val lengthString = headResponse.header("Content-Length", INVALID_CONTENT_LENGTH_STRING)
             ?: throw DownloadSizeNotFoundException(url)
         val length = lengthString.toLong()
 
