@@ -198,11 +198,7 @@ class DownloadJobIntentService : JobIntentService() {
 
             // Download the file chunk by chunk (progressive download)
             while (canRun.get() && currentSize < totalSize) {
-                val endSize = if (currentSize + CHUNK_IN_BYTES < totalSize) {
-                    currentSize + CHUNK_IN_BYTES
-                } else {
-                    totalSize
-                }
+                val endSize = Math.min(currentSize + CHUNK_IN_BYTES, totalSize)
                 val headers = hashMapOf(
                     Pair("Range", "bytes=$currentSize-$endSize"),
                     Pair("x-ms-range", "bytes=$currentSize-$endSize"),
