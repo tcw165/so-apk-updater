@@ -33,8 +33,7 @@ class ApkUpdater private constructor(
     private val appUpdatesChecker: AppUpdatesChecker,
     private val appUpdatesDownloader: AppUpdatesDownloader,
     private val appUpdatesInstaller: AppUpdatesInstaller,
-    private val engineHeartBeater: AppUpdaterHeartBeater,
-    private val schedulers: IThreadSchedulers
+    private val engineHeartBeater: AppUpdaterHeartBeater
 ) {
 
     @Keep
@@ -52,8 +51,7 @@ class ApkUpdater private constructor(
             appUpdatesChecker: AppUpdatesChecker,
             appUpdatesDownloader: AppUpdatesDownloader,
             appUpdatesInstaller: AppUpdatesInstaller,
-            engineHeartBeater: AppUpdaterHeartBeater,
-            schedulers: IThreadSchedulers
+            engineHeartBeater: AppUpdaterHeartBeater
         ) {
             // Cancel everything regardless.
             engine?.stop()
@@ -67,8 +65,7 @@ class ApkUpdater private constructor(
                             appUpdatesChecker,
                             appUpdatesDownloader,
                             appUpdatesInstaller,
-                            engineHeartBeater,
-                            schedulers)
+                            engineHeartBeater)
                         this.engine = engine
                         this.engine?.start(app)
                     }
@@ -269,6 +266,9 @@ class ApkUpdater private constructor(
     }
 
     // Shared Instances ///////////////////////////////////////////////////////
+
+    // TODO: Shall we make these two as the strong dependencies to inject via
+    // TODO: the Dagger framework?
 
     private val apkDiskCache by lazy {
         // The cache dir would be "/storage/emulated/legacy/co.sodalabs.apkupdater/${CACHE_APK_DIR}/"
