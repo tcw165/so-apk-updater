@@ -158,7 +158,6 @@ class DownloadJobIntentService : JobIntentService() {
             .atOffset(ZoneOffset.UTC)
             .format(DateTimeFormatter.ISO_LOCAL_DATE)
         val headers = hashMapOf(
-            Pair("x-ms-version", "2018-03-28"), // TODO: Ask Kevin what's this
             Pair("x-ms-date", dateString),
             Pair("Date", dateString)
         )
@@ -205,7 +204,6 @@ class DownloadJobIntentService : JobIntentService() {
                 val headers = hashMapOf(
                     Pair("Range", "bytes=$currentSize-$endSize"),
                     Pair("x-ms-range", "bytes=$currentSize-$endSize"),
-                    Pair("x-ms-version", "2018-03-28"), // TODO: Ask Kevin what's this
                     Pair("x-ms-date", dateString),
                     Pair("Date", dateString)
                 )
