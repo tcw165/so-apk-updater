@@ -247,8 +247,11 @@ class DownloadJobIntentService : JobIntentService() {
                 DownloadedUpdate(cacheFile, fromUpdate)
             } else {
                 if (canRun.get()) {
+                    // If the size is not matched and it's still allowed running,
+                    // throw the invalid size exception.
                     throw DownloadInvalidFileSizeException(cacheFile, currentSize, totalSize)
                 } else {
+                    // Otherwise, it's a cancellation.
                     throw DownloadCancelledException(url)
                 }
             }
@@ -256,6 +259,7 @@ class DownloadJobIntentService : JobIntentService() {
             Timber.v("[Download] Download \"$url\"... 100%")
             DownloadedUpdate(cacheFile, fromUpdate)
         } else {
+            // Throw exception as the cache size is greater than the expected size.
             throw DownloadInvalidFileSizeException(cacheFile, cacheFileSize, totalSize)
         }
     }
