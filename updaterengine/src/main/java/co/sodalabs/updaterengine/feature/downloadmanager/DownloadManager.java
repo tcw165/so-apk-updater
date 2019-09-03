@@ -1,5 +1,6 @@
 package co.sodalabs.updaterengine.feature.downloadmanager;
 
+@Deprecated
 public interface DownloadManager {
 
 	/**

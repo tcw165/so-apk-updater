@@ -15,4 +15,5 @@ data class DownloadedUpdate(
     val file: File,
     @Json(name = "from_update")
     val fromUpdate: AppUpdate
+    // TODO: Add timestamp?
 ) : Parcelable
