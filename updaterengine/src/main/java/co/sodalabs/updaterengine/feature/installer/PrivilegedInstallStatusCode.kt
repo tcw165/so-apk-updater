@@ -1,7 +1,7 @@
 package co.sodalabs.updaterengine.feature.installer
 
 import co.sodalabs.updaterengine.exception.InstallInconsistentCertificateException
-import co.sodalabs.updaterengine.exception.InstallNotApkException
+import co.sodalabs.updaterengine.exception.InstallInvalidApkException
 
 /**
  * Copy from AOSP source code, android.content.pm.PackageManager
@@ -126,7 +126,9 @@ fun Int.toError(
     filePath: String
 ): Throwable {
     return when (this) {
-        PrivilegedInstallStatusCode.INSTALL_PARSE_FAILED_NOT_APK -> InstallNotApkException(filePath)
+        PrivilegedInstallStatusCode.INSTALL_FAILED_INTERNAL_ERROR -> UnknownError("Cannot install $filePath")
+        PrivilegedInstallStatusCode.INSTALL_FAILED_INVALID_APK -> InstallInvalidApkException(filePath)
+        PrivilegedInstallStatusCode.INSTALL_PARSE_FAILED_NOT_APK -> InstallInvalidApkException(filePath)
         PrivilegedInstallStatusCode.INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES -> InstallInconsistentCertificateException(filePath)
         else -> TODO()
     }

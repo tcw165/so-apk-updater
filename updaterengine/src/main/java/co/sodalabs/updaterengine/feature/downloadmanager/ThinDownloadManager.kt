@@ -11,6 +11,7 @@ import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
  * @author Mani Selvaraj
  * @author Praveen Kumar
  */
+@Deprecated("We use in-house solution along with OkHttp instead")
 class ThinDownloadManager constructor(
     loggingEnabled: Boolean,
     threadPoolSize: Int,

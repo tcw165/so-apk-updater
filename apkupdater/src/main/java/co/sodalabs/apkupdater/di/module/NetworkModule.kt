@@ -63,7 +63,7 @@ class NetworkModule {
     private fun provideLogsInterceptor(): Interceptor {
         val logsInterceptor = HttpLoggingInterceptor()
         logsInterceptor.level = if (BuildConfig.DEBUG) {
-            HttpLoggingInterceptor.Level.BODY
+            HttpLoggingInterceptor.Level.HEADERS
         } else {
             HttpLoggingInterceptor.Level.NONE
         }

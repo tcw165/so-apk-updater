@@ -80,8 +80,7 @@ class UpdaterApp :
             appUpdatesChecker = appUpdatesChecker,
             appUpdatesDownloader = appUpdatesDownloader,
             appUpdatesInstaller = appUpdatesInstaller,
-            engineHeartBeater = heartBeater,
-            schedulers = schedulers)
+            engineHeartBeater = heartBeater)
     }
 
     private fun initLogging() {
