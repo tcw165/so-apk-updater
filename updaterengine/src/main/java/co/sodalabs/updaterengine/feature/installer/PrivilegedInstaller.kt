@@ -9,6 +9,7 @@ import co.sodalabs.privilegedinstaller.IPrivilegedCallback
 import co.sodalabs.privilegedinstaller.IPrivilegedService
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.Packages
+import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
 import co.sodalabs.updaterengine.exception.InstallNoPrivilegedPermissionException
@@ -19,6 +20,7 @@ import co.sodalabs.updaterengine.feature.installer.PrivilegedInstallStatusCode.I
 import timber.log.Timber
 import java.util.LinkedList
 import java.util.Queue
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -57,15 +59,18 @@ class PrivilegedInstaller(
         flags
     }
 
-    override fun installPackageInternal(
+    override fun installPackages(
         localUpdates: List<DownloadedUpdate>
-    ) {
+    ): Pair<List<AppliedUpdate>, List<Throwable>> {
         Timber.v("[Install] Install starts...")
         Timber.v("[Install] $installFlagsPrettyString")
-        val errors = mutableListOf<Throwable>()
+        val appliedUpdates = CopyOnWriteArrayList<AppliedUpdate>()
+        val errors = CopyOnWriteArrayList<Throwable>()
+
         val (connection, privService) = bindPrivilegedService()
         privService?.apply {
             val remainingInstalls: Queue<DownloadedUpdate> = LinkedList(localUpdates)
+            // Apply the updates one by one synchronously.
             while (remainingInstalls.isNotEmpty()) {
                 val downloadedUpdate = remainingInstalls.poll()
                 val filePath = downloadedUpdate.file.canonicalPath
@@ -78,6 +83,12 @@ class PrivilegedInstaller(
                     ) {
                         if (returnCode == INSTALL_SUCCEEDED) {
                             Timber.v("[Install] Install completes for \"$fileURI\"")
+
+                            val appliedUpdate = AppliedUpdate(
+                                packageName = downloadedUpdate.fromUpdate.packageName,
+                                versionName = downloadedUpdate.fromUpdate.versionName
+                            )
+                            appliedUpdates.add(appliedUpdate)
                         } else {
                             Timber.e("[Install] Install fails for \"$fileURI\", return code is $returnCode")
 
@@ -96,9 +107,9 @@ class PrivilegedInstaller(
                         errors.add(error)
                     }
                 } else {
-                    errors.add(InstallNoPrivilegedPermissionException())
                     Timber.e("[Install] The privileged installer doesn't have the privileged permissions...")
 
+                    errors.add(InstallNoPrivilegedPermissionException())
                     countDownLatch.countDown()
                 }
 
@@ -110,10 +121,7 @@ class PrivilegedInstaller(
         // Once all installs finishes, unbind the privileged service.
         connection.unbind()
 
-        // Throw error after the service connection is recycled
-        if (errors.isNotEmpty()) {
-            throw CompositeException(errors)
-        }
+        return Pair(appliedUpdates, errors)
     }
 
     override fun uninstallPackage(
