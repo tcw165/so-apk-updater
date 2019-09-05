@@ -21,6 +21,7 @@ import co.sodalabs.updaterengine.IUpdaterService
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.R
 import co.sodalabs.updaterengine.data.AppUpdate
+import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
 import dagger.android.AndroidInjection
@@ -55,6 +56,7 @@ class AppUpdaterService : Service() {
             updates: List<AppUpdate>,
             updatesError: Throwable?
         ) {
+            Timber.v("[Check] Check just completes")
             uiHandler.post {
                 val broadcastIntent = Intent()
                 broadcastIntent.prepareForCheckComplete(updates, updatesError)
@@ -74,9 +76,7 @@ class AppUpdaterService : Service() {
             this.apply {
                 action = IntentActions.ACTION_CHECK_UPDATES
                 // Result
-                if (updates.isNotEmpty()) {
-                    putParcelableArrayListExtra(IntentActions.PROP_FOUND_UPDATES, ArrayList(updates))
-                }
+                putParcelableArrayListExtra(IntentActions.PROP_FOUND_UPDATES, ArrayList(updates))
                 // Error
                 updatesError?.let { error ->
                     putExtra(IntentActions.PROP_ERROR, error)
@@ -94,6 +94,7 @@ class AppUpdaterService : Service() {
             downloadedUpdates: List<DownloadedUpdate>,
             errors: List<Throwable>
         ) {
+            Timber.v("[Download] All downloads just complete")
             uiHandler.post {
                 val broadcastIntent = Intent()
                 broadcastIntent.prepareForDownloadComplete(downloadedUpdates, errors)
@@ -115,9 +116,7 @@ class AppUpdaterService : Service() {
                 // Result
                 putParcelableArrayListExtra(IntentActions.PROP_DOWNLOADED_UPDATES, ArrayList(downloadedUpdates))
                 // Error
-                if (errors.isNotEmpty()) {
-                    putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
-                }
+                putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
             }
         }
 
@@ -127,23 +126,33 @@ class AppUpdaterService : Service() {
          * method when the install completes.
          */
         fun notifyInstallComplete(
-            context: Context
+            context: Context,
+            appliedUpdates: List<AppliedUpdate>,
+            errors: List<Throwable>
         ) {
+            Timber.v("[Install] All installs just complete")
             uiHandler.post {
                 val broadcastIntent = Intent()
-                broadcastIntent.prepareForInstallComplete()
+                broadcastIntent.prepareForInstallComplete(appliedUpdates, errors)
                 val broadcastManager = LocalBroadcastManager.getInstance(context)
                 broadcastManager.sendBroadcast(broadcastIntent)
 
                 val serviceIntent = Intent(context, AppUpdaterService::class.java)
-                serviceIntent.prepareForInstallComplete()
+                serviceIntent.prepareForInstallComplete(appliedUpdates, errors)
                 context.startService(serviceIntent)
             }
         }
 
-        private fun Intent.prepareForInstallComplete() {
+        private fun Intent.prepareForInstallComplete(
+            appliedUpdates: List<AppliedUpdate>,
+            errors: List<Throwable>
+        ) {
             this.apply {
                 action = IntentActions.ACTION_INSTALL_UPDATES
+                // Result
+                putParcelableArrayListExtra(IntentActions.PROP_APPLIED_UPDATES, ArrayList(appliedUpdates))
+                // Error
+                putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
             }
         }
     }
@@ -225,16 +234,24 @@ class AppUpdaterService : Service() {
         val nullableError = intent.getSerializableExtra(IntentActions.PROP_ERROR) as? Throwable
         nullableError?.let { error ->
             // TODO error-handling
-        } ?: kotlin.run {
-            val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
-            ApkUpdater.scheduleInstallUpdates(downloadedUpdates)
         }
+
+        val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
+        ApkUpdater.scheduleInstallUpdates(downloadedUpdates)
     }
 
     private fun postInstallUpdates(
         intent: Intent
     ) {
-        // No-op
+        val nullableError = intent.getSerializableExtra(IntentActions.PROP_ERROR) as? Throwable
+        nullableError?.let { error ->
+            // TODO error-handling
+        }
+
+        val appliedUpdates = intent.getParcelableArrayListExtra<AppliedUpdate>(IntentActions.PROP_APPLIED_UPDATES)
+        // TODO: What shall we do with this info?
+
+        // TODO: Mark session ends
     }
 
     // Notification ///////////////////////////////////////////////////////////

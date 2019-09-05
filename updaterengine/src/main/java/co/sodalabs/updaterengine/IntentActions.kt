@@ -14,6 +14,7 @@ object IntentActions {
 
     const val PROP_FOUND_UPDATES = "$ACTION_PREFIX.found_updates"
     const val PROP_DOWNLOADED_UPDATES = "$EXTRA_PREFIX.downloaded_updates"
+    const val PROP_APPLIED_UPDATES = "$EXTRA_PREFIX.applied_updates"
     const val PROP_APP_PACKAGE_NAMES = "$EXTRA_PREFIX.app_package_names"
 
     const val PROP_HTTP_RESPONSE_CODE = "$EXTRA_PREFIX.http_response_code"

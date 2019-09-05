@@ -78,11 +78,11 @@ class PrivilegedInstallerService : Service() {
 
         val installFilter = IntentFilter()
         installFilter.addAction(BROADCAST_ACTION_INSTALL)
-        registerReceiver(broadcastReceiver, installFilter, BROADCAST_SENDER_PERMISSION, null/*scheduler*/)
+        registerReceiver(broadcastReceiver, installFilter, BROADCAST_SENDER_PERMISSION, null)
 
         val uninstallFilter = IntentFilter()
         uninstallFilter.addAction(BROADCAST_ACTION_UNINSTALL)
-        registerReceiver(broadcastReceiver, uninstallFilter, BROADCAST_SENDER_PERMISSION, null /*scheduler*/)
+        registerReceiver(broadcastReceiver, uninstallFilter, BROADCAST_SENDER_PERMISSION, null)
 
         // DEBUG
         if (BuildConfig.DEBUG) {
@@ -92,7 +92,11 @@ class PrivilegedInstallerService : Service() {
 
     override fun onDestroy() {
         Timber.v("Privileged installer is offline")
-        unregisterReceiver(broadcastReceiver)
+        try {
+            unregisterReceiver(broadcastReceiver)
+        } catch (error: Throwable) {
+            Timber.e(error)
+        }
 
         super.onDestroy()
     }
@@ -128,7 +132,12 @@ class PrivilegedInstallerService : Service() {
         return hasInstallPermission && hasDeletePermission
     }
 
-    private fun installPackageImpl(packageURI: Uri, flags: Int, installerPackageName: String?, callback: IPrivilegedCallback?) {
+    private fun installPackageImpl(
+        packageURI: Uri,
+        flags: Int,
+        installerPackageName: String?,
+        callback: IPrivilegedCallback?
+    ) {
         // Internal callback from the system
         val installObserver = object : IPackageInstallObserver.Stub() {
             @Throws(RemoteException::class)
@@ -139,6 +148,7 @@ class PrivilegedInstallerService : Service() {
                     // If error happens, AOSP might send a null package name.
                     val safePackageName = packageName ?: ""
                     callback?.handleResult(safePackageName, returnCode)
+                        ?: kotlin.run { Timber.e("Remote callback is not present!") }
                 } catch (error: RemoteException) {
                     Timber.e(error)
                 }
@@ -152,8 +162,8 @@ class PrivilegedInstallerService : Service() {
                 packageManager, packageURI, installObserver,
                 flags, installerPackageName
             )
-        } catch (error: Exception) {
-            Timber.e(error, "Android not compatible!")
+        } catch (error: Throwable) {
+            Timber.e(error)
             try {
                 callback?.handleResult("", INSTALL_FAILED_INTERNAL_ERROR)
             } catch (remoteError: RemoteException) {
@@ -205,8 +215,8 @@ class PrivilegedInstallerService : Service() {
             )
             try {
                 privilegedCallback?.handleResult(packageName, returnCode)
-            } catch (e1: RemoteException) {
-                Timber.e(e1, "RemoteException")
+            } catch (error: RemoteException) {
+                Timber.e(error)
             }
         }
     }
@@ -302,9 +312,9 @@ class PrivilegedInstallerService : Service() {
             )
 
             session.commit(pendingIntent.intentSender)
-        } catch (e: IOException) {
-            Timber.e(e, "Failure")
-            Toast.makeText(this, e.localizedMessage, Toast.LENGTH_LONG).show()
+        } catch (error: IOException) {
+            Timber.e(error)
+            Toast.makeText(this, error.localizedMessage, Toast.LENGTH_LONG).show()
         } finally {
             session.closeQuietly()
         }

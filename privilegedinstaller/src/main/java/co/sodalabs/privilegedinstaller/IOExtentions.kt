@@ -13,6 +13,7 @@ fun AutoCloseable?.closeQuietly() {
         } catch (rethrown: RuntimeException) {
             throw rethrown
         } catch (ignored: Exception) {
+            // No-op
         }
     }
 }
