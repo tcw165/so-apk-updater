@@ -92,7 +92,11 @@ class PrivilegedInstallerService : Service() {
 
     override fun onDestroy() {
         Timber.v("Privileged installer is offline")
-        unregisterReceiver(broadcastReceiver)
+        try {
+            unregisterReceiver(broadcastReceiver)
+        } catch (error: Throwable) {
+            Timber.e(error)
+        }
 
         super.onDestroy()
     }
