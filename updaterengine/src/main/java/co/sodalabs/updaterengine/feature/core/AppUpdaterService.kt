@@ -125,7 +125,8 @@ class AppUpdaterService : Service() {
          * method when the install completes.
          */
         fun notifyInstallComplete(
-            context: Context
+            context: Context,
+            errors: List<Throwable>
         ) {
             uiHandler.post {
                 val broadcastIntent = Intent()

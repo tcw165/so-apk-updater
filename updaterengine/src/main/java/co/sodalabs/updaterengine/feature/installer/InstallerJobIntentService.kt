@@ -18,6 +18,7 @@ import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Packages
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.data.DownloadedUpdate
+import co.sodalabs.updaterengine.exception.CompositeException
 import co.sodalabs.updaterengine.extension.ensureMainThread
 import co.sodalabs.updaterengine.feature.core.AppUpdaterService
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
@@ -184,6 +185,7 @@ class InstallerJobIntentService : JobIntentService() {
     }
 
     override fun onHandleWork(intent: Intent) {
+        val errors = mutableListOf<Throwable>()
         val installer = createInstaller()
         try {
             when (intent.action) {
@@ -210,11 +212,12 @@ class InstallerJobIntentService : JobIntentService() {
                     }
                 }
             }
-        } catch (error: Throwable) {
-            Timber.e(error)
+        } catch (compositeError: CompositeException) {
+            Timber.e(compositeError)
+            errors.addAll(compositeError.errors)
             // TODO: Error handling
         } finally {
-            AppUpdaterService.notifyInstallComplete(this)
+            AppUpdaterService.notifyInstallComplete(this, errors)
         }
     }
 
