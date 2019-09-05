@@ -5,10 +5,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import co.sodalabs.updaterengine.Intervals
+import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
 import java.util.LinkedList
 import java.util.Queue
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -23,12 +25,14 @@ class DefaultInstaller(
     context: Context
 ) : Installer(context) {
 
-    override fun installPackageInternal(
+    override fun installPackages(
         localUpdates: List<DownloadedUpdate>
-    ) {
+    ): Pair<List<AppliedUpdate>, List<Throwable>> {
         val remainingUpdates: Queue<DownloadedUpdate> = LinkedList(localUpdates)
-        val errors = mutableListOf<Throwable>()
+        val appliedUpdates = CopyOnWriteArrayList<AppliedUpdate>()
+        val errors = CopyOnWriteArrayList<Throwable>()
 
+        // Apply the updates one by one synchronously.
         while (remainingUpdates.isNotEmpty()) {
             val countDownLatch = CountDownLatch(1)
             val update = remainingUpdates.poll()
@@ -44,6 +48,10 @@ class DefaultInstaller(
             val installReceiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {
                     // val installComplete = intent.getBooleanExtra(DefaultInstallerActivity.PROP_RESULT_BOOLEAN)
+
+                    // TODO: Convert downloaded updates to applied updates
+                    // appliedUpdates.add()
+
                     countDownLatch.countDown()
                 }
             }
@@ -56,10 +64,7 @@ class DefaultInstaller(
             context.unregisterReceiver(installReceiver)
         }
 
-        // Throw the errors (if they present) when everything is done.
-        if (errors.isNotEmpty()) {
-            throw CompositeException(errors)
-        }
+        return Pair(appliedUpdates, errors)
     }
 
     override fun uninstallPackage(

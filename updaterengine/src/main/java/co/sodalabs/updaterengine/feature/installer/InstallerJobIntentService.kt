@@ -17,6 +17,7 @@ import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Packages
 import co.sodalabs.updaterengine.UpdaterJobs
+import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.extension.ensureMainThread
 import co.sodalabs.updaterengine.feature.core.AppUpdaterService
@@ -96,7 +97,7 @@ class InstallerJobIntentService : JobIntentService() {
             ensureMainThread()
 
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("[Install] (< 21) Schedule a recurring install, using AlarmManager, at $triggerAtMillis milliseconds")
+                Timber.v("[Install] (< 21) Schedule an install, using AlarmManager, at $triggerAtMillis milliseconds")
 
                 val intent = Intent(context, InstallerJobIntentService::class.java)
                 intent.action = IntentActions.ACTION_INSTALL_UPDATES
@@ -113,8 +114,7 @@ class InstallerJobIntentService : JobIntentService() {
                     pendingIntent
                 )
             } else {
-                Timber.v("[Install] (>= 21) Schedule a recurring install, using android-21 JobScheduler")
-                Timber.e("[Install] Sorry, we don't support this yet!")
+                Timber.v("[Install] (>= 21) Schedule an install, using android-21 JobScheduler")
 
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
                 val componentName = ComponentName(context, InstallerJobService::class.java)
@@ -185,37 +185,41 @@ class InstallerJobIntentService : JobIntentService() {
 
     override fun onHandleWork(intent: Intent) {
         val installer = createInstaller()
-        try {
-            when (intent.action) {
-                IntentActions.ACTION_INSTALL_UPDATES -> {
-                    val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
-                    if (downloadedUpdates.isNotEmpty()) {
-                        installer.installPackages(downloadedUpdates)
-                    }
-                }
-                IntentActions.ACTION_INSTALL_UPDATES_FROM_CACHE -> {
-                    val downloadedUpdates = inflateUpdatesFromCache()
-                    downloadedUpdates?.let { safeUpdates ->
-                        if (safeUpdates.isNotEmpty()) {
-                            installer.installPackages(safeUpdates)
-                        }
-                    }
-                    // If the install finishes successfully, clean up the disk cache.
-                    clearUpdatesCache()
-                }
-                IntentActions.ACTION_UNINSTALL_PACKAGES -> {
-                    val packageNames = intent.getStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES)
-                    if (packageNames.isNotEmpty()) {
-                        installer.uninstallPackage(packageNames)
-                    }
-                }
+        val appliedUpdates = mutableListOf<AppliedUpdate>()
+        val errors = mutableListOf<Throwable>()
+
+        val (updates, errs) = when (intent.action) {
+            IntentActions.ACTION_INSTALL_UPDATES -> {
+                val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
+                // Don't need the cache
+                clearUpdatesCache()
+                installer.installPackages(downloadedUpdates)
             }
-        } catch (error: Throwable) {
-            Timber.e(error)
-            // TODO: Error handling
-        } finally {
-            AppUpdaterService.notifyInstallComplete(this)
+            IntentActions.ACTION_INSTALL_UPDATES_FROM_CACHE -> {
+                val downloadedUpdates = inflateUpdatesFromCache()
+                clearUpdatesCache()
+
+                downloadedUpdates?.let { safeUpdates ->
+                    installer.installPackages(safeUpdates)
+                } ?: Pair(emptyList(), emptyList())
+            }
+            IntentActions.ACTION_UNINSTALL_PACKAGES -> {
+                val packageNames = intent.getStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES)
+                // Don't need the cache
+                clearUpdatesCache()
+                installer.uninstallPackage(packageNames)
+                TODO()
+            }
+            else -> throw IllegalArgumentException("${intent.action} is not supported")
         }
+        appliedUpdates.addAll(updates)
+        errors.addAll(errs)
+
+        if (errors.isNotEmpty()) {
+            // TODO: Error handling
+        }
+
+        AppUpdaterService.notifyInstallComplete(this, appliedUpdates, errors)
     }
 
     // Disk Cache /////////////////////////////////////////////////////////////
