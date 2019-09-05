@@ -74,9 +74,7 @@ class AppUpdaterService : Service() {
             this.apply {
                 action = IntentActions.ACTION_CHECK_UPDATES
                 // Result
-                if (updates.isNotEmpty()) {
-                    putParcelableArrayListExtra(IntentActions.PROP_FOUND_UPDATES, ArrayList(updates))
-                }
+                putParcelableArrayListExtra(IntentActions.PROP_FOUND_UPDATES, ArrayList(updates))
                 // Error
                 updatesError?.let { error ->
                     putExtra(IntentActions.PROP_ERROR, error)
