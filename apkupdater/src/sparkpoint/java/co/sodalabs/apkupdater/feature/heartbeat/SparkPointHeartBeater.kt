@@ -30,6 +30,7 @@ class SparkPointHeartBeater @Inject constructor(
         // Observe the result via the local broadcast
         val intentFilter = IntentFilter(IntentActions.ACTION_SEND_HEART_BEAT_NOW)
         return RxLocalBroadcastReceiver.bind(context, intentFilter)
+            .subscribeOn(schedulers.main())
             .map { intent -> validateApiResponse(intent) }
     }
 
