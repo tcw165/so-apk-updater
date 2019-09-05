@@ -56,7 +56,7 @@ class AppUpdaterService : Service() {
             updates: List<AppUpdate>,
             updatesError: Throwable?
         ) {
-            Timber.v("[Check] Check just completes")
+            Timber.v("[Check] Check job just completes")
             uiHandler.post {
                 val broadcastIntent = Intent()
                 broadcastIntent.prepareForCheckComplete(updates, updatesError)
@@ -94,7 +94,7 @@ class AppUpdaterService : Service() {
             downloadedUpdates: List<DownloadedUpdate>,
             errors: List<Throwable>
         ) {
-            Timber.v("[Download] All downloads just complete")
+            Timber.v("[Download] Download job just completes")
             uiHandler.post {
                 val broadcastIntent = Intent()
                 broadcastIntent.prepareForDownloadComplete(downloadedUpdates, errors)
@@ -130,7 +130,7 @@ class AppUpdaterService : Service() {
             appliedUpdates: List<AppliedUpdate>,
             errors: List<Throwable>
         ) {
-            Timber.v("[Install] All installs just complete")
+            Timber.v("[Install] Install job just completes")
             uiHandler.post {
                 val broadcastIntent = Intent()
                 broadcastIntent.prepareForInstallComplete(appliedUpdates, errors)
@@ -168,7 +168,7 @@ class AppUpdaterService : Service() {
             when (safeIntent.action) {
                 IntentActions.ACTION_ENGINE_START -> start()
                 IntentActions.ACTION_CHECK_UPDATES -> downloadUpdatesNow(safeIntent)
-                IntentActions.ACTION_DOWNLOAD_UPDATES -> scheduleInstallUpdates(safeIntent)
+                IntentActions.ACTION_DOWNLOAD_UPDATES -> onDownloadComplete(safeIntent)
                 IntentActions.ACTION_INSTALL_UPDATES -> postInstallUpdates(safeIntent)
             }
         }
@@ -225,16 +225,22 @@ class AppUpdaterService : Service() {
 
     // Install ////////////////////////////////////////////////////////////////
 
-    private fun scheduleInstallUpdates(
+    private fun onDownloadComplete(
         intent: Intent
     ) {
-        // Reset download attempts since we successfully download the updates.
-        downloadAttempts = 0
-
         val nullableError = intent.getSerializableExtra(IntentActions.PROP_ERROR) as? Throwable
         nullableError?.let { error ->
             // TODO error-handling
         }
+
+        scheduleInstallUpdates(intent)
+    }
+
+    private fun scheduleInstallUpdates(
+        intent: Intent
+    ) {
+        // Reset download attempts since we successfully download the updates.
+        // downloadAttempts = 0
 
         val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
         ApkUpdater.scheduleInstallUpdates(downloadedUpdates)
