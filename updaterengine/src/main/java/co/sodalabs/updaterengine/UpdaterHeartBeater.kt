@@ -2,7 +2,7 @@ package co.sodalabs.updaterengine
 
 import io.reactivex.Observable
 
-interface AppUpdaterHeartBeater {
+interface UpdaterHeartBeater {
 
     /**
      * Send heart beat and return the HTTP response code.

@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import co.sodalabs.privilegedinstaller.RxLocalBroadcastReceiver
-import co.sodalabs.updaterengine.AppUpdaterHeartBeater
+import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.data.HTTPResponseCode
@@ -14,7 +14,7 @@ import javax.inject.Inject
 class SparkPointHeartBeater @Inject constructor(
     private val context: Context,
     private val schedulers: IThreadSchedulers
-) : AppUpdaterHeartBeater {
+) : UpdaterHeartBeater {
 
     override fun sendHeartBeatNow() {
         HeartBeatJobIntentService.sendHeartBeatNow(context)

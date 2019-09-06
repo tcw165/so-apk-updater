@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.core.app.JobIntentService
 import co.sodalabs.updaterengine.ApkUpdater
+import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.data.AppUpdate
@@ -15,7 +16,6 @@ import co.sodalabs.updaterengine.exception.DownloadInvalidFileSizeException
 import co.sodalabs.updaterengine.exception.DownloadSizeNotFoundException
 import co.sodalabs.updaterengine.exception.DownloadUnknownErrorException
 import co.sodalabs.updaterengine.exception.HttpMalformedURIException
-import co.sodalabs.updaterengine.feature.core.AppUpdaterService
 import com.squareup.moshi.Types
 import dagger.android.AndroidInjection
 import io.reactivex.disposables.CompositeDisposable
@@ -149,7 +149,7 @@ class DownloadJobIntentService : JobIntentService() {
         persistDownloadedUpdates(downloadedUpdates)
 
         // Let the engine know the download finishes.
-        AppUpdaterService.notifyDownloadsComplete(this, downloadedUpdates, errors)
+        UpdaterService.notifyDownloadsComplete(this, downloadedUpdates, errors)
     }
 
     private fun requestFileSize(

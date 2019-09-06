@@ -35,11 +35,13 @@ class InstallerJobService : JobService() {
     private fun installUpdates(
         extras: PersistableBundle
     ) {
+        // FIXME: Implement this for API >= 21
         // val updates = extras.getStringArray(IntentActions.PROP_DOWNLOADED_UPDATES)
         //     ?: throw IllegalArgumentException("Must provide a updates list.")
         //
         // InstallerJobIntentService.installNow(
         //     context = this,
         //     downloadedUpdates = updates)
+        TODO()
     }
 }

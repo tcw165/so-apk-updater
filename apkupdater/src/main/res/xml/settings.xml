@@ -79,11 +79,6 @@
             app:key="co.sodalabs.apkupdater.download_cache_max_size"
             app:summary="The maximum size of cache for storing the download files (in MB)"
             app:title="@string/download_cache_max_size" />
-
-        <Preference
-            app:icon="@drawable/bt_meteor"
-            app:key="download_test_app_now"
-            app:title="Test Download Now" />
     </PreferenceCategory>
 
     <PreferenceCategory
