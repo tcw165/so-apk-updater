@@ -62,8 +62,14 @@ class PrivilegedInstaller(
     override fun installPackages(
         localUpdates: List<DownloadedUpdate>
     ): Pair<List<AppliedUpdate>, List<Throwable>> {
+        if (localUpdates.isEmpty()) {
+            Timber.v("[Install] Install skips due to no updates")
+            return Pair(emptyList(), emptyList())
+        }
+
         Timber.v("[Install] Install starts...")
         Timber.v("[Install] $installFlagsPrettyString")
+
         val appliedUpdates = CopyOnWriteArrayList<AppliedUpdate>()
         val errors = CopyOnWriteArrayList<Throwable>()
 

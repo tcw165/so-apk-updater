@@ -191,6 +191,8 @@ class InstallerJobIntentService : JobIntentService() {
         val (updates, errs) = when (intent.action) {
             IntentActions.ACTION_INSTALL_UPDATES -> {
                 val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
+                // Don't need the cache
+                clearUpdatesCache()
                 installer.installPackages(downloadedUpdates)
             }
             IntentActions.ACTION_INSTALL_UPDATES_FROM_CACHE -> {
@@ -203,9 +205,9 @@ class InstallerJobIntentService : JobIntentService() {
             }
             IntentActions.ACTION_UNINSTALL_PACKAGES -> {
                 val packageNames = intent.getStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES)
-                if (packageNames.isNotEmpty()) {
-                    installer.uninstallPackage(packageNames)
-                }
+                // Don't need the cache
+                clearUpdatesCache()
+                installer.uninstallPackage(packageNames)
                 TODO()
             }
             else -> throw IllegalArgumentException("${intent.action} is not supported")

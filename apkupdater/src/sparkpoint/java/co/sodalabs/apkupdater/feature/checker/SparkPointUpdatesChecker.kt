@@ -2,12 +2,10 @@ package co.sodalabs.apkupdater.feature.checker
 
 import android.content.Context
 import co.sodalabs.updaterengine.AppUpdatesChecker
-import co.sodalabs.updaterengine.IThreadSchedulers
 import javax.inject.Inject
 
 class SparkPointUpdatesChecker @Inject constructor(
-    private val context: Context,
-    private val schedulers: IThreadSchedulers
+    private val context: Context
 ) : AppUpdatesChecker {
 
     override fun checkNow(
@@ -18,7 +16,10 @@ class SparkPointUpdatesChecker @Inject constructor(
             packageNames.toTypedArray())
     }
 
-    override fun scheduleCheckAfter(packageNames: List<String>, afterMs: Long) {
+    override fun scheduleCheckAfter(
+        packageNames: List<String>,
+        afterMs: Long
+    ) {
         // TODO("not implemented")
     }
 
