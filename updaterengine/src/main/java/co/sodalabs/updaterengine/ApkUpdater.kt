@@ -8,14 +8,12 @@ import androidx.annotation.Keep
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.extension.mbToBytes
-import co.sodalabs.updaterengine.feature.core.AppUpdaterService
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
 import co.sodalabs.updaterengine.jsonadapter.FileAdapter
 import co.sodalabs.updaterengine.utils.StorageUtils
 import com.jakewharton.rxrelay2.PublishRelay
 import com.squareup.moshi.Moshi
 import io.reactivex.Observable
-import io.reactivex.disposables.CompositeDisposable
 import org.threeten.bp.Instant
 import org.threeten.bp.ZoneId
 import timber.log.Timber
@@ -30,10 +28,10 @@ private const val CACHE_UPDATE_RECORDS_SIZE_MB = 10
 class ApkUpdater private constructor(
     private val application: Application,
     private val config: ApkUpdaterConfig,
-    private val appUpdatesChecker: AppUpdatesChecker,
-    private val appUpdatesDownloader: AppUpdatesDownloader,
-    private val appUpdatesInstaller: AppUpdatesInstaller,
-    private val engineHeartBeater: AppUpdaterHeartBeater
+    private val updatesChecker: UpdatesChecker,
+    private val updatesDownloader: UpdatesDownloader,
+    private val updatesInstaller: UpdatesInstaller,
+    private val engineHeartBeater: UpdaterHeartBeater
 ) {
 
     @Keep
@@ -45,26 +43,24 @@ class ApkUpdater private constructor(
         internal const val KEY_DOWNLOADED_UPDATES = "downloaded_updates"
 
         @Suppress("ReplaceRangeStartEndInclusiveWithFirstLast")
+        @Deprecated("We'll soon remove the Singleton")
         fun install(
             app: Application,
             config: ApkUpdaterConfig,
-            appUpdatesChecker: AppUpdatesChecker,
-            appUpdatesDownloader: AppUpdatesDownloader,
-            appUpdatesInstaller: AppUpdatesInstaller,
-            engineHeartBeater: AppUpdaterHeartBeater
+            updatesChecker: UpdatesChecker,
+            updatesDownloader: UpdatesDownloader,
+            updatesInstaller: UpdatesInstaller,
+            engineHeartBeater: UpdaterHeartBeater
         ) {
-            // Cancel everything regardless.
-            engine?.stop()
-
             if (engine == null) {
                 synchronized(ApkUpdater::class.java) {
                     if (engine == null) {
                         val engine = ApkUpdater(
                             app,
                             config,
-                            appUpdatesChecker,
-                            appUpdatesDownloader,
-                            appUpdatesInstaller,
+                            updatesChecker,
+                            updatesDownloader,
+                            updatesInstaller,
                             engineHeartBeater)
                         this.engine = engine
                         this.engine?.start(app)
@@ -73,12 +69,14 @@ class ApkUpdater private constructor(
             }
         }
 
+        @Deprecated("We'll soon remove the Singleton")
         fun installed(): Boolean {
             return synchronized(ApkUpdater::class.java) {
                 engine != null
             }
         }
 
+        @Deprecated("We'll soon remove the Singleton")
         fun jsonBuilder(): Moshi {
             return synchronized(ApkUpdater::class.java) {
                 val safeEngine = validateEngine()
@@ -86,8 +84,17 @@ class ApkUpdater private constructor(
             }
         }
 
+        @Deprecated("We'll soon remove the Singleton")
+        internal fun config(): ApkUpdaterConfig {
+            return synchronized(ApkUpdater::class.java) {
+                val safeEngine = validateEngine()
+                safeEngine.config
+            }
+        }
+
         // Heartbeat //////////////////////////////////////////////////////////
 
+        @Deprecated("We'll soon remove the Singleton")
         fun sendHeartBeatNow() {
             return synchronized(ApkUpdater::class.java) {
                 engine?.apply {
@@ -96,7 +103,7 @@ class ApkUpdater private constructor(
             }
         }
 
-        fun scheduleRecurringHeartbeat() {
+        internal fun scheduleRecurringHeartbeat() {
             return synchronized(ApkUpdater::class.java) {
                 engine?.apply {
                     val interval = config.heartbeatIntervalMillis
@@ -110,6 +117,7 @@ class ApkUpdater private constructor(
          *
          * @return The Observable of HTTP status code.
          */
+        @Deprecated("We'll soon remove the Singleton")
         fun observeHeartBeat(): Observable<Int> {
             return synchronized(ApkUpdater::class.java) {
                 val safeEngine = validateEngine()
@@ -119,27 +127,43 @@ class ApkUpdater private constructor(
 
         // Check //////////////////////////////////////////////////////////////
 
-        fun checkForUpdatesNow() {
+        @Deprecated("We'll soon remove the Singleton")
+        fun checkNow() {
             synchronized(ApkUpdater::class.java) {
                 engine?.apply {
                     val packageNames = config.packageNames
-                    appUpdatesChecker.checkNow(packageNames)
+                    UpdaterService.checkUpdatesNow(
+                        application,
+                        packageNames
+                    )
                 }
             }
         }
 
-        fun scheduleRecurringCheck() {
+        @Deprecated("We'll soon remove the Singleton")
+        internal fun checkNowViaChecker() {
+            synchronized(ApkUpdater::class.java) {
+                engine?.apply {
+                    val packageNames = config.packageNames
+                    updatesChecker.checkNow(packageNames)
+                }
+            }
+        }
+
+        @Deprecated("We'll soon remove the Singleton")
+        internal fun scheduleNextCheckViaChecker() {
             synchronized(ApkUpdater::class.java) {
                 engine?.apply {
                     val packageNames = config.packageNames
                     val interval = config.checkIntervalMillis
-                    appUpdatesChecker.scheduleRecurringCheck(packageNames, interval)
+                    updatesChecker.scheduleDelayedCheck(packageNames, interval)
                 }
             }
         }
 
         // Download ///////////////////////////////////////////////////////////
 
+        @Deprecated("We'll soon remove the Singleton")
         fun apkDiskCache(): DiskLruCache {
             return synchronized(ApkUpdater::class.java) {
                 val safeEngine = validateEngine()
@@ -147,24 +171,36 @@ class ApkUpdater private constructor(
             }
         }
 
-        fun downloadUpdateNow(
-            updates: List<AppUpdate>
-        ) {
-            return synchronized(ApkUpdater::class.java) {
-                engine?.apply {
-                    appUpdatesDownloader.downloadNow(updates)
-                }
-            }
-        }
-
+        @Deprecated("We'll soon remove the Singleton")
         fun downloadUseCache(): Boolean {
             return synchronized(ApkUpdater::class.java) {
                 engine?.config?.downloadUseCache ?: false
             }
         }
 
+        @Deprecated("We'll soon remove the Singleton")
+        internal fun downloadUpdateNowViaDownloader(
+            updates: List<AppUpdate>
+        ) {
+            return synchronized(ApkUpdater::class.java) {
+                engine?.apply {
+                    updatesDownloader.downloadNow(updates)
+                }
+            }
+        }
+
+        @Deprecated("We'll soon remove the Singleton")
+        internal fun cancelPendingOrWipDownloads() {
+            return synchronized(ApkUpdater::class.java) {
+                engine?.apply {
+                    updatesDownloader.cancelDownloads()
+                }
+            }
+        }
+
         // Install ////////////////////////////////////////////////////////////
 
+        @Deprecated("We'll soon remove the Singleton")
         fun downloadedUpdateDiskCache(): DiskLruCache {
             return synchronized(ApkUpdater::class.java) {
                 val safeEngine = validateEngine()
@@ -172,35 +208,20 @@ class ApkUpdater private constructor(
             }
         }
 
+        @Deprecated("We'll soon remove the Singleton")
         fun installAllowDowngrade(): Boolean {
             return synchronized(ApkUpdater::class.java) {
                 engine?.config?.installAllowDowngrade ?: false
             }
         }
 
-        fun installUpdatesFromDiskCache() {
-            return synchronized(ApkUpdater::class.java) {
-                engine?.appUpdatesInstaller?.installFromDiskCache()
-            }
-        }
-
-        fun scheduleInstallUpdates(
-            updates: List<DownloadedUpdate>
-        ) {
-            synchronized(ApkUpdater::class.java) {
-                engine?.apply {
-                    val triggerAtMillis: Long = findNextAvailableTriggerTimeMillis(config)
-                    appUpdatesInstaller.scheduleInstall(updates, triggerAtMillis)
-                }
-            }
-        }
-
+        @Deprecated("We'll soon remove the Singleton")
         fun setDownloadCacheMaxSize(
             sizeInMB: Long
         ) {
             return synchronized(ApkUpdater::class.java) {
                 val safeEngine = validateEngine()
-                safeEngine.appUpdatesDownloader.setDownloadCacheMaxSize(sizeInMB)
+                safeEngine.updatesDownloader.setDownloadCacheMaxSize(sizeInMB)
                 // Request for restarting the process!
                 requestRestartProcess()
             }
@@ -208,6 +229,27 @@ class ApkUpdater private constructor(
 
         private fun requestRestartProcess() {
             engine?.restartRequestsRelay?.accept(Unit)
+        }
+
+        @Deprecated("We'll soon remove the Singleton")
+        internal fun scheduleNextInstallViaInstaller(
+            updates: List<DownloadedUpdate>
+        ) {
+            synchronized(ApkUpdater::class.java) {
+                engine?.apply {
+                    val triggerAtMillis: Long = findNextAvailableTriggerTimeMillis(config)
+                    updatesInstaller.scheduleDelayedInstall(updates, triggerAtMillis)
+                }
+            }
+        }
+
+        @Deprecated("We'll soon remove the Singleton")
+        internal fun cancelPendingInstalls() {
+            synchronized(ApkUpdater::class.java) {
+                engine?.apply {
+                    updatesInstaller.cancelPendingInstalls()
+                }
+            }
         }
 
         private fun findNextAvailableTriggerTimeMillis(
@@ -244,17 +286,11 @@ class ApkUpdater private constructor(
         }
     }
 
-    private val disposables = CompositeDisposable()
-
     private fun start(
         context: Context
     ) {
         logInitInfo()
-        AppUpdaterService.start(context)
-    }
-
-    private fun stop() {
-        disposables.clear()
+        UpdaterService.start(context)
     }
 
     private fun logInitInfo() {

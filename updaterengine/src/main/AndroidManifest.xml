@@ -22,13 +22,13 @@
 
         <!-- Core -->
         <service
-            android:name=".feature.core.AppUpdaterService"
+            android:name=".UpdaterService"
             android:enabled="true"
             android:exported="true"
             tools:ignore="ExportedService" />
 
         <receiver
-            android:name=".feature.core.BootCompleteReceiver"
+            android:name=".BootCompleteReceiver"
             android:enabled="true"
             android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
             <intent-filter>

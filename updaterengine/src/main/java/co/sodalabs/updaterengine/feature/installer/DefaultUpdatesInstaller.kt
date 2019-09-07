@@ -1,28 +1,28 @@
 package co.sodalabs.updaterengine.feature.installer
 
 import android.content.Context
-import co.sodalabs.updaterengine.AppUpdatesInstaller
+import co.sodalabs.updaterengine.UpdatesInstaller
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import javax.inject.Inject
 
-class DefaultAppUpdatesInstaller @Inject constructor(
+class DefaultUpdatesInstaller @Inject constructor(
     private val context: Context
-) : AppUpdatesInstaller {
+) : UpdatesInstaller {
 
-    override fun install(
+    override fun installNow(
         downloadedUpdates: List<DownloadedUpdate>
     ) {
         InstallerJobIntentService.installNow(context, downloadedUpdates)
     }
 
-    override fun installFromDiskCache() {
-        InstallerJobIntentService.installFromDiskCacheNow(context)
-    }
-
-    override fun scheduleInstall(
+    override fun scheduleDelayedInstall(
         downloadedUpdates: List<DownloadedUpdate>,
         triggerAtMillis: Long
     ) {
         InstallerJobIntentService.scheduleInstall(context, downloadedUpdates, triggerAtMillis)
+    }
+
+    override fun cancelPendingInstalls() {
+        InstallerJobIntentService.cancelPendingInstalls(context)
     }
 }

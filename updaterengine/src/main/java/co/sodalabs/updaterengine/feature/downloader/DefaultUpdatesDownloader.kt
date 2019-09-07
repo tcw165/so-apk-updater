@@ -1,13 +1,13 @@
 package co.sodalabs.updaterengine.feature.downloader
 
 import android.content.Context
-import co.sodalabs.updaterengine.AppUpdatesDownloader
+import co.sodalabs.updaterengine.UpdatesDownloader
 import co.sodalabs.updaterengine.data.AppUpdate
 import javax.inject.Inject
 
 class DefaultUpdatesDownloader @Inject constructor(
     private val context: Context
-) : AppUpdatesDownloader {
+) : UpdatesDownloader {
 
     override fun downloadNow(
         updates: List<AppUpdate>
@@ -15,11 +15,15 @@ class DefaultUpdatesDownloader @Inject constructor(
         DownloadJobIntentService.downloadNow(context, updates)
     }
 
-    override fun scheduleDownloadAfter(
+    override fun scheduleDelayedDownload(
         updates: List<AppUpdate>,
-        afterMs: Long
+        delayMillis: Long
     ) {
         TODO("not implemented")
+    }
+
+    override fun cancelDownloads() {
+        DownloadJobIntentService.cancelDownload()
     }
 
     override fun setDownloadCacheMaxSize(

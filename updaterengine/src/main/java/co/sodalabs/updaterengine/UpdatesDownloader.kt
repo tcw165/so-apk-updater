@@ -2,8 +2,10 @@ package co.sodalabs.updaterengine
 
 import co.sodalabs.updaterengine.data.AppUpdate
 
-interface AppUpdatesDownloader {
+interface UpdatesDownloader {
     fun downloadNow(updates: List<AppUpdate>)
-    fun scheduleDownloadAfter(updates: List<AppUpdate>, afterMs: Long)
+    fun scheduleDelayedDownload(updates: List<AppUpdate>, delayMillis: Long)
+    fun cancelDownloads()
+
     fun setDownloadCacheMaxSize(sizeInMB: Long)
 }

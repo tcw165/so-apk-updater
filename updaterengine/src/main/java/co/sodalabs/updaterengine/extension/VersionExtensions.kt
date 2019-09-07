@@ -1,7 +1,8 @@
 package co.sodalabs.updaterengine.extension
 
-fun String.isGreaterThanOrEqualTo(
-    other: String
+fun String.isGreaterThan(
+    other: String,
+    orEqualTo: Boolean
 ): Boolean {
 
     // For example:
@@ -64,7 +65,11 @@ fun String.isGreaterThanOrEqualTo(
     }
 
     // The last segment
-    return numI >= numJ
+    return if (orEqualTo) {
+        numI >= numJ
+    } else {
+        numI > numJ
+    }
 }
 
 fun Char.isDelimiter(): Boolean {

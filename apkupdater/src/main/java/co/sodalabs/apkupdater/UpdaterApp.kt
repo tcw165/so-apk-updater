@@ -10,10 +10,10 @@ import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.ApkUpdaterConfig
-import co.sodalabs.updaterengine.AppUpdaterHeartBeater
-import co.sodalabs.updaterengine.AppUpdatesChecker
-import co.sodalabs.updaterengine.AppUpdatesDownloader
-import co.sodalabs.updaterengine.AppUpdatesInstaller
+import co.sodalabs.updaterengine.UpdaterHeartBeater
+import co.sodalabs.updaterengine.UpdatesChecker
+import co.sodalabs.updaterengine.UpdatesDownloader
+import co.sodalabs.updaterengine.UpdatesInstaller
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.extension.toMilliseconds
@@ -44,13 +44,13 @@ class UpdaterApp :
     override fun androidInjector(): AndroidInjector<Any> = actualInjector as AndroidInjector<Any>
 
     @Inject
-    lateinit var appUpdatesChecker: AppUpdatesChecker
+    lateinit var updatesChecker: UpdatesChecker
     @Inject
-    lateinit var appUpdatesDownloader: AppUpdatesDownloader
+    lateinit var updatesDownloader: UpdatesDownloader
     @Inject
-    lateinit var appUpdatesInstaller: AppUpdatesInstaller
+    lateinit var updatesInstaller: UpdatesInstaller
     @Inject
-    lateinit var heartBeater: AppUpdaterHeartBeater
+    lateinit var heartBeater: UpdaterHeartBeater
 
     private val globalDisposables = CompositeDisposable()
 
@@ -77,9 +77,9 @@ class UpdaterApp :
         ApkUpdater.install(
             app = this,
             config = generateUpdaterConfig(),
-            appUpdatesChecker = appUpdatesChecker,
-            appUpdatesDownloader = appUpdatesDownloader,
-            appUpdatesInstaller = appUpdatesInstaller,
+            updatesChecker = updatesChecker,
+            updatesDownloader = updatesDownloader,
+            updatesInstaller = updatesInstaller,
             engineHeartBeater = heartBeater)
     }
 
