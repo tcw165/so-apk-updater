@@ -9,6 +9,7 @@ import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
 import co.sodalabs.apkupdater.net.HostResolutionInterceptor
+import co.sodalabs.updaterengine.jsonadapter.FileAdapter
 import com.squareup.moshi.Moshi
 import dagger.Module
 import dagger.Provides
@@ -27,8 +28,13 @@ class NetworkModule {
     private val moshi by lazy {
         // TODO: Shall we specify the Moshi adapter?
         Moshi.Builder()
+            .add(FileAdapter())
             .build()
     }
+
+    @Provides
+    @ApplicationScope
+    fun provideJsonBuilder(): Moshi = moshi
 
     @Provides
     @ApplicationScope

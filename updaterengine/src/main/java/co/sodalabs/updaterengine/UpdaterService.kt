@@ -21,15 +21,20 @@ import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
 import co.sodalabs.updaterengine.extension.ensureMainThread
+import co.sodalabs.updaterengine.extension.ensureNotMainThread
 import co.sodalabs.updaterengine.extension.getIndicesToRemove
 import co.sodalabs.updaterengine.extension.toBoolean
 import co.sodalabs.updaterengine.extension.toInt
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
+import co.sodalabs.updaterengine.utils.ScheduleUtils
+import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import dagger.android.AndroidInjection
 import io.reactivex.Single
 import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.internal.schedulers.SingleScheduler
 import io.reactivex.rxkotlin.addTo
+import io.reactivex.subjects.PublishSubject
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -37,6 +42,8 @@ private const val NOTIFICATION_CHANNEL_ID = "updater_engine"
 private const val NOTIFICATION_ID = 20190802
 
 private const val LENGTH_10M_MILLIS = 10L * 60 * 1000
+
+private const val CACHE_KEY_DOWNLOADED_UPDATES = "downloaded_updates"
 
 class UpdaterService : Service() {
 
@@ -280,21 +287,55 @@ class UpdaterService : Service() {
         }
     }
 
+    // TODO: Pull out the business logic to the testable controller!
+
+    @Inject
+    lateinit var updaterConfig: UpdaterConfig
+    @Inject
+    lateinit var heartBeater: UpdaterHeartBeater
+    @Inject
+    lateinit var checker: UpdatesChecker
+    @Inject
+    lateinit var downloader: UpdatesDownloader
+    @Inject
+    lateinit var installer: UpdatesInstaller
+    @Inject
+    lateinit var jsonBuilder: Moshi
     @Inject
     lateinit var schedulers: IThreadSchedulers
 
-    private val disposables = CompositeDisposable()
+    @Volatile
+    private var started = false
+
+    private val disposablesOnCreateDestroy = CompositeDisposable()
 
     override fun onCreate() {
         Timber.v("[Updater] Updater Service is online (should runs in the background as long as possible)")
         AndroidInjection.inject(this)
         super.onCreate()
+
+        observeCacheReadWrite()
+        observeDeviceTimeChanges()
     }
 
     override fun onDestroy() {
         Timber.v("[Updater] Updater Service is offline")
-        disposables.clear()
+        disposablesOnCreateDestroy.clear()
+        started = false
         super.onDestroy()
+    }
+
+    private fun start() {
+        if (started) return
+
+        started = true
+
+        // Restore the updater state from the persistent store.
+        // If it is in the INSTALL state, then install the updates from the disk cache.
+        continueInstallsOrScheduleCheck()
+
+        val heartbeatInterval = updaterConfig.heartbeatIntervalMillis
+        heartBeater.scheduleRecurringHeartBeat(heartbeatInterval)
     }
 
     override fun onStartCommand(
@@ -327,6 +368,8 @@ class UpdaterService : Service() {
         return START_STICKY
     }
 
+    // Updater State //////////////////////////////////////////////////////////
+
     private var updaterState: UpdaterState = UpdaterState.Idle
     private var lastUpdaterState: UpdaterState = UpdaterState.Idle
 
@@ -334,6 +377,9 @@ class UpdaterService : Service() {
         nextState: UpdaterState
     ) {
         ensureMainThread()
+
+        // For visuals of state transition, check out the link here,
+        // https://www.notion.so/sodalabs/APK-Updater-Overview-a3033e1f51604668a9dae02bdb1d7d09
 
         val canTransit = when (nextState) {
             is UpdaterState.Idle -> {
@@ -344,14 +390,13 @@ class UpdaterService : Service() {
                 downloadAttempts = 0
 
                 // Cancel pending downloads and installs.
-                ApkUpdater.cancelPendingOrWipDownloads()
-                ApkUpdater.cancelPendingInstalls()
+                downloader.cancelPendingAndWipDownloads()
+                installer.cancelPendingInstalls()
 
                 // In idle state, we'll schedule a next check in terms of the config
                 // interval.
-                val config = ApkUpdater.config()
-                val packageNames = config.packageNames
-                val interval = config.checkIntervalMillis
+                val packageNames = updaterConfig.packageNames
+                val interval = updaterConfig.checkIntervalMillis
                 scheduleDelayedCheck(
                     application,
                     packageNames,
@@ -367,11 +412,11 @@ class UpdaterService : Service() {
                     Timber.v("[Updater] Transition updater state from \"$updaterState\" to \"$nextState\"")
 
                     // Cancel pending downloads and installs.
-                    ApkUpdater.cancelPendingOrWipDownloads()
-                    ApkUpdater.cancelPendingInstalls()
+                    downloader.cancelPendingAndWipDownloads()
+                    installer.cancelPendingInstalls()
 
                     // Then check.
-                    ApkUpdater.checkNowViaChecker()
+                    checker.checkNow(updaterConfig.packageNames)
                     true
                 } else {
                     false
@@ -380,7 +425,7 @@ class UpdaterService : Service() {
             is UpdaterState.Download -> {
                 if (updaterState is UpdaterState.Check) {
                     Timber.v("[Updater] Transition updater state from \"$updaterState\" to \"$nextState\"")
-                    ApkUpdater.downloadUpdateNowViaDownloader(nextState.updates)
+                    downloader.downloadNow(nextState.updates)
                     true
                 } else {
                     false
@@ -390,7 +435,11 @@ class UpdaterService : Service() {
                 if (updaterState is UpdaterState.Idle ||
                     updaterState is UpdaterState.Download) {
                     Timber.v("[Updater] Transition updater state from \"$updaterState\" to \"$nextState\"")
-                    ApkUpdater.scheduleNextInstallViaInstaller(nextState.updates)
+
+                    val installWindow = updaterConfig.installWindow
+                    val time = ScheduleUtils.findNextInstallTimeMillis(installWindow)
+
+                    installer.scheduleDelayedInstall(nextState.updates, time)
                     true
                 } else {
                     false
@@ -404,53 +453,71 @@ class UpdaterService : Service() {
         }
     }
 
-    private var started = false
-
-    private fun start() {
-        if (started) return
-
-        // Restore the updater state from the persistent store.
-        // If it is in the INSTALL state, then install the updates from the disk cache.
-        continueInstallsOrScheduleCheck()
-
-        ApkUpdater.scheduleRecurringHeartbeat()
-
-        started = true
-    }
-
     private fun continueInstallsOrScheduleCheck() {
         this.inflateUpdatesFromCache()
             .observeOn(schedulers.main())
             .subscribe({ foundInstallCache ->
                 // TODO: Should check the timestamp of the install cache to see if it's due.
                 if (foundInstallCache.isNotEmpty()) {
+                    Timber.v("[Updater] Found the downloaded update cache on start!")
                     transitionToState(UpdaterState.Install(foundInstallCache))
                 } else {
+                    Timber.v("[Updater] Not found any downloaded update cache on start.")
                     transitionToState(UpdaterState.Idle)
                 }
             }, Timber::e)
-            .addTo(disposables)
+            .addTo(disposablesOnCreateDestroy)
     }
 
     // Disk Cache /////////////////////////////////////////////////////////////
 
+    private val writeCacheSubject = PublishSubject.create<List<DownloadedUpdate>>().toSerialized()
+    private val removeCacheSubject = PublishSubject.create<Unit>().toSerialized()
+    private val cacheScheduler = SingleScheduler()
+
+    private fun observeCacheReadWrite() {
+        writeCacheSubject
+            .observeOn(cacheScheduler)
+            .subscribe({ downloadedUpdates ->
+                try {
+                    persistDownloadedUpdates(downloadedUpdates)
+                } catch (error: Throwable) {
+                    Timber.e(error)
+                }
+            }, Timber::e)
+            .addTo(disposablesOnCreateDestroy)
+
+        removeCacheSubject
+            .observeOn(cacheScheduler)
+            .subscribe({
+                try {
+                    cleanDownloadedUpdateCache()
+                } catch (error: Throwable) {
+                    Timber.e(error)
+                }
+            }, Timber::e)
+            .addTo(disposablesOnCreateDestroy)
+    }
+
     private fun inflateUpdatesFromCache(): Single<List<DownloadedUpdate>> {
         return Single
             .fromCallable {
-                val diskCache = ApkUpdater.downloadedUpdateDiskCache()
+                ensureNotMainThread()
+
+                val diskCache = updaterConfig.downloadedUpdateDiskCache
                 if (diskCache.isClosed) {
                     diskCache.open()
                 }
 
-                val record: DiskLruCache.Value? = diskCache.get(ApkUpdater.KEY_DOWNLOADED_UPDATES)
+                val record: DiskLruCache.Value? = diskCache.get(CACHE_KEY_DOWNLOADED_UPDATES)
                 val originalCache = record?.let { safeRecord ->
                     val recordFile = safeRecord.getFile(0)
                     val jsonText = recordFile.readText()
 
-                    clearUpdatesCache()
+                    cleanDownloadedUpdateCache()
 
                     try {
-                        val jsonBuilder = ApkUpdater.jsonBuilder()
+                        val jsonBuilder = jsonBuilder
                         val jsonType = Types.newParameterizedType(List::class.java, DownloadedUpdate::class.java)
                         val jsonAdapter = jsonBuilder.adapter<List<DownloadedUpdate>>(jsonType)
                         val downloadedUpdates = jsonAdapter.fromJson(jsonText)
@@ -459,16 +526,47 @@ class UpdaterService : Service() {
                         emptyList<DownloadedUpdate>()
                     }
                 } ?: emptyList()
-                val allowDowngrade = ApkUpdater.installAllowDowngrade()
+                val allowDowngrade = updaterConfig.installAllowDowngrade
                 val trimmedCache = originalCache.trimByVersionCheck(packageManager, allowDowngrade)
 
                 trimmedCache
             }
-            .subscribeOn(schedulers.io())
+            .subscribeOn(cacheScheduler)
     }
 
-    private fun clearUpdatesCache() {
-        val diskCache = ApkUpdater.downloadedUpdateDiskCache()
+    private fun persistDownloadedUpdates(
+        downloadedUpdates: List<DownloadedUpdate>
+    ) {
+        ensureNotMainThread()
+
+        if (downloadedUpdates.isNotEmpty()) {
+            Timber.v("[Updater] Persist the downloaded updates")
+
+            val jsonType = Types.newParameterizedType(List::class.java, DownloadedUpdate::class.java)
+            val jsonAdapter = jsonBuilder.adapter<List<DownloadedUpdate>>(jsonType)
+            val jsonText = jsonAdapter.toJson(downloadedUpdates)
+
+            val diskCache = updaterConfig.downloadedUpdateDiskCache
+            if (diskCache.isClosed) {
+                diskCache.open()
+            }
+            val editor = diskCache.edit(CACHE_KEY_DOWNLOADED_UPDATES)
+            val editorFile = editor.getFile(0)
+
+            try {
+                editorFile.writeText(jsonText)
+            } catch (error: Throwable) {
+                Timber.e(error)
+            } finally {
+                editor.commit()
+            }
+        }
+    }
+
+    private fun cleanDownloadedUpdateCache() {
+        ensureNotMainThread()
+
+        val diskCache = updaterConfig.downloadedUpdateDiskCache
         if (diskCache.isOpened) {
             Timber.v("[Updater] Remove installs cache")
             diskCache.delete()
@@ -526,6 +624,10 @@ class UpdaterService : Service() {
 
         val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
         if (downloadedUpdates.isNotEmpty()) {
+            // Serialize the downloaded updates on storage for the case if the
+            // device reboots, we'll continue the install on boot.
+            writeCacheSubject.onNext(downloadedUpdates)
+            // Move on to installing updates.
             transitionToState(UpdaterState.Install(downloadedUpdates))
         } else {
             // Fall back to idle when there's no downloaded update.
@@ -539,6 +641,9 @@ class UpdaterService : Service() {
         val nullableError = intent.getSerializableExtra(IntentActions.PROP_ERROR) as? Throwable
         nullableError?.let { error ->
             // TODO error-handling
+        } ?: kotlin.run {
+            // Clean the persistent downloaded updates if there's no error.
+            removeCacheSubject.onNext(Unit)
         }
 
         val appliedUpdates = intent.getParcelableArrayListExtra<AppliedUpdate>(IntentActions.PROP_APPLIED_UPDATES)
@@ -546,6 +651,12 @@ class UpdaterService : Service() {
 
         // Transition to idle at the end.
         transitionToState(UpdaterState.Idle)
+    }
+
+    // Time ///////////////////////////////////////////////////////////////////
+
+    private fun observeDeviceTimeChanges() {
+        // TODO: Capture time changes and adjust the schedule of check or download.
     }
 
     // IBinder ////////////////////////////////////////////////////////////////

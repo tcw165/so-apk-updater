@@ -14,10 +14,10 @@ import androidx.core.app.JobIntentService
 import co.sodalabs.apkupdater.ISharedSettings
 import co.sodalabs.apkupdater.SharedSettingsProps
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
-import co.sodalabs.updaterengine.ApkUpdater
-import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.IntentActions
+import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterJobs.JOB_ID_CHECK_UPDATES
+import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.extension.getIndicesToRemove
 import dagger.android.AndroidInjection
@@ -115,6 +115,8 @@ class CheckJobIntentService : JobIntentService() {
     }
 
     @Inject
+    lateinit var updaterConfig: UpdaterConfig
+    @Inject
     lateinit var apiClient: ISparkPointUpdateCheckApi
     @Inject
     lateinit var sharedSettings: ISharedSettings
@@ -159,7 +161,7 @@ class CheckJobIntentService : JobIntentService() {
         // Filter the invalid updates.
         val trimmedUpdates = updates.trimByVersionCheck(
             packageManager,
-            allowDowngrade = ApkUpdater.installAllowDowngrade()
+            allowDowngrade = updaterConfig.installAllowDowngrade
         )
 
         // Notify the updater to move on!

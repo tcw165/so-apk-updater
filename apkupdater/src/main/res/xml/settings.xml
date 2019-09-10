@@ -36,7 +36,7 @@
         app:title="@string/heartbeat_category">
 
         <!--suppress AndroidElementNotAllowed -->
-        <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
+        <co.sodalabs.apkupdater.feature.adminui.LongEditTextPreference
             app:key="co.sodalabs.apkupdater.heartbeat_interval"
             app:summary="Engine reports the heart-beat every this interval in seconds."
             app:title="@string/heartbeat_interval" />
@@ -56,7 +56,7 @@
         app:title="@string/check_category">
 
         <!--suppress AndroidElementNotAllowed -->
-        <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
+        <co.sodalabs.apkupdater.feature.adminui.LongEditTextPreference
             app:key="co.sodalabs.apkupdater.check_interval"
             app:summary="Interval in seconds that the recurring update check happens"
             app:title="@string/check_interval" />

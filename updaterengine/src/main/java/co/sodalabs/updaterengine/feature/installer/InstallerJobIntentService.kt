@@ -13,16 +13,17 @@ import android.net.Uri
 import android.os.Build
 import android.os.PersistableBundle
 import androidx.core.app.JobIntentService
-import co.sodalabs.updaterengine.ApkUpdater
-import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Packages
+import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterJobs
+import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.extension.ensureMainThread
 import dagger.android.AndroidInjection
 import timber.log.Timber
+import javax.inject.Inject
 
 /**
  * MODIFIED FROM F-DROID OPEN SOURCE.
@@ -164,6 +165,9 @@ class InstallerJobIntentService : JobIntentService() {
         }
     }
 
+    @Inject
+    lateinit var updaterConfig: UpdaterConfig
+
     override fun onCreate() {
         Timber.v("[Install] Installer Service is online")
         AndroidInjection.inject(this)
@@ -183,14 +187,10 @@ class InstallerJobIntentService : JobIntentService() {
         val (updates, errs) = when (intent.action) {
             IntentActions.ACTION_INSTALL_UPDATES -> {
                 val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
-                // Don't need the cache
-                clearUpdatesCache()
                 installer.installPackages(downloadedUpdates)
             }
             IntentActions.ACTION_UNINSTALL_PACKAGES -> {
                 val packageNames = intent.getStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES)
-                // Don't need the cache
-                clearUpdatesCache()
                 installer.uninstallPackage(packageNames)
                 TODO()
             }
@@ -204,16 +204,6 @@ class InstallerJobIntentService : JobIntentService() {
         }
 
         UpdaterService.notifyInstallComplete(this, appliedUpdates, errors)
-    }
-
-    // Disk Cache /////////////////////////////////////////////////////////////
-
-    private fun clearUpdatesCache() {
-        val diskCache = ApkUpdater.downloadedUpdateDiskCache()
-        if (diskCache.isOpened) {
-            Timber.v("[Install] Remove installs cache")
-            diskCache.delete()
-        }
     }
 
     // Installer Factory //////////////////////////////////////////////////////
@@ -230,7 +220,7 @@ class InstallerJobIntentService : JobIntentService() {
         }
 
         return if (isPrivilegedInstallerInstalled) {
-            PrivilegedInstaller(ApkUpdater.installAllowDowngrade(), this)
+            PrivilegedInstaller(updaterConfig.installAllowDowngrade, this)
         } else {
             DefaultInstaller(this)
         }

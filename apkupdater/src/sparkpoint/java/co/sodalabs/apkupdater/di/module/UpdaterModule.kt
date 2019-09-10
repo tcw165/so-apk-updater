@@ -3,10 +3,12 @@
 package co.sodalabs.apkupdater.di.module
 
 import android.content.Context
+import co.sodalabs.apkupdater.AndroidUpdaterConfig
 import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.apkupdater.feature.checker.SparkPointUpdatesChecker
 import co.sodalabs.apkupdater.feature.heartbeat.SparkPointHeartBeater
+import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.UpdatesChecker
 import co.sodalabs.updaterengine.UpdatesDownloader
@@ -33,19 +35,25 @@ abstract class UpdaterModule {
 
     @Binds
     @ApplicationScope
-    abstract fun provideAppUpdatesChecker(
+    abstract fun provideUpdatesChecker(
         checker: SparkPointUpdatesChecker
     ): UpdatesChecker
 
     @Binds
     @ApplicationScope
-    abstract fun provideAppUpdatesDownloader(
+    abstract fun provideUpdatesDownloader(
         downloader: DefaultUpdatesDownloader
     ): UpdatesDownloader
 
     @Binds
     @ApplicationScope
-    abstract fun provideAppUpdatesInstaller(
+    abstract fun provideUpdatesInstaller(
         installer: DefaultUpdatesInstaller
     ): UpdatesInstaller
+
+    @Binds
+    @ApplicationScope
+    abstract fun provideUpdaterConfig(
+        config: AndroidUpdaterConfig
+    ): UpdaterConfig
 }

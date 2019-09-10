@@ -22,7 +22,7 @@ class DefaultUpdatesDownloader @Inject constructor(
         TODO("not implemented")
     }
 
-    override fun cancelDownloads() {
+    override fun cancelPendingAndWipDownloads() {
         DownloadJobIntentService.cancelDownload()
     }
 

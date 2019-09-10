@@ -7,7 +7,7 @@ import androidx.core.content.res.TypedArrayUtils
 import androidx.preference.EditTextPreference
 import androidx.preference.R
 
-class IntEditTextPreference : EditTextPreference {
+class LongEditTextPreference : EditTextPreference {
 
     constructor(context: Context) : this(context, null)
     constructor(context: Context, attrs: AttributeSet?) : this(context, attrs, TypedArrayUtils.getAttr(context, R.attr.editTextPreferenceStyle, android.R.attr.editTextPreferenceStyle))
@@ -24,13 +24,13 @@ class IntEditTextPreference : EditTextPreference {
     }
 
     override fun onSetInitialValue(defaultValue: Any?) {
-        val value = getPersistedInt(0)
+        val value = getPersistedLong(0L)
         text = "$value"
     }
 
     /**
      * Override this function cause [EditTextPreference] is not configurable in
-     * XML to take Int preference.
+     * XML to take Long preference.
      */
     override fun persistString(value: String?): Boolean {
         if (!shouldPersist()) {
@@ -39,13 +39,13 @@ class IntEditTextPreference : EditTextPreference {
 
         // Shouldn't store null
         value?.let {
-            val num = it.toInt()
+            val num = it.toLong()
             val dataStore = preferenceDataStore
             if (dataStore != null) {
-                dataStore.putInt(key, num)
+                dataStore.putLong(key, num)
             } else {
                 sharedPreferences.edit()
-                    .putInt(key, num)
+                    .putLong(key, num)
                     .apply()
             }
 
@@ -58,7 +58,7 @@ class IntEditTextPreference : EditTextPreference {
 
     /**
      * Override this function cause [EditTextPreference] is not configurable in
-     * XML to take Int preference.
+     * XML to take Long preference.
      */
     override fun getPersistedString(defaultReturnValue: String): String {
         if (!shouldPersist()) {
@@ -67,8 +67,8 @@ class IntEditTextPreference : EditTextPreference {
 
         val dataStore = preferenceDataStore
         val num = dataStore?.let {
-            dataStore.getInt(key, 0)
-        } ?: sharedPreferences.getInt(key, 0)
+            dataStore.getLong(key, 0)
+        } ?: sharedPreferences.getLong(key, 0)
         return num.toString()
     }
 }

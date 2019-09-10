@@ -5,7 +5,10 @@ import co.sodalabs.updaterengine.data.AppUpdate
 interface UpdatesDownloader {
     fun downloadNow(updates: List<AppUpdate>)
     fun scheduleDelayedDownload(updates: List<AppUpdate>, delayMillis: Long)
-    fun cancelDownloads()
+    /**
+     * Cancel any pending download tasks or the in-progress download.
+     */
+    fun cancelPendingAndWipDownloads()
 
     fun setDownloadCacheMaxSize(sizeInMB: Long)
 }

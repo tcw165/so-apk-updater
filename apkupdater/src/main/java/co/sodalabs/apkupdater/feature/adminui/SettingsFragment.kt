@@ -12,9 +12,11 @@ import co.sodalabs.apkupdater.PreferenceProps
 import co.sodalabs.apkupdater.R
 import co.sodalabs.apkupdater.data.UiState
 import co.sodalabs.privilegedinstaller.RxLocalBroadcastReceiver
-import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
+import co.sodalabs.updaterengine.UpdaterConfig
+import co.sodalabs.updaterengine.UpdaterHeartBeater
+import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import co.sodalabs.updaterengine.extension.smartRetryWhen
@@ -36,6 +38,10 @@ class SettingsFragment :
     PreferenceFragmentCompat(),
     ISettingsScreen {
 
+    @Inject
+    lateinit var updaterConfig: UpdaterConfig
+    @Inject
+    lateinit var heartbeater: UpdaterHeartBeater
     @Inject
     lateinit var appPreference: IAppPreference
 
@@ -103,7 +109,7 @@ class SettingsFragment :
 
         sendHeartBeatNowPref.clicks()
             .flatMap {
-                ApkUpdater.sendHeartBeatNow()
+                heartbeater.sendHeartBeatNow()
 
                 val intentFilter = IntentFilter(IntentActions.ACTION_SEND_HEART_BEAT_NOW)
                 RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
@@ -139,7 +145,7 @@ class SettingsFragment :
 
     private fun observeRecurringHeartBeat() {
         var last = "???"
-        ApkUpdater.observeHeartBeat()
+        heartbeater.observeRecurringHeartBeat()
             .observeOn(AndroidSchedulers.mainThread())
             .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
                 markHeartBeatDone()
@@ -180,7 +186,8 @@ class SettingsFragment :
 
         checkUpdateNowPref.clicks()
             .flatMap {
-                ApkUpdater.checkNow()
+                val packageNames = updaterConfig.packageNames
+                UpdaterService.checkUpdatesNow(safeContext, packageNames)
 
                 // TODO: Pull out to a function of ApkUpdater.
                 val intentFilter = IntentFilter(IntentActions.ACTION_CHECK_UPDATES_COMPLETE)
