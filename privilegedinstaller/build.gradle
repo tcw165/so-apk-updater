@@ -81,9 +81,9 @@ android {
             matchingFallbacks = ['release']
 
             debuggable true
-            useProguard true
-            minifyEnabled true
-            shrinkResources true
+            useProguard false // Was true. FIXME: Can't find IPackageInstallObserver after ProGuard
+            minifyEnabled false // Was true. FIXME: Can't find IPackageInstallObserver after ProGuard
+            shrinkResources false // Was true. FIXME: Can't find IPackageInstallObserver after ProGuard
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             // Disables PNG crunching for the release build type.
             crunchPngs false
@@ -93,9 +93,9 @@ android {
 
         release {
             debuggable false
-            useProguard true
-            minifyEnabled true
-            shrinkResources true
+            useProguard false // Was true. FIXME: Can't find IPackageInstallObserver after ProGuard
+            minifyEnabled false // Was true. FIXME: Can't find IPackageInstallObserver after ProGuard
+            shrinkResources false // Was true. FIXME: Can't find IPackageInstallObserver after ProGuard
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             // Disables PNG crunching for the release build type.
             crunchPngs false

@@ -93,7 +93,7 @@ class InstallerJobIntentService : JobIntentService() {
                 // TODO: Do we need to recover the scheduling on boot?
                 alarmManager.cancel(pendingIntent)
                 alarmManager.setExact(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    AlarmManager.RTC_WAKEUP,
                     triggerAtMillis,
                     pendingIntent
                 )

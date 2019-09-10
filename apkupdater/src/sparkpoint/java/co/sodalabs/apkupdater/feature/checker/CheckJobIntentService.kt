@@ -47,7 +47,7 @@ class CheckJobIntentService : JobIntentService() {
         fun scheduleNextCheck(
             context: Context,
             packageNames: Array<String>,
-            delayMillis: Long
+            triggerAtMillis: Long
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
                 Timber.v("[Check] (< 21) Schedule a pending check, using AlarmManager")
@@ -61,8 +61,8 @@ class CheckJobIntentService : JobIntentService() {
 
                 alarmManager.cancel(pendingIntent)
                 alarmManager.setExact(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    delayMillis,
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
                     pendingIntent
                 )
             } else {
