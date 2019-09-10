@@ -19,12 +19,12 @@ class SparkPointUpdatesChecker @Inject constructor(
 
     override fun scheduleDelayedCheck(
         packageNames: List<String>,
-        delayMillis: Long
+        triggerAtMillis: Long
     ) {
         CheckJobIntentService.scheduleNextCheck(
             context,
             packageNames.toTypedArray(),
-            delayMillis
+            triggerAtMillis
         )
     }
 }

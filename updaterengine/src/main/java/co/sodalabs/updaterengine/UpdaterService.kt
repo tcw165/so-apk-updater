@@ -14,7 +14,6 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PersistableBundle
-import android.os.SystemClock
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.AppliedUpdate
@@ -115,8 +114,8 @@ class UpdaterService : Service() {
 
                 alarmManager.cancel(pendingIntent)
                 alarmManager.setExact(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    SystemClock.elapsedRealtime() + delayMillis,
+                    AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + delayMillis,
                     pendingIntent
                 )
             } else {
