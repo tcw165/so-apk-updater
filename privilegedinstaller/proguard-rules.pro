@@ -22,6 +22,9 @@
 
 -dontwarn org.jetbrains.annotations.NonNls
 
+# Android PackageManager
+-keep class android.content.pm.**
+
 # Bug tracking
 -keepattributes LineNumberTable,SourceFile
 -keep class com.bugsnag.android.NativeInterface { *; }

@@ -5,9 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.app.JobIntentService
-import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.IntentActions
+import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterJobs
+import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
 import co.sodalabs.updaterengine.exception.DownloadCancelledException
@@ -15,8 +16,6 @@ import co.sodalabs.updaterengine.exception.DownloadInvalidFileSizeException
 import co.sodalabs.updaterengine.exception.DownloadSizeNotFoundException
 import co.sodalabs.updaterengine.exception.DownloadUnknownErrorException
 import co.sodalabs.updaterengine.exception.HttpMalformedURIException
-import co.sodalabs.updaterengine.feature.core.AppUpdaterService
-import com.squareup.moshi.Types
 import dagger.android.AndroidInjection
 import io.reactivex.disposables.CompositeDisposable
 import okhttp3.Headers
@@ -63,6 +62,8 @@ class DownloadJobIntentService : JobIntentService() {
     }
 
     @Inject
+    lateinit var updaterConfig: UpdaterConfig
+    @Inject
     lateinit var okHttpClient: OkHttpClient
 
     private val disposables = CompositeDisposable()
@@ -70,7 +71,6 @@ class DownloadJobIntentService : JobIntentService() {
     override fun onCreate() {
         Timber.v("[Download] Downloader Service is online")
         AndroidInjection.inject(this)
-
         super.onCreate()
     }
 
@@ -101,8 +101,8 @@ class DownloadJobIntentService : JobIntentService() {
         val errors = mutableListOf<Throwable>()
 
         // Delete the cache before downloading if we don't use cache.
-        val apkDiskCache = ApkUpdater.apkDiskCache()
-        if (!ApkUpdater.downloadUseCache()) {
+        val apkDiskCache = updaterConfig.apkDiskCache
+        if (!updaterConfig.downloadUseCache) {
             apkDiskCache.delete()
         }
         // Open the cache
@@ -127,7 +127,7 @@ class DownloadJobIntentService : JobIntentService() {
             }
 
             // Step 2, download the file if cache file size is smaller than the total size.
-            val cache = ApkUpdater.apkDiskCache()
+            val cache = updaterConfig.apkDiskCache
             val cacheEditor = cache.edit(urlFileName)
             val cacheFile = cacheEditor.getFile(0)
             Timber.v("[Download] Open the cache \"$cacheFile\"")
@@ -144,12 +144,8 @@ class DownloadJobIntentService : JobIntentService() {
             }
         }
 
-        // Serialize the downloaded updates on storage for the case if the device
-        // reboots, we'll continue the install on boot.
-        persistDownloadedUpdates(downloadedUpdates)
-
         // Let the engine know the download finishes.
-        AppUpdaterService.notifyDownloadsComplete(this, downloadedUpdates, errors)
+        UpdaterService.notifyDownloadsComplete(this, downloadedUpdates, errors)
     }
 
     private fun requestFileSize(
@@ -261,34 +257,6 @@ class DownloadJobIntentService : JobIntentService() {
         } else {
             // Throw exception as the cache size is greater than the expected size.
             throw DownloadInvalidFileSizeException(cacheFile, cacheFileSize, totalSize)
-        }
-    }
-
-    private fun persistDownloadedUpdates(
-        downloadedUpdates: List<DownloadedUpdate>
-    ) {
-        if (downloadedUpdates.isNotEmpty()) {
-            Timber.v("[Download] Persist the downloaded updates")
-
-            val jsonBuilder = ApkUpdater.jsonBuilder()
-            val jsonType = Types.newParameterizedType(List::class.java, DownloadedUpdate::class.java)
-            val jsonAdapter = jsonBuilder.adapter<List<DownloadedUpdate>>(jsonType)
-            val jsonText = jsonAdapter.toJson(downloadedUpdates)
-
-            val diskCache = ApkUpdater.downloadedUpdateDiskCache()
-            if (diskCache.isClosed) {
-                diskCache.open()
-            }
-            val editor = diskCache.edit(ApkUpdater.KEY_DOWNLOADED_UPDATES)
-            val editorFile = editor.getFile(0)
-
-            try {
-                editorFile.writeText(jsonText)
-            } catch (error: Throwable) {
-                Timber.e(error)
-            } finally {
-                editor.commit()
-            }
         }
     }
 }

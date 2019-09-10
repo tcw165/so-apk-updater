@@ -7,6 +7,10 @@ interface IAppPreference {
     fun putInt(prop: String, value: Int)
     fun observeIntChange(prop: String, default: Int): Observable<Int>
 
+    fun getLong(prop: String, default: Long): Long
+    fun putLong(prop: String, value: Long)
+    fun observeLongChange(prop: String, default: Long): Observable<Long>
+
     fun getBoolean(prop: String, default: Boolean): Boolean
     fun putBoolean(prop: String, value: Boolean)
     fun observeBooleanChange(prop: String, default: Boolean): Observable<Boolean>

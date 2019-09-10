@@ -3,16 +3,18 @@
 package co.sodalabs.apkupdater.di.module
 
 import android.content.Context
+import co.sodalabs.apkupdater.AndroidUpdaterConfig
 import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.apkupdater.feature.checker.SparkPointUpdatesChecker
 import co.sodalabs.apkupdater.feature.heartbeat.SparkPointHeartBeater
-import co.sodalabs.updaterengine.AppUpdaterHeartBeater
-import co.sodalabs.updaterengine.AppUpdatesChecker
-import co.sodalabs.updaterengine.AppUpdatesDownloader
-import co.sodalabs.updaterengine.AppUpdatesInstaller
+import co.sodalabs.updaterengine.UpdaterConfig
+import co.sodalabs.updaterengine.UpdaterHeartBeater
+import co.sodalabs.updaterengine.UpdatesChecker
+import co.sodalabs.updaterengine.UpdatesDownloader
+import co.sodalabs.updaterengine.UpdatesInstaller
 import co.sodalabs.updaterengine.feature.downloader.DefaultUpdatesDownloader
-import co.sodalabs.updaterengine.feature.installer.DefaultAppUpdatesInstaller
+import co.sodalabs.updaterengine.feature.installer.DefaultUpdatesInstaller
 import dagger.Binds
 import dagger.Module
 
@@ -29,23 +31,29 @@ abstract class UpdaterModule {
     @ApplicationScope
     abstract fun provideHeartBeater(
         heartBeater: SparkPointHeartBeater
-    ): AppUpdaterHeartBeater
+    ): UpdaterHeartBeater
 
     @Binds
     @ApplicationScope
-    abstract fun provideAppUpdatesChecker(
+    abstract fun provideUpdatesChecker(
         checker: SparkPointUpdatesChecker
-    ): AppUpdatesChecker
+    ): UpdatesChecker
 
     @Binds
     @ApplicationScope
-    abstract fun provideAppUpdatesDownloader(
+    abstract fun provideUpdatesDownloader(
         downloader: DefaultUpdatesDownloader
-    ): AppUpdatesDownloader
+    ): UpdatesDownloader
 
     @Binds
     @ApplicationScope
-    abstract fun provideAppUpdatesInstaller(
-        installer: DefaultAppUpdatesInstaller
-    ): AppUpdatesInstaller
+    abstract fun provideUpdatesInstaller(
+        installer: DefaultUpdatesInstaller
+    ): UpdatesInstaller
+
+    @Binds
+    @ApplicationScope
+    abstract fun provideUpdaterConfig(
+        config: AndroidUpdaterConfig
+    ): UpdaterConfig
 }

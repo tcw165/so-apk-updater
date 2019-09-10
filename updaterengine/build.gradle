@@ -159,6 +159,7 @@ dependencies {
 
     // Unit tests.
     testImplementation deps.test.junit
+    testImplementation deps.test.mockk
     testImplementation deps.test.mockito
 
     // Instrumentation tests.

@@ -159,7 +159,7 @@ def espresso = [
 def test = [
     junit       : "junit:junit:4.12",
     mockito     : "org.mockito:mockito-core:2.13.0",
-    mockk       : "io.mockk:mockk:1.7.15",
+    mockk       : 'io.mockk:mockk:1.9.3.kotlin12',
     robolectric : "org.robolectric:robolectric:3.8",
     unmock      : "org.robolectric:android-all:4.3_r2-robolectric-0",
     uiautomator : "com.android.support.test.uiautomator:uiautomator-v18:2.1.3",

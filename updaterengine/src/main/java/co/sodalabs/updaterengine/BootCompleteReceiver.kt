@@ -1,9 +1,8 @@
-package co.sodalabs.updaterengine.feature.core
+package co.sodalabs.updaterengine
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import co.sodalabs.updaterengine.IntentActions
 import timber.log.Timber
 
 private const val QUICKBOOT_POWERON = "android.intent.action.QUICKBOOT_POWERON"
@@ -17,7 +16,7 @@ class BootCompleteReceiver : BroadcastReceiver() {
         // Do nothing, this initializes the Application already
         Timber.v("Start the updater engine: ${intent.action}")
 
-        val engineServiceIntent = Intent(context, AppUpdaterService::class.java)
+        val engineServiceIntent = Intent(context, UpdaterService::class.java)
         engineServiceIntent.action = IntentActions.ACTION_ENGINE_START
         context.startService(engineServiceIntent)
     }

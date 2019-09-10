@@ -6,7 +6,7 @@ import io.reactivex.Observable
 import javax.inject.Inject
 
 class AppSharedPreference @Inject constructor(
-    val preferences: SharedPreferences
+    private val preferences: SharedPreferences
 ) : IAppPreference {
 
     override fun getInt(prop: String, default: Int): Int {
@@ -25,6 +25,23 @@ class AppSharedPreference @Inject constructor(
     ): Observable<Int> {
         return observePropertyChange(prop) { p ->
             p.getInt(prop, default)
+        }
+    }
+
+    @SuppressLint("ApplySharedPref")
+    override fun getLong(prop: String, default: Long): Long {
+        return preferences.getLong(prop, default)
+    }
+
+    override fun putLong(prop: String, value: Long) {
+        preferences.edit()
+            .putLong(prop, value)
+            .apply()
+    }
+
+    override fun observeLongChange(prop: String, default: Long): Observable<Long> {
+        return observePropertyChange(prop) { p ->
+            p.getLong(prop, default)
         }
     }
 

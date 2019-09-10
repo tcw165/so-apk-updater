@@ -1,6 +1,6 @@
 package co.sodalabs.updaterengine
 
-import androidx.annotation.Keep
+import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
 import java.util.Calendar
 
 /**
@@ -8,37 +8,37 @@ import java.util.Calendar
  * ... etc. The configuration is immutable. In other words, you'll need to restart
  * the process for the configuration change in your implementation.
  */
-@Keep
-data class ApkUpdaterConfig(
-    val hostPackageName: String,
-    val packageNames: List<String>,
+interface UpdaterConfig {
+    val hostPackageName: String
+    val packageNames: List<String>
     /**
      * Send the health check to the server every X milliseconds.
      */
-    val heartbeatIntervalMillis: Long,
+    var heartbeatIntervalMillis: Long
     /**
      * Check the updates from the server every X milliseconds.
      */
-    val checkIntervalMillis: Long,
+    var checkIntervalMillis: Long
     /**
      * The window for installing updates. There is a begin and end hour of the
      * day, the same as [Calendar.HOUR_OF_DAY].
      */
-    val installWindow: IntRange,
+    var installWindow: IntRange
     /**
      * A debug function for install the downgrade version.
      */
-    val installAllowDowngrade: Boolean,
+    var installAllowDowngrade: Boolean
     /**
      * True to use a LRU cache for storing the downloaded files. False to indicate
      * the engine to wipe all the previous downloads whenever it starts new download.
      */
-    val downloadUseCache: Boolean
-) {
-
-    init {
-        if (checkIntervalMillis <= 0) {
-            throw IllegalArgumentException("Interval must be greater than zero.")
-        }
-    }
+    var downloadUseCache: Boolean
+    /**
+     * We cache the downloaded APK files under the LRU disk cache.
+     */
+    val apkDiskCache: DiskLruCache
+    /**
+     * We cache the downloaded updates under the LRU disk cache.
+     */
+    val downloadedUpdateDiskCache: DiskLruCache
 }

@@ -1,35 +1,30 @@
 package co.sodalabs.apkupdater.feature.checker
 
 import android.content.Context
-import co.sodalabs.updaterengine.AppUpdatesChecker
+import co.sodalabs.updaterengine.UpdatesChecker
 import javax.inject.Inject
 
 class SparkPointUpdatesChecker @Inject constructor(
     private val context: Context
-) : AppUpdatesChecker {
+) : UpdatesChecker {
 
     override fun checkNow(
         packageNames: List<String>
     ) {
         CheckJobIntentService.checkUpdatesNow(
             context,
-            packageNames.toTypedArray())
+            packageNames.toTypedArray()
+        )
     }
 
-    override fun scheduleCheckAfter(
+    override fun scheduleDelayedCheck(
         packageNames: List<String>,
-        afterMs: Long
+        triggerAtMillis: Long
     ) {
-        // TODO("not implemented")
-    }
-
-    override fun scheduleRecurringCheck(
-        packageNames: List<String>,
-        intervalMs: Long
-    ) {
-        CheckJobIntentService.scheduleRecurringUpdateCheck(
+        CheckJobIntentService.scheduleNextCheck(
             context,
             packageNames.toTypedArray(),
-            intervalMs)
+            triggerAtMillis
+        )
     }
 }

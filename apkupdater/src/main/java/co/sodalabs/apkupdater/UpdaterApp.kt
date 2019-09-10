@@ -8,15 +8,13 @@ import co.sodalabs.apkupdater.data.SystemProps
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
 import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
-import co.sodalabs.updaterengine.ApkUpdater
-import co.sodalabs.updaterengine.ApkUpdaterConfig
-import co.sodalabs.updaterengine.AppUpdaterHeartBeater
-import co.sodalabs.updaterengine.AppUpdatesChecker
-import co.sodalabs.updaterengine.AppUpdatesDownloader
-import co.sodalabs.updaterengine.AppUpdatesInstaller
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.Intervals
-import co.sodalabs.updaterengine.extension.toMilliseconds
+import co.sodalabs.updaterengine.UpdaterHeartBeater
+import co.sodalabs.updaterengine.UpdaterService
+import co.sodalabs.updaterengine.UpdatesChecker
+import co.sodalabs.updaterengine.UpdatesDownloader
+import co.sodalabs.updaterengine.UpdatesInstaller
 import com.bugsnag.android.Bugsnag
 import com.bugsnag.android.Configuration
 import com.jakewharton.processphoenix.ProcessPhoenix
@@ -44,13 +42,13 @@ class UpdaterApp :
     override fun androidInjector(): AndroidInjector<Any> = actualInjector as AndroidInjector<Any>
 
     @Inject
-    lateinit var appUpdatesChecker: AppUpdatesChecker
+    lateinit var updatesChecker: UpdatesChecker
     @Inject
-    lateinit var appUpdatesDownloader: AppUpdatesDownloader
+    lateinit var updatesDownloader: UpdatesDownloader
     @Inject
-    lateinit var appUpdatesInstaller: AppUpdatesInstaller
+    lateinit var updatesInstaller: UpdatesInstaller
     @Inject
-    lateinit var heartBeater: AppUpdaterHeartBeater
+    lateinit var heartBeater: UpdaterHeartBeater
 
     private val globalDisposables = CompositeDisposable()
 
@@ -74,13 +72,7 @@ class UpdaterApp :
         observeSystemConfigChange()
 
         // Install the updater engine after everything else is ready.
-        ApkUpdater.install(
-            app = this,
-            config = generateUpdaterConfig(),
-            appUpdatesChecker = appUpdatesChecker,
-            appUpdatesDownloader = appUpdatesDownloader,
-            appUpdatesInstaller = appUpdatesInstaller,
-            engineHeartBeater = heartBeater)
+        UpdaterService.start(this)
     }
 
     private fun initLogging() {
@@ -121,6 +113,8 @@ class UpdaterApp :
     @Inject
     lateinit var systemProperties: ISystemProperties
 
+    private val rawPreference by lazy { PreferenceManager.getDefaultSharedPreferences(this) }
+
     private fun injectDependencies() {
         DaggerAppComponent.builder()
             .setApplication(this)
@@ -130,31 +124,6 @@ class UpdaterApp :
             .inject(this)
     }
 
-    // Updater Engine /////////////////////////////////////////////////////////
-
-    private val rawPreference by lazy { PreferenceManager.getDefaultSharedPreferences(this) }
-
-    private fun generateUpdaterConfig(): ApkUpdaterConfig {
-        val hostPackageName = packageName
-        val heartbeatInterval = rawPreference.getInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS).toMilliseconds()
-        val checkInterval = rawPreference.getInt(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS).toMilliseconds()
-        val downloadUseCache = rawPreference.getBoolean(PreferenceProps.DOWNLOAD_USE_CACHE, BuildConfig.DOWNLOAD_USE_CACHE)
-        val installHourBegin = rawPreference.getInt(PreferenceProps.INSTALL_HOUR_BEGIN, BuildConfig.INSTALL_HOUR_BEGIN)
-        val installHourEnd = rawPreference.getInt(PreferenceProps.INSTALL_HOUR_END, BuildConfig.INSTALL_HOUR_END)
-        val installAllowDowngrade = rawPreference.getBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
-
-        return ApkUpdaterConfig(
-            hostPackageName = hostPackageName,
-            // packageNames = listOf(hostPackageName, *BuildUtils.PACKAGES_TO_CHECK)
-            packageNames = listOf(*BuildUtils.PACKAGES_TO_CHECK),
-            heartbeatIntervalMillis = heartbeatInterval,
-            checkIntervalMillis = checkInterval,
-            downloadUseCache = downloadUseCache,
-            installWindow = IntRange(installHourBegin, installHourEnd),
-            installAllowDowngrade = installAllowDowngrade
-        )
-    }
-
     // Preferences ////////////////////////////////////////////////////////////
 
     /**
@@ -162,6 +131,7 @@ class UpdaterApp :
      * Note: Don't use injected instance in this method cause the app will crash
      * since the DI isn't setup yet.
      */
+    @SuppressLint("ApplySharedPref")
     private fun injectDefaultPreferencesBeforeInjectingDep() {
         // Debug device ID
         try {
@@ -222,16 +192,32 @@ class UpdaterApp :
         Timber.v("[Updater] API base URL, \"$apiBaseURL\"")
 
         // Heartbeat
+        try {
+            // Remove the incompatible property type for version new than 0.11.3.
+            rawPreference.getLong(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, 0L)
+        } catch (ignored: Throwable) {
+            rawPreference.edit()
+                .remove(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)
+                .apply()
+        }
         if (!rawPreference.contains(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS)) {
             rawPreference.edit()
-                .putInt(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
+                .putLong(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
                 .apply()
         }
 
         // Check
+        try {
+            // Remove the incompatible property type for version new than 0.11.3.
+            rawPreference.getLong(PreferenceProps.CHECK_INTERVAL_SECONDS, 0L)
+        } catch (ignored: Throwable) {
+            rawPreference.edit()
+                .remove(PreferenceProps.CHECK_INTERVAL_SECONDS)
+                .apply()
+        }
         if (!rawPreference.contains(PreferenceProps.CHECK_INTERVAL_SECONDS)) {
             rawPreference.edit()
-                .putInt(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS)
+                .putLong(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS)
                 .apply()
         }
 

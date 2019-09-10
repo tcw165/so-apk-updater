@@ -8,20 +8,18 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.pm.PackageManager.GET_META_DATA
 import android.os.Build
 import android.os.PersistableBundle
-import android.os.SystemClock
 import androidx.core.app.JobIntentService
 import co.sodalabs.apkupdater.ISharedSettings
 import co.sodalabs.apkupdater.SharedSettingsProps
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
-import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.IntentActions
+import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterJobs.JOB_ID_CHECK_UPDATES
+import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppUpdate
-import co.sodalabs.updaterengine.extension.isGreaterThanOrEqualTo
-import co.sodalabs.updaterengine.feature.core.AppUpdaterService
+import co.sodalabs.updaterengine.extension.getIndicesToRemove
 import dagger.android.AndroidInjection
 import retrofit2.HttpException
 import timber.log.Timber
@@ -46,13 +44,13 @@ class CheckJobIntentService : JobIntentService() {
             )
         }
 
-        fun scheduleRecurringUpdateCheck(
+        fun scheduleNextCheck(
             context: Context,
             packageNames: Array<String>,
-            intervalMillis: Long
+            triggerAtMillis: Long
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("[Check] (< 21) Schedule a recurring update, using AlarmManager")
+                Timber.v("[Check] (< 21) Schedule a pending check, using AlarmManager")
 
                 val intent = Intent(context, CheckJobIntentService::class.java)
                 intent.action = IntentActions.ACTION_CHECK_UPDATES
@@ -61,16 +59,14 @@ class CheckJobIntentService : JobIntentService() {
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
                 val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
 
-                // TODO: Do we need to recover the scheduling on boot?
                 alarmManager.cancel(pendingIntent)
-                alarmManager.setInexactRepeating(
-                    AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                    SystemClock.elapsedRealtime() + intervalMillis,
-                    intervalMillis,
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
                     pendingIntent
                 )
             } else {
-                Timber.v("[Check] (>= 21) Schedule a recurring update, using android-21 JobScheduler")
+                Timber.v("[Check] (>= 21) Schedule a pending check, using android-21 JobScheduler")
 
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
                 val componentName = ComponentName(context, CheckJobService::class.java)
@@ -79,7 +75,6 @@ class CheckJobIntentService : JobIntentService() {
 
                 val builder = JobInfo.Builder(JOB_ID_CHECK_UPDATES, componentName)
                     .setRequiresDeviceIdle(false)
-                    .setPeriodic(intervalMillis)
                     .setExtras(bundle)
 
                 if (Build.VERSION.SDK_INT >= 26) {
@@ -102,15 +97,15 @@ class CheckJobIntentService : JobIntentService() {
             val intent = Intent(context, CheckJobIntentService::class.java)
             intent.action = IntentActions.ACTION_CHECK_UPDATES
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("[Check] (>= 21) Cancel the pending jobs using android-21 JobScheduler")
-                val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-                jobScheduler.cancel(JOB_ID_CHECK_UPDATES)
-            } else {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
                 Timber.v("[Check] (< 21) Cancel the pending jobs using AlarmManager")
                 val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
                 alarmManager.cancel(pendingIntent)
+            } else {
+                Timber.v("[Check] (>= 21) Cancel the pending jobs using android-21 JobScheduler")
+                val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
+                jobScheduler.cancel(JOB_ID_CHECK_UPDATES)
             }
 
             // Stop the service immediately
@@ -119,6 +114,8 @@ class CheckJobIntentService : JobIntentService() {
         }
     }
 
+    @Inject
+    lateinit var updaterConfig: UpdaterConfig
     @Inject
     lateinit var apiClient: ISparkPointUpdateCheckApi
     @Inject
@@ -162,10 +159,13 @@ class CheckJobIntentService : JobIntentService() {
             }
         }
         // Filter the invalid updates.
-        updates.trimInvalidUpdates()
+        val trimmedUpdates = updates.trimByVersionCheck(
+            packageManager,
+            allowDowngrade = updaterConfig.installAllowDowngrade
+        )
 
         // Notify the updater to move on!
-        AppUpdaterService.notifyUpdateCheckComplete(this, updates, updatesError)
+        UpdaterService.notifyUpdateCheckComplete(this, trimmedUpdates, updatesError)
     }
 
     private fun queryAppUpdate(
@@ -198,45 +198,18 @@ class CheckJobIntentService : JobIntentService() {
         }
     }
 
-    private fun MutableList<AppUpdate>.trimInvalidUpdates() {
-        Timber.v("[Check] Filter invalid updates...")
-        val toTrimUpdates = mutableListOf<AppUpdate>()
-        for (i in 0 until this.size) {
-            val update = this[i]
-            val packageName = update.packageName
-            val remoteVersionName = update.versionName
+    private fun List<AppUpdate>.trimByVersionCheck(
+        packageManager: PackageManager,
+        allowDowngrade: Boolean
+    ): List<AppUpdate> {
+        val originalUpdates = this
+        val indicesToRemove = this.getIndicesToRemove(packageManager, allowDowngrade)
+        val updatesToRemove = indicesToRemove.map { i -> originalUpdates[i] }
 
-            if (isPackageInstalled(packageName)) {
-                val localPackageInfo = packageManager.getPackageInfo(packageName, GET_META_DATA)
-                val localVersionName = localPackageInfo.versionName
+        val trimmedList = this.toMutableList()
+        trimmedList.removeAll(updatesToRemove)
 
-                if (ApkUpdater.installAllowDowngrade() ||
-                    remoteVersionName.isGreaterThanOrEqualTo(localVersionName)) {
-                    Timber.v("[Check] \"$packageName\" from $localVersionName to $remoteVersionName ... allowed!")
-                } else {
-                    // Sorry, we will discard this update cause the version isn't
-                    // greater than the current local version.
-                    toTrimUpdates.add(update)
-                }
-            } else {
-                Timber.v("[Check] \"$packageName\" from null to $remoteVersionName ... allowed!")
-            }
-        }
-
-        val originalSize = this.size
-        this.removeAll(toTrimUpdates)
-        val newSize = this.size
-
-        Timber.v("[Check] Filter invalid updates... drop ${originalSize - newSize} updates")
-    }
-
-    private fun isPackageInstalled(packageName: String): Boolean {
-        return try {
-            packageManager.getPackageInfo(packageName, 0)
-            true
-        } catch (error: PackageManager.NameNotFoundException) {
-            false
-        }
+        return trimmedList
     }
 
     private fun getDeviceID(): String {

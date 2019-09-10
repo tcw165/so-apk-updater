@@ -12,10 +12,11 @@ import co.sodalabs.apkupdater.PreferenceProps
 import co.sodalabs.apkupdater.R
 import co.sodalabs.apkupdater.data.UiState
 import co.sodalabs.privilegedinstaller.RxLocalBroadcastReceiver
-import co.sodalabs.updaterengine.ApkUpdater
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
-import co.sodalabs.updaterengine.data.DownloadedUpdate
+import co.sodalabs.updaterengine.UpdaterConfig
+import co.sodalabs.updaterengine.UpdaterHeartBeater
+import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import co.sodalabs.updaterengine.extension.smartRetryWhen
@@ -32,12 +33,15 @@ private const val KEY_API_BASE_URL = PreferenceProps.API_BASE_URL
 private const val KEY_HEART_BEAT_WATCHER = "heartbeat_watcher"
 private const val KEY_HEART_BEAT_NOW = "send_heartbeat_now"
 private const val KEY_CHECK_UPDATE_NOW = "check_test_app_now"
-private const val KEY_DOWNLOAD_TEST_APP_NOW = "download_test_app_now"
 
 class SettingsFragment :
     PreferenceFragmentCompat(),
     ISettingsScreen {
 
+    @Inject
+    lateinit var updaterConfig: UpdaterConfig
+    @Inject
+    lateinit var heartbeater: UpdaterHeartBeater
     @Inject
     lateinit var appPreference: IAppPreference
 
@@ -64,7 +68,6 @@ class SettingsFragment :
         observeRecurringHeartBeat()
 
         observeCheckUpdateNowClicks()
-        observeDownloadTestNowClicks()
 
         observeCaughtErrors()
     }
@@ -106,7 +109,7 @@ class SettingsFragment :
 
         sendHeartBeatNowPref.clicks()
             .flatMap {
-                ApkUpdater.sendHeartBeatNow()
+                heartbeater.sendHeartBeatNow()
 
                 val intentFilter = IntentFilter(IntentActions.ACTION_SEND_HEART_BEAT_NOW)
                 RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
@@ -142,7 +145,7 @@ class SettingsFragment :
 
     private fun observeRecurringHeartBeat() {
         var last = "???"
-        ApkUpdater.observeHeartBeat()
+        heartbeater.observeRecurringHeartBeat()
             .observeOn(AndroidSchedulers.mainThread())
             .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
                 markHeartBeatDone()
@@ -183,10 +186,11 @@ class SettingsFragment :
 
         checkUpdateNowPref.clicks()
             .flatMap {
-                ApkUpdater.checkForUpdatesNow()
+                val packageNames = updaterConfig.packageNames
+                UpdaterService.checkUpdatesNow(safeContext, packageNames)
 
                 // TODO: Pull out to a function of ApkUpdater.
-                val intentFilter = IntentFilter(IntentActions.ACTION_CHECK_UPDATES)
+                val intentFilter = IntentFilter(IntentActions.ACTION_CHECK_UPDATES_COMPLETE)
                 RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
                     .map {
                         UiState.Done(true) as UiState<Boolean>
@@ -223,64 +227,6 @@ class SettingsFragment :
     private fun markCheckUpdateDone() {
         checkUpdateNowPref.isEnabled = true
         checkUpdateNowPref.title = checkUpdateNowTitle
-    }
-
-    // Update/Download ////////////////////////////////////////////////////////
-
-    private val downloadTestAppNowPref by lazy {
-        findPreference<Preference>(KEY_DOWNLOAD_TEST_APP_NOW) ?: throw IllegalStateException("Can't find preference!")
-    }
-    private val downloadTestAppNowTitle by lazy { downloadTestAppNowPref.title.toString() }
-
-    @Suppress("USELESS_CAST")
-    private fun observeDownloadTestNowClicks() {
-        val safeContext = context ?: throw NullPointerException("Context is null")
-
-        downloadTestAppNowPref.clicks()
-            .flatMap {
-                ApkUpdater.downloadUpdateNow(FakeUpdates.file170MB)
-
-                // TODO: Pull out to a function of ApkUpdater.
-                val intentFilter = IntentFilter(IntentActions.ACTION_DOWNLOAD_UPDATES)
-                RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
-                    .map { intent ->
-                        val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
-                        UiState.Done(downloadedUpdates.toList()) as UiState<List<DownloadedUpdate>>
-                    }
-                    .startWith(UiState.InProgress())
-                    .take(2)
-            }
-            .observeOn(AndroidSchedulers.mainThread())
-            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
-                markTestDownloadDone()
-                caughtErrorRelay.accept(error)
-                true
-            }
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe({ uiState ->
-                when (uiState) {
-                    is UiState.InProgress<List<DownloadedUpdate>> -> {
-                        markTestDownloadWIP()
-                    }
-                    is UiState.Done<List<DownloadedUpdate>> -> {
-                        // val apks = uiState.data
-                        // Timber.v("[Download] files: $apks")
-                        markTestDownloadDone()
-                    }
-                }
-            }, Timber::e)
-            .addTo(disposables)
-    }
-
-    private fun markTestDownloadWIP() {
-        downloadTestAppNowPref.isEnabled = false
-        // Use title to present working state
-        downloadTestAppNowPref.title = "$downloadTestAppNowTitle (Working...)"
-    }
-
-    private fun markTestDownloadDone() {
-        downloadTestAppNowPref.isEnabled = true
-        downloadTestAppNowPref.title = downloadTestAppNowTitle
     }
 
     // Error //////////////////////////////////////////////////////////////////

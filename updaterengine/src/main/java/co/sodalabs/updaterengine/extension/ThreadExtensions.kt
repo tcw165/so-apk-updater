@@ -10,6 +10,12 @@ fun ensureMainThread() {
     }
 }
 
+fun ensureNotMainThread() {
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+        throw IllegalThreadStateException("Must NOT run on MAIN thread")
+    }
+}
+
 fun HandlerThread.quiteSafelyAndSmartly() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
         this.quitSafely()
