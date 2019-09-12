@@ -1,9 +1,15 @@
 package co.sodalabs.updaterengine.feature.downloader
 
+import android.app.AlarmManager
+import android.app.PendingIntent
+import android.app.job.JobInfo
+import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.PersistableBundle
 import androidx.core.app.JobIntentService
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterConfig
@@ -16,6 +22,7 @@ import co.sodalabs.updaterengine.exception.DownloadInvalidFileSizeException
 import co.sodalabs.updaterengine.exception.DownloadSizeNotFoundException
 import co.sodalabs.updaterengine.exception.DownloadUnknownErrorException
 import co.sodalabs.updaterengine.exception.HttpMalformedURIException
+import co.sodalabs.updaterengine.feature.installer.InstallerJobService
 import dagger.android.AndroidInjection
 import io.reactivex.disposables.CompositeDisposable
 import okhttp3.Headers
@@ -52,9 +59,81 @@ class DownloadJobIntentService : JobIntentService() {
             enqueueWork(context, ComponentName(context, DownloadJobIntentService::class.java), UpdaterJobs.JOB_ID_DOWNLOAD_UPDATES, intent)
         }
 
-        fun cancelDownload() {
-            Timber.v("[Download] Cancel downloading!")
+        fun scheduleDelayedDownload(
+            context: Context,
+            updates: List<AppUpdate>,
+            triggerAtMillis: Long
+        ) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                Timber.v("[Install] (< 21) Schedule a download, using AlarmManager, at $triggerAtMillis milliseconds")
+
+                val intent = Intent(context, DownloadJobIntentService::class.java)
+                intent.action = IntentActions.ACTION_DOWNLOAD_UPDATES
+                intent.putParcelableArrayListExtra(IntentActions.PROP_FOUND_UPDATES, ArrayList(updates))
+
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+
+                alarmManager.cancel(pendingIntent)
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerAtMillis,
+                    pendingIntent
+                )
+            } else {
+                Timber.v("[Install] (>= 21) Schedule a download, using android-21 JobScheduler")
+
+                val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
+                val componentName = ComponentName(context, InstallerJobService::class.java)
+                val persistentBundle = PersistableBundle()
+                // FIXME: How to persist the data? As JSON String, we also need
+                // FIXME: to take care of the AlarmManager case.
+                // persistentBundle.put(IntentActions.PROP_FOUND_UPDATES, ArrayList(updates))
+
+                val builder = JobInfo.Builder(UpdaterJobs.JOB_ID_DOWNLOAD_UPDATES, componentName)
+                    .setRequiresDeviceIdle(false)
+                    .setExtras(persistentBundle)
+
+                if (Build.VERSION.SDK_INT >= 26) {
+                    builder.setRequiresBatteryNotLow(true)
+                        .setRequiresStorageNotLow(true)
+                }
+
+                builder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+
+                // Note: The job would be consumed by CheckJobService and translated
+                // to an Intent. Then the Intent is handled here in onHandleWork()!
+                jobScheduler.cancel(UpdaterJobs.JOB_ID_DOWNLOAD_UPDATES)
+                jobScheduler.schedule(builder.build())
+            }
+        }
+
+        fun cancelDownload(
+            context: Context
+        ) {
+            // Stop any running task.
             canRun.set(false)
+
+            // Kill the pending task.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                Timber.v("[Install] (< 21) Cancel any pending download, using AlarmManager")
+
+                val intent = Intent(context, DownloadJobIntentService::class.java)
+                intent.action = IntentActions.ACTION_DOWNLOAD_UPDATES
+
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+
+                alarmManager.cancel(pendingIntent)
+            } else {
+                Timber.v("[Install] (>= 21) Cancel any pending download, using android-21 JobScheduler")
+
+                val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
+
+                // Note: The job would be consumed by InstallerJobService and translated
+                // to an Intent. Then the Intent is handled here in onHandleWork()!
+                jobScheduler.cancel(UpdaterJobs.JOB_ID_DOWNLOAD_UPDATES)
+            }
         }
 
         @JvmStatic
@@ -113,8 +192,13 @@ class DownloadJobIntentService : JobIntentService() {
         for (i in 0 until updates.size) {
             val update = updates[i]
             val url = update.downloadUrl
-            val urlFileName = Uri.parse(url).lastPathSegment
-                ?: throw HttpMalformedURIException(url)
+            val urlFileName = try {
+                Uri.parse(url).lastPathSegment
+                    ?: throw HttpMalformedURIException(url)
+            } catch (error: Throwable) {
+                errors.add(error)
+                continue
+            }
 
             // Step 1, send a HEAD request for the file size
             val totalSize = try {
@@ -145,7 +229,12 @@ class DownloadJobIntentService : JobIntentService() {
         }
 
         // Let the engine know the download finishes.
-        UpdaterService.notifyDownloadsComplete(this, downloadedUpdates, errors)
+        UpdaterService.notifyDownloadsCompleteOrError(
+            context = this,
+            foundUpdates = updates,
+            downloadedUpdates = downloadedUpdates,
+            errors = errors
+        )
     }
 
     private fun requestFileSize(

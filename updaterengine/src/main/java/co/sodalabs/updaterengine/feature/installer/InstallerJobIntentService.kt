@@ -20,7 +20,6 @@ import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedUpdate
-import co.sodalabs.updaterengine.extension.ensureMainThread
 import dagger.android.AndroidInjection
 import timber.log.Timber
 import javax.inject.Inject
@@ -65,8 +64,6 @@ class InstallerJobIntentService : JobIntentService() {
             context: Context,
             downloadedUpdates: List<DownloadedUpdate>
         ) {
-            ensureMainThread()
-
             val intent = Intent(context, InstallerJobIntentService::class.java)
             intent.action = IntentActions.ACTION_INSTALL_UPDATES
             intent.putParcelableArrayListExtra(IntentActions.PROP_DOWNLOADED_UPDATES, ArrayList(downloadedUpdates))
@@ -78,8 +75,6 @@ class InstallerJobIntentService : JobIntentService() {
             downloadedUpdates: List<DownloadedUpdate>,
             triggerAtMillis: Long
         ) {
-            ensureMainThread()
-
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
                 Timber.v("[Install] (< 21) Schedule an install, using AlarmManager, at $triggerAtMillis milliseconds")
 
@@ -203,7 +198,7 @@ class InstallerJobIntentService : JobIntentService() {
             // TODO: Error handling
         }
 
-        UpdaterService.notifyInstallComplete(this, appliedUpdates, errors)
+        UpdaterService.notifyInstallCompleteOrError(this, appliedUpdates, errors)
     }
 
     // Installer Factory //////////////////////////////////////////////////////

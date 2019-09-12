@@ -17,13 +17,13 @@ class DefaultUpdatesDownloader @Inject constructor(
 
     override fun scheduleDelayedDownload(
         updates: List<AppUpdate>,
-        delayMillis: Long
+        triggerAtMillis: Long
     ) {
-        TODO("not implemented")
+        DownloadJobIntentService.scheduleDelayedDownload(context, updates, triggerAtMillis)
     }
 
     override fun cancelPendingAndWipDownloads() {
-        DownloadJobIntentService.cancelDownload()
+        DownloadJobIntentService.cancelDownload(context)
     }
 
     override fun setDownloadCacheMaxSize(

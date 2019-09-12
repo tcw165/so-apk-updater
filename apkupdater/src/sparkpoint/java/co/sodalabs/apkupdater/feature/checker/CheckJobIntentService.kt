@@ -165,7 +165,7 @@ class CheckJobIntentService : JobIntentService() {
         )
 
         // Notify the updater to move on!
-        UpdaterService.notifyUpdateCheckComplete(this, trimmedUpdates, updatesError)
+        UpdaterService.notifyUpdateCheckCompleteOrError(this, trimmedUpdates, updatesError)
     }
 
     private fun queryAppUpdate(
