@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Parcelable
 import android.os.PersistableBundle
 import androidx.core.app.JobIntentService
 import co.sodalabs.updaterengine.IntentActions
@@ -16,7 +17,8 @@ import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppUpdate
-import co.sodalabs.updaterengine.data.DownloadedUpdate
+import co.sodalabs.updaterengine.data.DownloadedAppUpdate
+import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.exception.DownloadCancelledException
 import co.sodalabs.updaterengine.exception.DownloadInvalidFileSizeException
 import co.sodalabs.updaterengine.exception.DownloadSizeNotFoundException
@@ -47,28 +49,60 @@ class DownloadJobIntentService : JobIntentService() {
 
     companion object {
 
-        fun downloadNow(
+        fun downloadAppUpdateNow(
             context: Context,
             updates: List<AppUpdate>
         ) {
+            downloadUpdateNow(context, updates, IntentActions.ACTION_DOWNLOAD_APP_UPDATE)
+        }
+
+        fun downloadFirmwareUpdateNow(
+            context: Context,
+            updates: List<FirmwareUpdate>
+        ) {
+            downloadUpdateNow(context, updates, IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE)
+        }
+
+        private fun <T : Parcelable> downloadUpdateNow(
+            context: Context,
+            updates: List<T>,
+            intentAction: String
+        ) {
             val intent = Intent(context, DownloadJobIntentService::class.java)
-            intent.action = IntentActions.ACTION_DOWNLOAD_UPDATES
+            intent.action = intentAction
             intent.putParcelableArrayListExtra(IntentActions.PROP_FOUND_UPDATES, ArrayList(updates))
 
             canRun.set(true)
             enqueueWork(context, ComponentName(context, DownloadJobIntentService::class.java), UpdaterJobs.JOB_ID_DOWNLOAD_UPDATES, intent)
         }
 
-        fun scheduleDelayedDownload(
+        fun scheduleDownloadAppUpdate(
             context: Context,
             updates: List<AppUpdate>,
             triggerAtMillis: Long
+        ) {
+            scheduleDownloadUpdate(context, updates, triggerAtMillis, IntentActions.ACTION_DOWNLOAD_APP_UPDATE)
+        }
+
+        fun scheduleDownloadFirmwareUpdate(
+            context: Context,
+            updates: List<FirmwareUpdate>,
+            triggerAtMillis: Long
+        ) {
+            scheduleDownloadUpdate(context, updates, triggerAtMillis, IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE)
+        }
+
+        fun <T : Parcelable> scheduleDownloadUpdate(
+            context: Context,
+            updates: List<T>,
+            triggerAtMillis: Long,
+            intentAction: String
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
                 Timber.v("[Install] (< 21) Schedule a download, using AlarmManager, at $triggerAtMillis milliseconds")
 
                 val intent = Intent(context, DownloadJobIntentService::class.java)
-                intent.action = IntentActions.ACTION_DOWNLOAD_UPDATES
+                intent.action = intentAction
                 intent.putParcelableArrayListExtra(IntentActions.PROP_FOUND_UPDATES, ArrayList(updates))
 
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -86,6 +120,7 @@ class DownloadJobIntentService : JobIntentService() {
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
                 val componentName = ComponentName(context, InstallerJobService::class.java)
                 val persistentBundle = PersistableBundle()
+                persistentBundle.putString(UpdaterJobs.JOB_ACTION, intentAction)
                 // FIXME: How to persist the data? As JSON String, we also need
                 // FIXME: to take care of the AlarmManager case.
                 // persistentBundle.put(IntentActions.PROP_FOUND_UPDATES, ArrayList(updates))
@@ -119,20 +154,21 @@ class DownloadJobIntentService : JobIntentService() {
                 Timber.v("[Install] (< 21) Cancel any pending download, using AlarmManager")
 
                 val intent = Intent(context, DownloadJobIntentService::class.java)
-                intent.action = IntentActions.ACTION_DOWNLOAD_UPDATES
-
+                intent.action = IntentActions.ACTION_DOWNLOAD_APP_UPDATE
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
                 val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
-
                 alarmManager.cancel(pendingIntent)
+
+                // TODO: Cancel firmware update too
             } else {
                 Timber.v("[Install] (>= 21) Cancel any pending download, using android-21 JobScheduler")
 
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-
                 // Note: The job would be consumed by InstallerJobService and translated
                 // to an Intent. Then the Intent is handled here in onHandleWork()!
                 jobScheduler.cancel(UpdaterJobs.JOB_ID_DOWNLOAD_UPDATES)
+
+                // TODO: Cancel firmware update too
             }
         }
 
@@ -161,9 +197,13 @@ class DownloadJobIntentService : JobIntentService() {
 
     override fun onHandleWork(intent: Intent) {
         when (intent.action) {
-            IntentActions.ACTION_DOWNLOAD_UPDATES -> {
+            IntentActions.ACTION_DOWNLOAD_APP_UPDATE -> {
                 val updates = intent.getParcelableArrayListExtra<AppUpdate>(IntentActions.PROP_FOUND_UPDATES)
-                download(updates.toList())
+                downloadAppUpdate(updates.toList())
+            }
+            IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE -> {
+                val updates = intent.getParcelableArrayListExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATES)
+                downloadFirmwareUpdate(updates.toList())
             }
             else -> throw IllegalArgumentException("Hey develop, DownloadJobIntentService is for downloading the updates only!")
         }
@@ -171,12 +211,12 @@ class DownloadJobIntentService : JobIntentService() {
 
     // Download ///////////////////////////////////////////////////////////////
 
-    private fun download(
+    private fun downloadAppUpdate(
         updates: List<AppUpdate>
     ) {
         Timber.v("[Download] Start downloading ${updates.size} updates")
 
-        val downloadedUpdates = mutableListOf<DownloadedUpdate>()
+        val downloadedUpdates = mutableListOf<DownloadedAppUpdate>()
         val errors = mutableListOf<Throwable>()
 
         // Delete the cache before downloading if we don't use cache.
@@ -229,12 +269,19 @@ class DownloadJobIntentService : JobIntentService() {
         }
 
         // Let the engine know the download finishes.
-        UpdaterService.notifyDownloadsCompleteOrError(
+        UpdaterService.notifyAppUpdateDownloaded(
             context = this,
             foundUpdates = updates,
             downloadedUpdates = downloadedUpdates,
             errors = errors
         )
+    }
+
+    private fun downloadFirmwareUpdate(
+        updates: List<FirmwareUpdate>
+    ) {
+        // UpdaterService.notifyFirmwareUpdateDownloaded()
+        TODO()
     }
 
     private fun requestFileSize(
@@ -268,7 +315,7 @@ class DownloadJobIntentService : JobIntentService() {
         totalSize: Long,
         fromUpdate: AppUpdate,
         cacheFile: File
-    ): DownloadedUpdate {
+    ): DownloadedAppUpdate {
         cacheFile.createNewFile()
         val cacheFileSize = cacheFile.length()
 
@@ -329,7 +376,7 @@ class DownloadJobIntentService : JobIntentService() {
             // TODO: Timeout management?
 
             if (currentSize == totalSize) {
-                DownloadedUpdate(cacheFile, fromUpdate)
+                DownloadedAppUpdate(cacheFile, fromUpdate)
             } else {
                 if (canRun.get()) {
                     // If the size is not matched and it's still allowed running,
@@ -342,7 +389,7 @@ class DownloadJobIntentService : JobIntentService() {
             }
         } else if (cacheFileSize == totalSize) {
             Timber.v("[Download] Download \"$url\"... 100%")
-            DownloadedUpdate(cacheFile, fromUpdate)
+            DownloadedAppUpdate(cacheFile, fromUpdate)
         } else {
             // Throw exception as the cache size is greater than the expected size.
             throw DownloadInvalidFileSizeException(cacheFile, cacheFileSize, totalSize)

@@ -1,7 +1,7 @@
 package co.sodalabs.updaterengine
 
 import co.sodalabs.updaterengine.data.AppUpdate
-import co.sodalabs.updaterengine.data.DownloadedUpdate
+import co.sodalabs.updaterengine.data.DownloadedAppUpdate
 import co.sodalabs.updaterengine.jsonadapter.FileAdapter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
@@ -12,7 +12,7 @@ class JsonTest {
 
     @Test
     fun `serialize downloaded update`() {
-        val data = DownloadedUpdate(
+        val data = DownloadedAppUpdate(
             file = File("/tmp/test.apk"),
             fromUpdate = AppUpdate(
                 packageName = "co.sodalabs.test",
@@ -25,7 +25,7 @@ class JsonTest {
         val jsonBuilder = Moshi.Builder()
             .add(FileAdapter())
             .build()
-        val adapter = jsonBuilder.adapter(DownloadedUpdate::class.java)
+        val adapter = jsonBuilder.adapter(DownloadedAppUpdate::class.java)
         val jsonText = adapter.toJson(data)
 
         println(jsonText)
@@ -34,7 +34,7 @@ class JsonTest {
 
     @Test
     fun `serialize a list of downloaded update`() {
-        val unit = DownloadedUpdate(
+        val unit = DownloadedAppUpdate(
             file = File("/tmp/test.apk"),
             fromUpdate = AppUpdate(
                 packageName = "co.sodalabs.test",
@@ -48,8 +48,8 @@ class JsonTest {
         val jsonBuilder = Moshi.Builder()
             .add(FileAdapter())
             .build()
-        val listType = Types.newParameterizedType(List::class.java, DownloadedUpdate::class.java)
-        val adapter = jsonBuilder.adapter<List<DownloadedUpdate>>(listType)
+        val listType = Types.newParameterizedType(List::class.java, DownloadedAppUpdate::class.java)
+        val adapter = jsonBuilder.adapter<List<DownloadedAppUpdate>>(listType)
         val jsonText = adapter.toJson(data)
 
         println(jsonText)
@@ -64,7 +64,7 @@ class JsonTest {
         val jsonBuilder = Moshi.Builder()
             .add(FileAdapter())
             .build()
-        val adapter = jsonBuilder.adapter(DownloadedUpdate::class.java)
+        val adapter = jsonBuilder.adapter(DownloadedAppUpdate::class.java)
         val data = adapter.fromJson(jsonText) ?: throw NullPointerException()
 
         println(data)

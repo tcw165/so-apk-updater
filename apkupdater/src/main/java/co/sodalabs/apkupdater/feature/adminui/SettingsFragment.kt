@@ -186,11 +186,10 @@ class SettingsFragment :
 
         checkUpdateNowPref.clicks()
             .flatMap {
-                val packageNames = updaterConfig.packageNames
-                UpdaterService.checkUpdatesNow(safeContext, packageNames)
+                UpdaterService.checkUpdateNow(safeContext)
 
                 // TODO: Pull out to a function of ApkUpdater.
-                val intentFilter = IntentFilter(IntentActions.ACTION_CHECK_UPDATES_COMPLETE)
+                val intentFilter = IntentFilter(IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE)
                 RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
                     .map {
                         UiState.Done(true) as UiState<Boolean>

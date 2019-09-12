@@ -16,9 +16,11 @@ import co.sodalabs.apkupdater.SharedSettingsProps
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterConfig
+import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.UpdaterJobs.JOB_ID_CHECK_UPDATES
 import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppUpdate
+import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.extension.getIndicesToRemove
 import dagger.android.AndroidInjection
 import retrofit2.HttpException
@@ -30,12 +32,10 @@ class CheckJobIntentService : JobIntentService() {
     companion object {
 
         fun checkUpdatesNow(
-            context: Context,
-            packageNames: Array<String>
+            context: Context
         ) {
             val intent = Intent(context, CheckJobIntentService::class.java)
-            intent.action = IntentActions.ACTION_CHECK_UPDATES
-            intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames)
+            intent.action = IntentActions.ACTION_CHECK_UPDATE
             enqueueWork(
                 context,
                 ComponentName(context, CheckJobIntentService::class.java),
@@ -44,17 +44,15 @@ class CheckJobIntentService : JobIntentService() {
             )
         }
 
-        fun scheduleNextCheck(
+        fun scheduleCheck(
             context: Context,
-            packageNames: Array<String>,
             triggerAtMillis: Long
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
                 Timber.v("[Check] (< 21) Schedule a pending check, using AlarmManager")
 
                 val intent = Intent(context, CheckJobIntentService::class.java)
-                intent.action = IntentActions.ACTION_CHECK_UPDATES
-                intent.putExtra(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames)
+                intent.action = IntentActions.ACTION_CHECK_UPDATE
 
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
                 val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
@@ -71,7 +69,7 @@ class CheckJobIntentService : JobIntentService() {
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
                 val componentName = ComponentName(context, CheckJobService::class.java)
                 val bundle = PersistableBundle()
-                bundle.putStringArray(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames)
+                bundle.putString(UpdaterJobs.JOB_ACTION, IntentActions.ACTION_CHECK_UPDATE)
 
                 val builder = JobInfo.Builder(JOB_ID_CHECK_UPDATES, componentName)
                     .setRequiresDeviceIdle(false)
@@ -89,28 +87,6 @@ class CheckJobIntentService : JobIntentService() {
                 jobScheduler.cancel(JOB_ID_CHECK_UPDATES)
                 jobScheduler.schedule(builder.build())
             }
-        }
-
-        fun cancelRecurringUpdateCheck(
-            context: Context
-        ) {
-            val intent = Intent(context, CheckJobIntentService::class.java)
-            intent.action = IntentActions.ACTION_CHECK_UPDATES
-
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("[Check] (< 21) Cancel the pending jobs using AlarmManager")
-                val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
-                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                alarmManager.cancel(pendingIntent)
-            } else {
-                Timber.v("[Check] (>= 21) Cancel the pending jobs using android-21 JobScheduler")
-                val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-                jobScheduler.cancel(JOB_ID_CHECK_UPDATES)
-            }
-
-            // Stop the service immediately
-            Timber.v("[Check] Stop the service now!")
-            context.stopService(intent)
         }
     }
 
@@ -134,28 +110,44 @@ class CheckJobIntentService : JobIntentService() {
 
     override fun onHandleWork(intent: Intent) {
         when (intent.action) {
-            IntentActions.ACTION_CHECK_UPDATES -> checkAppUpdates(intent)
+            IntentActions.ACTION_CHECK_UPDATE -> checkUpdate()
             else -> Timber.e("Hey develop, this $this is for checking version only!")
         }
     }
 
     // Check Updates //////////////////////////////////////////////////////////
 
-    private fun checkAppUpdates(
-        intent: Intent
-    ) {
-        val packageNames = intent.getStringArrayExtra(IntentActions.PROP_APP_PACKAGE_NAMES)
-            ?: throw IllegalArgumentException("Must provide a package name list")
+    private fun checkUpdate() {
+        // 1) Query firmware update.
+        val (firmwareUpdates, firmwareErrors) = checkFirmwareUpdate()
+        if (firmwareUpdates.isNotEmpty()) {
+            // Notify the updater the app update is found!
+            UpdaterService.notifyFirmwareUpdateFound(this, firmwareUpdates, firmwareErrors)
+            return
+        }
 
+        // 2) Query app update.
+        val (appUpdates, appErrors) = checkAppUpdates()
+        // Notify the updater the firmware update is found!
+        UpdaterService.notifyAppUpdateFound(this, appUpdates, appErrors)
+    }
+
+    private fun checkFirmwareUpdate(): Pair<List<FirmwareUpdate>, List<Throwable>> {
+        // TODO: Implement it
+        return Pair(emptyList(), emptyList())
+    }
+
+    private fun checkAppUpdates(): Pair<List<AppUpdate>, List<Throwable>> {
+        val packageNames = updaterConfig.packageNames
         val updates = mutableListOf<AppUpdate>()
-        var updatesError: Throwable? = null
+        val errors = mutableListOf<Throwable>()
         // Query the updates.
         packageNames.forEach { name ->
             try {
                 val update = queryAppUpdate(name)
                 updates.add(update)
-            } catch (err: Throwable) {
-                updatesError = err
+            } catch (error: Throwable) {
+                errors.add(error)
             }
         }
         // Filter the invalid updates.
@@ -164,8 +156,7 @@ class CheckJobIntentService : JobIntentService() {
             allowDowngrade = updaterConfig.installAllowDowngrade
         )
 
-        // Notify the updater to move on!
-        UpdaterService.notifyUpdateCheckCompleteOrError(this, trimmedUpdates, updatesError)
+        return Pair(trimmedUpdates, errors)
     }
 
     private fun queryAppUpdate(
