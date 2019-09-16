@@ -2,24 +2,38 @@ package co.sodalabs.updaterengine.feature.installer
 
 import android.content.Context
 import co.sodalabs.updaterengine.UpdatesInstaller
-import co.sodalabs.updaterengine.data.DownloadedUpdate
+import co.sodalabs.updaterengine.data.DownloadedAppUpdate
+import co.sodalabs.updaterengine.data.DownloadedFirmwareUpdate
 import javax.inject.Inject
 
 class DefaultUpdatesInstaller @Inject constructor(
     private val context: Context
 ) : UpdatesInstaller {
 
-    override fun installNow(
-        downloadedUpdates: List<DownloadedUpdate>
+    override fun installAppUpdateNow(
+        downloadedUpdates: List<DownloadedAppUpdate>
     ) {
-        InstallerJobIntentService.installNow(context, downloadedUpdates)
+        InstallerJobIntentService.installAppUpdateNow(context, downloadedUpdates)
     }
 
-    override fun scheduleDelayedInstall(
-        downloadedUpdates: List<DownloadedUpdate>,
+    override fun installFirmwareUpdateNow(
+        downloadedUpdates: List<DownloadedFirmwareUpdate>
+    ) {
+        InstallerJobIntentService.installFirmwareUpdateNow(context, downloadedUpdates)
+    }
+
+    override fun scheduleInstallAppUpdate(
+        downloadedUpdates: List<DownloadedAppUpdate>,
         triggerAtMillis: Long
     ) {
-        InstallerJobIntentService.scheduleInstall(context, downloadedUpdates, triggerAtMillis)
+        InstallerJobIntentService.scheduleInstallAppUpdate(context, downloadedUpdates, triggerAtMillis)
+    }
+
+    override fun scheduleInstallFirmwareUpdate(
+        downloadedUpdates: List<DownloadedFirmwareUpdate>,
+        triggerAtMillis: Long
+    ) {
+        InstallerJobIntentService.scheduleInstallFirmwareUpdate(context, downloadedUpdates, triggerAtMillis)
     }
 
     override fun cancelPendingInstalls() {

@@ -4,7 +4,6 @@ import android.annotation.TargetApi
 import android.app.job.JobParameters
 import android.app.job.JobService
 import android.os.PersistableBundle
-import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterJobs
 import timber.log.Timber
 
@@ -36,11 +35,6 @@ class CheckJobService : JobService() {
     private fun checkVersions(
         extras: PersistableBundle
     ) {
-        val packageNames = extras.getStringArray(IntentActions.PROP_APP_PACKAGE_NAMES)
-            ?: throw IllegalArgumentException("Must provide a package name list.")
-
-        CheckJobIntentService.checkUpdatesNow(
-            context = this,
-            packageNames = packageNames)
+        CheckJobIntentService.checkUpdatesNow(this)
     }
 }

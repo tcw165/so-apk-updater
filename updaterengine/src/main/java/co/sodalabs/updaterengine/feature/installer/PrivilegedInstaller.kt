@@ -10,7 +10,7 @@ import co.sodalabs.privilegedinstaller.IPrivilegedService
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.Packages
 import co.sodalabs.updaterengine.data.AppliedUpdate
-import co.sodalabs.updaterengine.data.DownloadedUpdate
+import co.sodalabs.updaterengine.data.DownloadedAppUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
 import co.sodalabs.updaterengine.exception.InstallNoPrivilegedPermissionException
 import co.sodalabs.updaterengine.feature.installer.PrivilegedInstallFlags.INSTALL_ALLOW_DOWNGRADE
@@ -60,7 +60,7 @@ class PrivilegedInstaller(
     }
 
     override fun installPackages(
-        localUpdates: List<DownloadedUpdate>
+        localUpdates: List<DownloadedAppUpdate>
     ): Pair<List<AppliedUpdate>, List<Throwable>> {
         if (localUpdates.isEmpty()) {
             Timber.v("[Install] Install skips due to no updates")
@@ -75,7 +75,7 @@ class PrivilegedInstaller(
 
         val (connection, privService) = bindPrivilegedService()
         privService?.apply {
-            val remainingInstalls: Queue<DownloadedUpdate> = LinkedList(localUpdates)
+            val remainingInstalls: Queue<DownloadedAppUpdate> = LinkedList(localUpdates)
             // Apply the updates one by one synchronously.
             while (remainingInstalls.isNotEmpty()) {
                 val downloadedUpdate = remainingInstalls.poll()

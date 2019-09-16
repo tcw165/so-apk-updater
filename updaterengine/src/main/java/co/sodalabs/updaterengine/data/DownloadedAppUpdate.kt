@@ -10,7 +10,7 @@ import java.io.File
 @Keep
 @Parcelize
 @JsonClass(generateAdapter = true)
-data class DownloadedUpdate(
+data class DownloadedAppUpdate(
     @Json(name = "file")
     val file: File,
     @Json(name = "from_update")

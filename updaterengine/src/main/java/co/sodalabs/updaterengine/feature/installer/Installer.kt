@@ -2,7 +2,7 @@ package co.sodalabs.updaterengine.feature.installer
 
 import android.content.Context
 import co.sodalabs.updaterengine.data.AppliedUpdate
-import co.sodalabs.updaterengine.data.DownloadedUpdate
+import co.sodalabs.updaterengine.data.DownloadedAppUpdate
 
 /**
  * The URI where the APK was originally downloaded from. This is also used
@@ -23,9 +23,9 @@ abstract class Installer(
     download URI to identify which session this belongs to.  This first
     moves the APK file to private directory for the installation process
     to read from.  Then the hash of the APK is checked against the
-    {@link DownloadedUpdate} instance provided when this {@code Installer} object was
+    {@link DownloadedAppUpdate} instance provided when this {@code Installer} object was
     instantiated.  The list of permissions in the APK file and the
-    {@code DownloadedUpdate} instance are compared, if they do not match, then the user
+    {@code DownloadedAppUpdate} instance are compared, if they do not match, then the user
     is prompted install the system installer dialog, which shows all the
     permissions that the APK is requesting.
     @param fileURI points to the local copy of the APK to be installed
@@ -34,7 +34,7 @@ abstract class Installer(
     @see InstallManagerService
     @see <a href="https://issuetracker.google.com/issues/37091886">ACTION_INSTALL_PACKAGE Fails For Any Possible Uri</a>
      */
-    abstract fun installPackages(localUpdates: List<DownloadedUpdate>): Pair<List<AppliedUpdate>, List<Throwable>>
+    abstract fun installPackages(localUpdates: List<DownloadedAppUpdate>): Pair<List<AppliedUpdate>, List<Throwable>>
 
     /**
      * Uninstall app as defined by [Installer.apk] in
