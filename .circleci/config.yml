@@ -13,7 +13,7 @@ jobs:
           key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradleScripts/dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
           name: Download Keystore
-          # Encode the file to the base64 string: openssl base64 -in file | pbcopy
+          # Encode the file to the base64 string: openssl base64 -A -in file | pbcopy
           command: echo $RELEASE_KEYSTORE_BASE64 | base64 --decode > build.keystore
       - run:
           name: Create keystore.properies
