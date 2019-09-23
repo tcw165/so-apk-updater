@@ -47,12 +47,18 @@ class SparkPointUpdatedReceiver : BroadcastReceiver() {
         context: Context
     ) {
         Timber.v("SparkPoint player is just replaced, restart it...")
-        val packageName = Packages.SPARKPOINT_PACKAGE_NAME
-        val pm = context.packageManager
-        val playerIntent = pm.getLaunchIntentForPackage(packageName)
-            ?: throw IllegalStateException("Cannot find the launch Intent for \"$packageName\"")
-        playerIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        playerIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(playerIntent)
+        try {
+            val packageName = Packages.SPARKPOINT_PACKAGE_NAME
+            val pm = context.packageManager
+            val playerIntent = pm.getLaunchIntentForPackage(packageName)
+                ?: throw IllegalStateException("Cannot find the launch Intent for \"$packageName\"")
+            playerIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            playerIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            // Some install fails and therefore cannot restart the app.
+            // See https://app.clubhouse.io/soda/story/869/updater-crashes-when-the-sparkpoint-player-updates
+            context.startActivity(playerIntent)
+        } catch (error: Throwable) {
+            Timber.e(error)
+        }
     }
 }
