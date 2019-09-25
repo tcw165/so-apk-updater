@@ -2,16 +2,23 @@ package co.sodalabs.updaterengine
 
 object IntentActions {
 
-    // Check/download/install requests
     const val ACTION_ENGINE_START = "$ACTION_PREFIX.engine_start"
-    const val ACTION_CHECK_UPDATES = "$ACTION_PREFIX.check_updates"
-    const val ACTION_CHECK_UPDATES_COMPLETE = "$ACTION_PREFIX.check_updates_complete"
-    const val ACTION_DOWNLOAD_UPDATES = "$ACTION_PREFIX.download_updates"
-    const val ACTION_DOWNLOAD_UPDATES_COMPLETE = "$ACTION_PREFIX.download_updates_complete"
-    const val ACTION_INSTALL_UPDATES = "$ACTION_PREFIX.install_updates"
-    const val ACTION_INSTALL_UPDATES_COMPLETE = "$ACTION_PREFIX.install_updates_complete"
+    // General update check
+    const val ACTION_CHECK_UPDATE = "$ACTION_PREFIX.check_update"
+    // App update download & install
+    const val ACTION_CHECK_APP_UPDATE_COMPLETE = "$ACTION_PREFIX.check_app_update_complete"
+    const val ACTION_DOWNLOAD_APP_UPDATE = "$ACTION_PREFIX.download_app_update"
+    const val ACTION_DOWNLOAD_APP_UPDATE_COMPLETE = "$ACTION_PREFIX.download_app_update_complete"
+    const val ACTION_INSTALL_APP_UPDATE = "$ACTION_PREFIX.install_app_update"
+    const val ACTION_INSTALL_APP_UPDATE_COMPLETE = "$ACTION_PREFIX.install_app_update_complete"
     const val ACTION_UNINSTALL_PACKAGES = "$ACTION_PREFIX.uninstall_packages"
     const val ACTION_UNINSTALL_PACKAGES_COMPLETE = "$ACTION_PREFIX.uninstall_packages_complete"
+    // Firmware update download & install
+    const val ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE = "$ACTION_PREFIX.check_firmware_update_complete"
+    const val ACTION_DOWNLOAD_FIRMWARE_UPDATE = "$ACTION_PREFIX.download_firmware_update"
+    const val ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE = "$ACTION_PREFIX.download_firmware_update_complete"
+    const val ACTION_INSTALL_FIRMWARE_UPDATE = "$ACTION_PREFIX.install_firmware_update"
+    const val ACTION_INSTALL_FIRMWARE_UPDATE_COMPLETE = "$ACTION_PREFIX.install_firmware_update_complete"
     // Heart-beat
     const val ACTION_SEND_HEART_BEAT_NOW = "$ACTION_PREFIX.send_heart_beat_now"
 

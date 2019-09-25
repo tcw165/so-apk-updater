@@ -8,22 +8,15 @@ class SparkPointUpdatesChecker @Inject constructor(
     private val context: Context
 ) : UpdatesChecker {
 
-    override fun checkNow(
-        packageNames: List<String>
-    ) {
-        CheckJobIntentService.checkUpdatesNow(
-            context,
-            packageNames.toTypedArray()
-        )
+    override fun checkNow() {
+        CheckJobIntentService.checkUpdatesNow(context)
     }
 
-    override fun scheduleDelayedCheck(
-        packageNames: List<String>,
+    override fun scheduleCheck(
         triggerAtMillis: Long
     ) {
-        CheckJobIntentService.scheduleNextCheck(
+        CheckJobIntentService.scheduleCheck(
             context,
-            packageNames.toTypedArray(),
             triggerAtMillis
         )
     }

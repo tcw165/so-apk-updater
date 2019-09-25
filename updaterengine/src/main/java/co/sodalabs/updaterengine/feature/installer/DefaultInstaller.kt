@@ -6,7 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.data.AppliedUpdate
-import co.sodalabs.updaterengine.data.DownloadedUpdate
+import co.sodalabs.updaterengine.data.DownloadedAppUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
 import java.util.LinkedList
 import java.util.Queue
@@ -26,9 +26,9 @@ class DefaultInstaller(
 ) : Installer(context) {
 
     override fun installPackages(
-        localUpdates: List<DownloadedUpdate>
+        localUpdates: List<DownloadedAppUpdate>
     ): Pair<List<AppliedUpdate>, List<Throwable>> {
-        val remainingUpdates: Queue<DownloadedUpdate> = LinkedList(localUpdates)
+        val remainingUpdates: Queue<DownloadedAppUpdate> = LinkedList(localUpdates)
         val appliedUpdates = CopyOnWriteArrayList<AppliedUpdate>()
         val errors = CopyOnWriteArrayList<Throwable>()
 

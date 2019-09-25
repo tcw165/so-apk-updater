@@ -11,6 +11,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Parcelable
 import android.os.PersistableBundle
 import androidx.core.app.JobIntentService
 import co.sodalabs.updaterengine.IntentActions
@@ -19,7 +20,8 @@ import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppliedUpdate
-import co.sodalabs.updaterengine.data.DownloadedUpdate
+import co.sodalabs.updaterengine.data.DownloadedAppUpdate
+import co.sodalabs.updaterengine.data.DownloadedFirmwareUpdate
 import dagger.android.AndroidInjection
 import timber.log.Timber
 import javax.inject.Inject
@@ -60,26 +62,58 @@ class InstallerJobIntentService : JobIntentService() {
          *
          * @see .uninstall
          */
-        fun installNow(
+        fun installAppUpdateNow(
             context: Context,
-            downloadedUpdates: List<DownloadedUpdate>
+            downloadedUpdates: List<DownloadedAppUpdate>
+        ) {
+            installNow(context, downloadedUpdates, IntentActions.ACTION_INSTALL_APP_UPDATE)
+        }
+
+        fun installFirmwareUpdateNow(
+            context: Context,
+            downloadedUpdates: List<DownloadedFirmwareUpdate>
+        ) {
+            installNow(context, downloadedUpdates, IntentActions.ACTION_INSTALL_APP_UPDATE)
+        }
+
+        private fun <T : Parcelable> installNow(
+            context: Context,
+            downloadedUpdates: List<T>,
+            intentAction: String
         ) {
             val intent = Intent(context, InstallerJobIntentService::class.java)
-            intent.action = IntentActions.ACTION_INSTALL_UPDATES
+            intent.action = intentAction
             intent.putParcelableArrayListExtra(IntentActions.PROP_DOWNLOADED_UPDATES, ArrayList(downloadedUpdates))
             enqueueWork(context, intent)
         }
 
-        fun scheduleInstall(
+        fun scheduleInstallAppUpdate(
             context: Context,
-            downloadedUpdates: List<DownloadedUpdate>,
+            downloadedUpdates: List<DownloadedAppUpdate>,
             triggerAtMillis: Long
+        ) {
+            scheduleInstall(context, downloadedUpdates, triggerAtMillis, IntentActions.ACTION_INSTALL_APP_UPDATE)
+        }
+
+        fun scheduleInstallFirmwareUpdate(
+            context: Context,
+            downloadedUpdates: List<DownloadedFirmwareUpdate>,
+            triggerAtMillis: Long
+        ) {
+            scheduleInstall(context, downloadedUpdates, triggerAtMillis, IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE)
+        }
+
+        private fun <T : Parcelable> scheduleInstall(
+            context: Context,
+            downloadedUpdates: List<T>,
+            triggerAtMillis: Long,
+            intentAction: String
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
                 Timber.v("[Install] (< 21) Schedule an install, using AlarmManager, at $triggerAtMillis milliseconds")
 
                 val intent = Intent(context, InstallerJobIntentService::class.java)
-                intent.action = IntentActions.ACTION_INSTALL_UPDATES
+                intent.action = intentAction
                 intent.putParcelableArrayListExtra(IntentActions.PROP_DOWNLOADED_UPDATES, ArrayList(downloadedUpdates))
 
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -98,6 +132,7 @@ class InstallerJobIntentService : JobIntentService() {
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
                 val componentName = ComponentName(context, InstallerJobService::class.java)
                 val persistentBundle = PersistableBundle()
+                persistentBundle.putString(UpdaterJobs.JOB_ACTION, intentAction)
                 // persistentBundle.put(IntentActions.PROP_DOWNLOADED_UPDATES, ArrayList(downloadedUpdates))
 
                 val builder = JobInfo.Builder(UpdaterJobs.JOB_ID_INSTALL_UPDATES, componentName)
@@ -125,7 +160,7 @@ class InstallerJobIntentService : JobIntentService() {
                 Timber.v("[Install] (< 21) Cancel any pending install, using AlarmManager")
 
                 val intent = Intent(context, InstallerJobIntentService::class.java)
-                intent.action = IntentActions.ACTION_INSTALL_UPDATES
+                intent.action = IntentActions.ACTION_INSTALL_APP_UPDATE
 
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
                 val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
@@ -175,30 +210,43 @@ class InstallerJobIntentService : JobIntentService() {
     }
 
     override fun onHandleWork(intent: Intent) {
+        when (intent.action) {
+            IntentActions.ACTION_INSTALL_APP_UPDATE -> installAppUpdate(intent)
+            IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE -> installFirmwareUpdate(intent)
+            IntentActions.ACTION_UNINSTALL_PACKAGES -> uninstallPackages(intent)
+            else -> throw IllegalArgumentException("${intent.action} is not supported")
+        }
+    }
+
+    private fun installAppUpdate(
+        intent: Intent
+    ) {
         val installer = createInstaller()
         val appliedUpdates = mutableListOf<AppliedUpdate>()
         val errors = mutableListOf<Throwable>()
 
-        val (updates, errs) = when (intent.action) {
-            IntentActions.ACTION_INSTALL_UPDATES -> {
-                val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
-                installer.installPackages(downloadedUpdates)
-            }
-            IntentActions.ACTION_UNINSTALL_PACKAGES -> {
-                val packageNames = intent.getStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES)
-                installer.uninstallPackage(packageNames)
-                TODO()
-            }
-            else -> throw IllegalArgumentException("${intent.action} is not supported")
-        }
+        val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedAppUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
+        val (updates, errs) = installer.installPackages(downloadedUpdates)
         appliedUpdates.addAll(updates)
         errors.addAll(errs)
 
-        if (errors.isNotEmpty()) {
-            // TODO: Error handling
-        }
+        UpdaterService.notifyAppUpdateInstalled(this, appliedUpdates, errors)
+    }
 
-        UpdaterService.notifyInstallCompleteOrError(this, appliedUpdates, errors)
+    private fun installFirmwareUpdate(
+        intent: Intent
+    ) {
+        // val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
+        // UpdaterService.notifyFirmwareUpdateInstalled(this, downloadedUpdates, errors)
+        TODO()
+    }
+
+    private fun uninstallPackages(
+        intent: Intent
+    ) {
+        // val packageNames = intent.getStringArrayListExtra(IntentActions.PROP_APP_PACKAGE_NAMES)
+        // installer.uninstallPackage(packageNames)
+        TODO()
     }
 
     // Installer Factory //////////////////////////////////////////////////////

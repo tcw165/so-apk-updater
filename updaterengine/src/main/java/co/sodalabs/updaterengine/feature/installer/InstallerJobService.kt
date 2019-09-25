@@ -39,7 +39,7 @@ class InstallerJobService : JobService() {
         // val updates = extras.getStringArray(IntentActions.PROP_DOWNLOADED_UPDATES)
         //     ?: throw IllegalArgumentException("Must provide a updates list.")
         //
-        // InstallerJobIntentService.installNow(
+        // InstallerJobIntentService.installAppUpdateNow(
         //     context = this,
         //     downloadedUpdates = updates)
         TODO()

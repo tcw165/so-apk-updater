@@ -28,7 +28,7 @@ import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
-private const val DEBUG_DEVICE_ID = "660112"
+private const val DEBUG_DEVICE_ID = "999999"
 private const val DEBUG_FIRMWARE_VERSION = "1.0.0"
 private const val DEBUG_SPARKPOINT_VERSION = "0.2.6.1"
 
@@ -136,7 +136,7 @@ class UpdaterApp :
         // Debug device ID
         try {
             if (Settings.Secure.getString(contentResolver, SharedSettingsProps.DEVICE_ID) == null &&
-                (BuildUtils.isDebug() || BuildUtils.isStaging())) {
+                (BuildUtils.isDebug())) {
                 Timber.v("[Updater] Inject the debug device ID as \"$DEBUG_DEVICE_ID\"")
                 Settings.Secure.putString(contentResolver, SharedSettingsProps.DEVICE_ID, DEBUG_DEVICE_ID)
             }
@@ -148,14 +148,14 @@ class UpdaterApp :
 
         // Mock firmware version
         if (!rawPreference.contains(PreferenceProps.MOCK_FIRMWARE_VERSION)) {
-            if (BuildUtils.isDebug() || BuildUtils.isStaging()) {
+            if (BuildUtils.isDebug()) {
                 rawPreference.edit()
                     .putString(PreferenceProps.MOCK_FIRMWARE_VERSION, DEBUG_FIRMWARE_VERSION)
                     .apply()
             }
         }
         if (!rawPreference.contains(PreferenceProps.MOCK_SPARKPOINT_VERSION)) {
-            if (BuildUtils.isDebug() || BuildUtils.isStaging()) {
+            if (BuildUtils.isDebug()) {
                 rawPreference.edit()
                     .putString(PreferenceProps.MOCK_SPARKPOINT_VERSION, DEBUG_SPARKPOINT_VERSION)
                     .apply()

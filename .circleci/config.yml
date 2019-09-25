@@ -13,6 +13,7 @@ jobs:
           key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradleScripts/dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
           name: Download Keystore
+          # Encode the file to the base64 string: openssl base64 -A -in file | pbcopy
           command: echo $RELEASE_KEYSTORE_BASE64 | base64 --decode > build.keystore
       - run:
           name: Create keystore.properies
@@ -88,7 +89,7 @@ jobs:
           destination: privilegedinstaller/build/outputs/mapping/
 
   build-updaterengine-debug:
-    working_directory: ~/ApkUpdater
+    working_directory: ~/project
     docker:
       - image: circleci/android:api-28-alpha
     environment:
@@ -105,7 +106,7 @@ jobs:
           destination: updaterengine/build/outputs/aar/
 
   build-updater-debug:
-    working_directory: ~/ApkUpdater
+    working_directory: ~/project
     docker:
       - image: circleci/android:api-28-alpha
     environment:
@@ -122,7 +123,7 @@ jobs:
           destination: apkupdater/build/outputs/apk/
 
   build-privilegedinstaller-debug:
-    working_directory: ~/ApkUpdater
+    working_directory: ~/project
     docker:
       - image: circleci/android:api-28-alpha
     environment:
@@ -139,7 +140,7 @@ jobs:
           destination: privilegedinstaller/build/outputs/apk/
 
   deploy-all-releases:
-    working_directory: ~/ApkUpdater
+    working_directory: ~/project
     docker:
       - image: circleci/android:api-28-alpha
     environment:
