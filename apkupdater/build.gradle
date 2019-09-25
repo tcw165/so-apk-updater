@@ -23,7 +23,7 @@ versionProperties.load(new FileInputStream(versionPropertiesFile))
 // Bugsnag service
 def getBugsnagAPIKeyFromFile = {
     // If you are missing this file, please download from our internal file repo
-    // https://drive.google.com/open?id=1eYL1lPB0mHgXj4rttdDycjmOFPoF4vfN
+    // https://drive.google.com/drive/folders/1V8tpGNrdw0P_58fjmFp1oi3S6UhDy5Tv?usp=sharing
     def bugsnagPropertiesFile = project.file("bugsnag.properties")
     def bugsnagProperties = new Properties()
     bugsnagProperties.load(new FileInputStream(bugsnagPropertiesFile))
