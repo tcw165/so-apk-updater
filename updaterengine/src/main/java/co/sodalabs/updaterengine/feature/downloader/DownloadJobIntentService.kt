@@ -371,6 +371,14 @@ class DownloadJobIntentService : JobIntentService() {
 
                 val percentage = Math.round(100f * currentSize / totalSize)
                 Timber.v("[Download] Download \"$url\"... $percentage%")
+
+                UpdaterService.notifyAppUpdateDownloadProgress(
+                    context = this,
+                    update = fromUpdate,
+                    percentageComplete = percentage,
+                    currentBytes = currentSize,
+                    totalBytes = totalSize
+                )
             }
 
             // TODO: Timeout management?

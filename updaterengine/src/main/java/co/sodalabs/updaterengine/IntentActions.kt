@@ -8,6 +8,7 @@ object IntentActions {
     // App update download & install
     const val ACTION_CHECK_APP_UPDATE_COMPLETE = "$ACTION_PREFIX.check_app_update_complete"
     const val ACTION_DOWNLOAD_APP_UPDATE = "$ACTION_PREFIX.download_app_update"
+    const val ACTION_DOWNLOAD_APP_UPDATE_PROGRESS = "$ACTION_PREFIX.download_app_update_progress"
     const val ACTION_DOWNLOAD_APP_UPDATE_COMPLETE = "$ACTION_PREFIX.download_app_update_complete"
     const val ACTION_INSTALL_APP_UPDATE = "$ACTION_PREFIX.install_app_update"
     const val ACTION_INSTALL_APP_UPDATE_COMPLETE = "$ACTION_PREFIX.install_app_update_complete"
@@ -16,6 +17,7 @@ object IntentActions {
     // Firmware update download & install
     const val ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE = "$ACTION_PREFIX.check_firmware_update_complete"
     const val ACTION_DOWNLOAD_FIRMWARE_UPDATE = "$ACTION_PREFIX.download_firmware_update"
+    const val ACTION_DOWNLOAD_FIRMWARE_UPDATE_PROGRESS = "$ACTION_PREFIX.download_firmware_update_progress"
     const val ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE = "$ACTION_PREFIX.download_firmware_update_complete"
     const val ACTION_INSTALL_FIRMWARE_UPDATE = "$ACTION_PREFIX.install_firmware_update"
     const val ACTION_INSTALL_FIRMWARE_UPDATE_COMPLETE = "$ACTION_PREFIX.install_firmware_update_complete"
@@ -24,6 +26,7 @@ object IntentActions {
 
     const val PROP_RESET_UPDATER_SESSION = "$EXTRA_PREFIX.reset_updater_session"
 
+    const val PROP_FOUND_UPDATE = "$ACTION_PREFIX.found_update"
     const val PROP_FOUND_UPDATES = "$ACTION_PREFIX.found_updates"
     const val PROP_DOWNLOADED_UPDATES = "$EXTRA_PREFIX.downloaded_updates"
     const val PROP_APPLIED_UPDATES = "$EXTRA_PREFIX.applied_updates"
@@ -31,4 +34,7 @@ object IntentActions {
 
     const val PROP_HTTP_RESPONSE_CODE = "$EXTRA_PREFIX.http_response_code"
     const val PROP_ERROR = "$EXTRA_PREFIX.error"
+    const val PROP_PROGRESS_PERCENTAGE = "$ACTION_PREFIX.progress_percentage"
+    const val PROP_DOWNLOAD_CURRENT_BYTES = "$ACTION_PREFIX.download_current_bytes"
+    const val PROP_DOWNLOAD_TOTAL_BYTES = "$ACTION_PREFIX.download_total_bytes"
 }
