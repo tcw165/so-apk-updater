@@ -26,7 +26,9 @@ object IntentActions {
 
     const val PROP_RESET_UPDATER_SESSION = "$EXTRA_PREFIX.reset_updater_session"
 
+    // Used for firmware, since we only ever have one at a time
     const val PROP_FOUND_UPDATE = "$ACTION_PREFIX.found_update"
+    // Used for apks, since we have batch installs
     const val PROP_FOUND_UPDATES = "$ACTION_PREFIX.found_updates"
     const val PROP_DOWNLOADED_UPDATES = "$EXTRA_PREFIX.downloaded_updates"
     const val PROP_APPLIED_UPDATES = "$EXTRA_PREFIX.applied_updates"

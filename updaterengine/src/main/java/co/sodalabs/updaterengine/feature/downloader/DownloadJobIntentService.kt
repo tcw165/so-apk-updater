@@ -39,6 +39,8 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 private const val INVALID_CONTENT_LENGTH_STRING = "-1"
 
@@ -319,8 +321,11 @@ class DownloadJobIntentService : JobIntentService() {
         cacheFile.createNewFile()
         val cacheFileSize = cacheFile.length()
 
+        // Used to prevent progress updates of the same value
+        var workingPercentage = -1
+
         return if (cacheFileSize < totalSize) {
-            val startPercentage = Math.round(100f * cacheFileSize / totalSize)
+            val startPercentage = (100f * cacheFileSize / totalSize).roundToInt()
             Timber.v("[Download] Download \"$url\"... $startPercentage%")
             val dateString = Instant.now()
                 .atOffset(ZoneOffset.UTC)
@@ -330,7 +335,7 @@ class DownloadJobIntentService : JobIntentService() {
 
             // Download the file chunk by chunk (progressive download)
             while (canRun.get() && currentSize < totalSize) {
-                val endSize = Math.min(currentSize + CHUNK_IN_BYTES, totalSize)
+                val endSize = min(currentSize + CHUNK_IN_BYTES, totalSize)
                 val headers = hashMapOf(
                     Pair("Range", "bytes=$currentSize-$endSize"),
                     Pair("x-ms-range", "bytes=$currentSize-$endSize"),
@@ -369,16 +374,21 @@ class DownloadJobIntentService : JobIntentService() {
                     throw DownloadUnknownErrorException(response.code(), url)
                 }
 
-                val percentage = Math.round(100f * currentSize / totalSize)
+                val percentage = (100f * currentSize / totalSize).roundToInt()
                 Timber.v("[Download] Download \"$url\"... $percentage%")
 
-                UpdaterService.notifyAppUpdateDownloadProgress(
-                    context = this,
-                    update = fromUpdate,
-                    percentageComplete = percentage,
-                    currentBytes = currentSize,
-                    totalBytes = totalSize
-                )
+                // Prevent duplicate percentage notifications
+                if (workingPercentage != percentage) {
+                    workingPercentage = percentage
+
+                    UpdaterService.notifyAppUpdateDownloadProgress(
+                        context = this,
+                        update = fromUpdate,
+                        percentageComplete = percentage,
+                        currentBytes = currentSize,
+                        totalBytes = totalSize
+                    )
+                }
             }
 
             // TODO: Timeout management?
