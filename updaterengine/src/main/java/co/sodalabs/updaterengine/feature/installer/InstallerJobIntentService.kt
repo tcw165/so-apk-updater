@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Parcelable
 import android.os.PersistableBundle
 import androidx.core.app.JobIntentService
+import co.sodalabs.updaterengine.IRebootHelper
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Packages
 import co.sodalabs.updaterengine.UpdaterConfig
@@ -22,9 +23,17 @@ import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedAppUpdate
 import co.sodalabs.updaterengine.data.DownloadedFirmwareUpdate
+import co.sodalabs.updaterengine.extension.ensureNotMainThread
+import co.sodalabs.updaterengine.utils.BuildUtils
 import dagger.android.AndroidInjection
 import timber.log.Timber
+import java.io.File
 import javax.inject.Inject
+
+private val CACHE_DIR = File("/cache/recovery")
+
+private val COMMAND_FILE = File(CACHE_DIR, "command")
+private val EXTENDED_COMMAND_FILE = File(CACHE_DIR, "extendedcommand")
 
 /**
  * MODIFIED FROM F-DROID OPEN SOURCE.
@@ -211,12 +220,16 @@ class InstallerJobIntentService : JobIntentService() {
 
     override fun onHandleWork(intent: Intent) {
         when (intent.action) {
+            // App Update
             IntentActions.ACTION_INSTALL_APP_UPDATE -> installAppUpdate(intent)
-            IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE -> installFirmwareUpdate(intent)
             IntentActions.ACTION_UNINSTALL_PACKAGES -> uninstallPackages(intent)
+            // Firmware Update
+            IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE -> installFirmwareUpdate(intent)
             else -> throw IllegalArgumentException("${intent.action} is not supported")
         }
     }
+
+    // App Update /////////////////////////////////////////////////////////////
 
     private fun installAppUpdate(
         intent: Intent
@@ -233,14 +246,6 @@ class InstallerJobIntentService : JobIntentService() {
         UpdaterService.notifyAppUpdateInstalled(this, appliedUpdates, errors)
     }
 
-    private fun installFirmwareUpdate(
-        intent: Intent
-    ) {
-        // val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
-        // UpdaterService.notifyFirmwareUpdateInstalled(this, downloadedUpdates, errors)
-        TODO()
-    }
-
     private fun uninstallPackages(
         intent: Intent
     ) {
@@ -248,8 +253,6 @@ class InstallerJobIntentService : JobIntentService() {
         // installer.uninstallPackage(packageNames)
         TODO()
     }
-
-    // Installer Factory //////////////////////////////////////////////////////
 
     private fun createInstaller(): Installer {
         val installedPackages: List<PackageInfo> = packageManager.getInstalledPackages(PackageManager.GET_SERVICES)
@@ -267,5 +270,100 @@ class InstallerJobIntentService : JobIntentService() {
         } else {
             DefaultInstaller(this)
         }
+    }
+
+    // Firmware Update ////////////////////////////////////////////////////////
+
+    @Inject
+    lateinit var rebootHelper: IRebootHelper
+
+    private fun installFirmwareUpdate(
+        intent: Intent
+    ) {
+        try {
+            ensureInstallCommandFile()
+
+            // TODO: Differentiate the full or incremental update
+            // TODO: Get boolean for wipe-data & wipe-cache
+
+            // Assume the downloaded update is the incremental update
+            val downloadedUpdate = intent.getParcelableExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATE)
+            writeCommandForIncrementalUpdate(downloadedUpdate, wipeData = false, wipeCache = false)
+
+            // Assume it's a silent incremental update, so reboot once the command
+            // is written.
+            rebootHelper.rebootToRecovery()
+        } catch (error: Throwable) {
+            Timber.e(error)
+        }
+
+        // TODO: For full-update in OOBE, will wait user's decision to reboot.
+        // UpdaterService.notifyFirmwareUpdateInstalled(this, update, error)
+    }
+
+    private fun ensureInstallCommandFile() {
+        ensureNotMainThread()
+
+        // Ensure the directory.
+        if (!CACHE_DIR.exists()) {
+            CACHE_DIR.mkdirs()
+        }
+
+        // Clean up any previous commands.
+        if (EXTENDED_COMMAND_FILE.exists()) {
+            EXTENDED_COMMAND_FILE.delete()
+        }
+        if (COMMAND_FILE.exists()) {
+            COMMAND_FILE.delete()
+        }
+
+        // Create a clean command file
+        COMMAND_FILE.createNewFile()
+    }
+
+    private fun writeCommandForIncrementalUpdate(
+        update: DownloadedFirmwareUpdate,
+        wipeData: Boolean,
+        wipeCache: Boolean
+    ) {
+        ensureNotMainThread()
+
+        COMMAND_FILE.bufferedWriter()
+            .use { out ->
+                val cmdList = mutableListOf<String>()
+
+                cmdList.add("boot-recovery")
+                if (wipeData) {
+                    cmdList.add("--wipe_data")
+                }
+                if (wipeCache) {
+                    cmdList.add("--wipe_cache")
+                }
+
+                val originalFilePath = update.file.canonicalPath
+                // Correct the file path due to some Android constraint. The
+                // partition is mounted as 'legacy' in the normal boot, while it
+                // is '0' in the recovery mode.
+                val correctedFilePath = originalFilePath.replaceFirst("/storage/emulated/legacy/", "/data/media/0/")
+                val correctedFile = File(correctedFilePath)
+                cmdList.add("--update_package=$correctedFile")
+
+                out.write(cmdList.concatWithSpace())
+            }
+
+        // Log the content of the command file
+        if (BuildUtils.isDebug()) {
+            val content = COMMAND_FILE.bufferedReader().readText()
+            Timber.v("[Install] firmware install command is ready as '$content'")
+        }
+    }
+
+    private fun List<String>.concatWithSpace(): String {
+        val builder = StringBuilder()
+        for (cmd in this) {
+            builder.append(cmd)
+            builder.append(" ")
+        }
+        return builder.toString()
     }
 }

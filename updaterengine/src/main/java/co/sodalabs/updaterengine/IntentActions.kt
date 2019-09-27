@@ -30,7 +30,9 @@ object IntentActions {
     const val PROP_FOUND_UPDATE = "$ACTION_PREFIX.found_update"
     // Used for apks, since we have batch installs
     const val PROP_FOUND_UPDATES = "$ACTION_PREFIX.found_updates"
+    const val PROP_DOWNLOADED_UPDATE = "$EXTRA_PREFIX.downloaded_update"
     const val PROP_DOWNLOADED_UPDATES = "$EXTRA_PREFIX.downloaded_updates"
+    const val PROP_APPLIED_UPDATE = "$EXTRA_PREFIX.applied_update"
     const val PROP_APPLIED_UPDATES = "$EXTRA_PREFIX.applied_updates"
     const val PROP_APP_PACKAGE_NAMES = "$EXTRA_PREFIX.app_package_names"
 

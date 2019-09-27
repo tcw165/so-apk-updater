@@ -149,19 +149,19 @@ class UpdaterService : Service() {
          */
         fun notifyFirmwareUpdateFound(
             context: Context,
-            updates: List<FirmwareUpdate>,
-            errors: List<Throwable>
+            update: FirmwareUpdate,
+            error: Throwable? = null
         ) {
             Timber.v("[Check] Check job just completes")
             uiHandler.post {
                 val action = IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE
                 val broadcastIntent = Intent()
-                broadcastIntent.prepareUpdateFound(action, updates, errors)
+                broadcastIntent.prepareFirmwareUpdateFound(action, update, error)
                 val broadcastManager = LocalBroadcastManager.getInstance(context)
                 broadcastManager.sendBroadcast(broadcastIntent)
 
                 val serviceIntent = Intent(context, UpdaterService::class.java)
-                serviceIntent.prepareUpdateFound(action, updates, errors)
+                serviceIntent.prepareFirmwareUpdateFound(action, update, error)
                 context.startService(serviceIntent)
             }
         }
@@ -178,6 +178,22 @@ class UpdaterService : Service() {
                 // Error
                 if (errors.isNotEmpty()) {
                     putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
+                }
+            }
+        }
+
+        private fun <T : Parcelable> Intent.prepareFirmwareUpdateFound(
+            intentAction: String,
+            updates: T,
+            error: Throwable? = null
+        ) {
+            this.apply {
+                action = intentAction
+                // Result
+                putExtra(IntentActions.PROP_FOUND_UPDATE, updates)
+                // Error
+                error?.let {
+                    putExtra(IntentActions.PROP_ERROR, it)
                 }
             }
         }
@@ -284,20 +300,20 @@ class UpdaterService : Service() {
          */
         fun notifyFirmwareUpdateDownloaded(
             context: Context,
-            foundUpdates: List<FirmwareUpdate>,
-            downloadedUpdates: List<DownloadedFirmwareUpdate>,
-            errors: List<Throwable>
+            foundUpdate: FirmwareUpdate,
+            downloadedUpdate: DownloadedFirmwareUpdate,
+            error: Throwable? = null
         ) {
             Timber.v("[Download] Download job just completes")
             uiHandler.post {
                 val action = IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE
                 val broadcastIntent = Intent()
-                broadcastIntent.prepareUpdateDownloaded(action, foundUpdates, downloadedUpdates, errors)
+                broadcastIntent.prepareFirmwareUpdateDownloaded(action, foundUpdate, downloadedUpdate, error)
                 val broadcastManager = LocalBroadcastManager.getInstance(context)
                 broadcastManager.sendBroadcast(broadcastIntent)
 
                 val serviceIntent = Intent(context, UpdaterService::class.java)
-                serviceIntent.prepareUpdateDownloaded(action, foundUpdates, downloadedUpdates, errors)
+                serviceIntent.prepareFirmwareUpdateDownloaded(action, foundUpdate, downloadedUpdate, error)
                 context.startService(serviceIntent)
             }
         }
@@ -316,6 +332,24 @@ class UpdaterService : Service() {
                 // Error
                 if (errors.isNotEmpty()) {
                     putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
+                }
+            }
+        }
+
+        private fun <T : Parcelable, R : Parcelable> Intent.prepareFirmwareUpdateDownloaded(
+            intentAction: String,
+            foundUpdates: T,
+            downloadedUpdates: R,
+            error: Throwable? = null
+        ) {
+            this.apply {
+                action = intentAction
+                // Result
+                putExtra(IntentActions.PROP_FOUND_UPDATE, foundUpdates)
+                putExtra(IntentActions.PROP_DOWNLOADED_UPDATE, downloadedUpdates)
+                // Error
+                error?.let {
+                    putExtra(IntentActions.PROP_ERROR, it)
                 }
             }
         }
@@ -351,19 +385,19 @@ class UpdaterService : Service() {
          */
         fun notifyFirmwareUpdateInstalled(
             context: Context,
-            appliedUpdates: List<FirmwareUpdate>,
-            errors: List<Throwable>
+            appliedUpdate: FirmwareUpdate,
+            error: Throwable
         ) {
             Timber.v("[Install] Install job just completes")
             uiHandler.post {
                 val action = IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE_COMPLETE
                 val broadcastIntent = Intent()
-                broadcastIntent.prepareUpdateInstalled(action, appliedUpdates, errors)
+                broadcastIntent.prepareFirmwareUpdateInstalled(action, appliedUpdate, error)
                 val broadcastManager = LocalBroadcastManager.getInstance(context)
                 broadcastManager.sendBroadcast(broadcastIntent)
 
                 val serviceIntent = Intent(context, UpdaterService::class.java)
-                serviceIntent.prepareUpdateInstalled(action, appliedUpdates, errors)
+                serviceIntent.prepareFirmwareUpdateInstalled(action, appliedUpdate, error)
                 context.startService(serviceIntent)
             }
         }
@@ -380,6 +414,22 @@ class UpdaterService : Service() {
                 // Error
                 if (errors.isNotEmpty()) {
                     putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
+                }
+            }
+        }
+
+        private fun <T : Parcelable> Intent.prepareFirmwareUpdateInstalled(
+            intentAction: String,
+            appliedUpdate: T,
+            error: Throwable? = null
+        ) {
+            this.apply {
+                action = intentAction
+                // Result
+                putExtra(IntentActions.PROP_APPLIED_UPDATE, appliedUpdate)
+                // Error
+                error?.let {
+                    putExtra(IntentActions.PROP_ERROR, it)
                 }
             }
         }
