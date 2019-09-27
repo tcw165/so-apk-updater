@@ -48,6 +48,7 @@ private const val CACHE_KEY_DOWNLOADED_UPDATES = "downloaded_updates"
 
 private const val TOTAL_CHECK_ATTEMPTS_PER_SESSION = 200
 private const val TOTAL_DOWNLOAD_ATTEMPTS_PER_SESSION = 200
+private const val INVALID_PROGRESS_VALUE = -1
 
 class UpdaterService : Service() {
 
@@ -182,7 +183,77 @@ class UpdaterService : Service() {
         }
 
         /**
-         * The method for the updater engine knows the download finishes and
+         * The method for the updater engine to know that the download has downloaded
+         * more of the file. The component responsible for download should call this
+         * method when the download has a new chunk.
+         */
+        fun notifyAppUpdateDownloadProgress(
+            context: Context,
+            update: AppUpdate,
+            percentageComplete: Int,
+            currentBytes: Long,
+            totalBytes: Long
+        ) {
+            Timber.v("[Download] Download job has progress $percentageComplete%")
+            uiHandler.post {
+                val action = IntentActions.ACTION_DOWNLOAD_APP_UPDATE_PROGRESS
+                val broadcastIntent = Intent()
+                broadcastIntent.prepareUpdateDownloadProgress(action, update, percentageComplete, currentBytes, totalBytes)
+                val broadcastManager = LocalBroadcastManager.getInstance(context)
+                broadcastManager.sendBroadcast(broadcastIntent)
+
+                val serviceIntent = Intent(context, UpdaterService::class.java)
+                serviceIntent.prepareUpdateDownloadProgress(action, update, percentageComplete, currentBytes, totalBytes)
+                context.startService(serviceIntent)
+            }
+        }
+
+        /**
+         * The method for the updater engine to know that the download has downloaded
+         * more of the file. The component responsible for download should call this
+         * method when the download has a new chunk.
+         */
+        fun notifyFirmwareUpdateDownloadProgress(
+            context: Context,
+            update: FirmwareUpdate,
+            percentageComplete: Int,
+            currentBytes: Long,
+            totalBytes: Long
+        ) {
+            Timber.v("[Download] Download job has progress $percentageComplete%")
+            uiHandler.post {
+                val action = IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_PROGRESS
+                val broadcastIntent = Intent()
+                broadcastIntent.prepareUpdateDownloadProgress(action, update, percentageComplete, currentBytes, totalBytes)
+                val broadcastManager = LocalBroadcastManager.getInstance(context)
+                broadcastManager.sendBroadcast(broadcastIntent)
+
+                val serviceIntent = Intent(context, UpdaterService::class.java)
+                serviceIntent.prepareUpdateDownloadProgress(action, update, percentageComplete, currentBytes, totalBytes)
+                context.startService(serviceIntent)
+            }
+        }
+
+        private fun <T : Parcelable> Intent.prepareUpdateDownloadProgress(
+            intentAction: String,
+            update: T,
+            percentageComplete: Int,
+            currentBytes: Long,
+            totalBytes: Long
+        ) {
+            this.apply {
+                action = intentAction
+                // Result
+                putExtra(IntentActions.PROP_FOUND_UPDATE, update as Parcelable)
+                // Progress
+                putExtra(IntentActions.PROP_PROGRESS_PERCENTAGE, percentageComplete)
+                putExtra(IntentActions.PROP_DOWNLOAD_CURRENT_BYTES, currentBytes)
+                putExtra(IntentActions.PROP_DOWNLOAD_TOTAL_BYTES, totalBytes)
+            }
+        }
+
+        /**
+         * The method for the updater engine to know that the download finishes and
          * to move on. The component responsible for download should call this
          * method when the download completes.
          */
@@ -384,10 +455,12 @@ class UpdaterService : Service() {
                         IntentActions.ACTION_CHECK_UPDATE -> onRequestGeneralUpdateCheck(intent)
                         // App Update /////////////////////////////////////////////
                         IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE -> onAppUpdateCheckCompleteOrError(intent)
+                        IntentActions.ACTION_DOWNLOAD_APP_UPDATE_PROGRESS -> onAppUpdateDownloadProgress(intent)
                         IntentActions.ACTION_DOWNLOAD_APP_UPDATE_COMPLETE -> onAppUpdateDownloadCompleteOrError(intent)
                         IntentActions.ACTION_INSTALL_APP_UPDATE_COMPLETE -> onAppUpdateInstallCompleteOrError(intent)
                         // Firmware Update ////////////////////////////////////////
                         IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE -> onFirmwareUpdateCheckCompleteOrError(intent)
+                        IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_PROGRESS -> onFirmwareUpdateDownloadProgress(intent)
                         IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE -> onFirmwareUpdateDownloadCompleteOrError(intent)
                         IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE_COMPLETE -> onFirmwareUpdateInstallCompleteOrError(intent)
                     }
@@ -430,7 +503,8 @@ class UpdaterService : Service() {
     ) {
         if (updaterState == UpdaterState.Idle ||
             // For admin user to reset the session.
-            resetSession) {
+            resetSession
+        ) {
             transitionToState(UpdaterState.Check)
 
             // Cancel pending downloads and installs.
@@ -470,7 +544,8 @@ class UpdaterService : Service() {
         downloadedUpdates: List<DownloadedAppUpdate>
     ) {
         if (updaterState == UpdaterState.Idle ||
-            updaterState == UpdaterState.Download) {
+            updaterState == UpdaterState.Download
+        ) {
             transitionToState(UpdaterState.Install)
 
             val installWindow = updaterConfig.installWindow
@@ -486,7 +561,8 @@ class UpdaterService : Service() {
         downloadedUpdates: List<DownloadedFirmwareUpdate>
     ) {
         if (updaterState == UpdaterState.Idle ||
-            updaterState == UpdaterState.Download) {
+            updaterState == UpdaterState.Download
+        ) {
             transitionToState(UpdaterState.Install)
 
             val installWindow = updaterConfig.installWindow
@@ -653,6 +729,22 @@ class UpdaterService : Service() {
         }
     }
 
+    private fun onAppUpdateDownloadProgress(
+        intent: Intent
+    ) {
+        val foundUpdate = intent.getParcelableExtra<AppUpdate>(IntentActions.PROP_FOUND_UPDATE)
+        val downloadProgressPercentage = intent.getIntExtra(IntentActions.PROP_PROGRESS_PERCENTAGE, INVALID_PROGRESS_VALUE)
+        val downloadProgressCurrentBytes = intent.getLongExtra(IntentActions.PROP_DOWNLOAD_CURRENT_BYTES, INVALID_PROGRESS_VALUE.toLong())
+        val downloadProgressTotalBytes = intent.getLongExtra(IntentActions.PROP_DOWNLOAD_TOTAL_BYTES, INVALID_PROGRESS_VALUE.toLong())
+
+        if (foundUpdate != null) {
+            // TODO: Send progress to remote
+        } else {
+            // Fall back to idle when there's no downloaded update.
+            transitionToIdleState()
+        }
+    }
+
     private fun onAppUpdateDownloadCompleteOrError(
         intent: Intent
     ) {
@@ -790,6 +882,22 @@ class UpdaterService : Service() {
         } ?: kotlin.run {
             val updates = intent.getParcelableArrayListExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATES)
             transitionToDownloadStateForFirmwareUpdate(updates)
+        }
+    }
+
+    private fun onFirmwareUpdateDownloadProgress(
+        intent: Intent
+    ) {
+        val foundUpdate = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATE)
+        val downloadProgressPercentage = intent.getIntExtra(IntentActions.PROP_PROGRESS_PERCENTAGE, INVALID_PROGRESS_VALUE)
+        val downloadProgressCurrentBytes = intent.getLongExtra(IntentActions.PROP_DOWNLOAD_CURRENT_BYTES, INVALID_PROGRESS_VALUE.toLong())
+        val downloadProgressTotalBytes = intent.getLongExtra(IntentActions.PROP_DOWNLOAD_TOTAL_BYTES, INVALID_PROGRESS_VALUE.toLong())
+
+        if (foundUpdate != null) {
+            // TODO: Send progress to remote
+        } else {
+            // Fall back to idle when there's no downloaded update.
+            transitionToIdleState()
         }
     }
 
