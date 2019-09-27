@@ -13,7 +13,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.Parcelable
 import android.os.PersistableBundle
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import co.sodalabs.updaterengine.data.AppUpdate
@@ -24,6 +23,13 @@ import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
 import co.sodalabs.updaterengine.extension.ensureNotMainThread
 import co.sodalabs.updaterengine.extension.getIndicesToRemove
+import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateDownloaded
+import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateFound
+import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateInstalled
+import co.sodalabs.updaterengine.extension.prepareUpdateDownloadProgress
+import co.sodalabs.updaterengine.extension.prepareUpdateDownloaded
+import co.sodalabs.updaterengine.extension.prepareUpdateFound
+import co.sodalabs.updaterengine.extension.prepareUpdateInstalled
 import co.sodalabs.updaterengine.extension.toBoolean
 import co.sodalabs.updaterengine.extension.toInt
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
@@ -166,38 +172,6 @@ class UpdaterService : Service() {
             }
         }
 
-        private fun <T : Parcelable> Intent.prepareUpdateFound(
-            intentAction: String,
-            updates: List<T>,
-            errors: List<Throwable>
-        ) {
-            this.apply {
-                action = intentAction
-                // Result
-                putParcelableArrayListExtra(IntentActions.PROP_FOUND_UPDATES, ArrayList(updates))
-                // Error
-                if (errors.isNotEmpty()) {
-                    putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
-                }
-            }
-        }
-
-        private fun <T : Parcelable> Intent.prepareFirmwareUpdateFound(
-            intentAction: String,
-            updates: T,
-            error: Throwable? = null
-        ) {
-            this.apply {
-                action = intentAction
-                // Result
-                putExtra(IntentActions.PROP_FOUND_UPDATE, updates)
-                // Error
-                error?.let {
-                    putExtra(IntentActions.PROP_ERROR, it)
-                }
-            }
-        }
-
         /**
          * The method for the updater engine to know that the download has downloaded
          * more of the file. The component responsible for download should call this
@@ -247,24 +221,6 @@ class UpdaterService : Service() {
                 val serviceIntent = Intent(context, UpdaterService::class.java)
                 serviceIntent.prepareUpdateDownloadProgress(action, update, percentageComplete, currentBytes, totalBytes)
                 context.startService(serviceIntent)
-            }
-        }
-
-        private fun <T : Parcelable> Intent.prepareUpdateDownloadProgress(
-            intentAction: String,
-            update: T,
-            percentageComplete: Int,
-            currentBytes: Long,
-            totalBytes: Long
-        ) {
-            this.apply {
-                action = intentAction
-                // Result
-                putExtra(IntentActions.PROP_FOUND_UPDATE, update as Parcelable)
-                // Progress
-                putExtra(IntentActions.PROP_PROGRESS_PERCENTAGE, percentageComplete)
-                putExtra(IntentActions.PROP_DOWNLOAD_CURRENT_BYTES, currentBytes)
-                putExtra(IntentActions.PROP_DOWNLOAD_TOTAL_BYTES, totalBytes)
             }
         }
 
@@ -318,42 +274,6 @@ class UpdaterService : Service() {
             }
         }
 
-        private fun <T : Parcelable, R : Parcelable> Intent.prepareUpdateDownloaded(
-            intentAction: String,
-            foundUpdates: List<T>,
-            downloadedUpdates: List<R>,
-            errors: List<Throwable>
-        ) {
-            this.apply {
-                action = intentAction
-                // Result
-                putParcelableArrayListExtra(IntentActions.PROP_FOUND_UPDATES, ArrayList(foundUpdates))
-                putParcelableArrayListExtra(IntentActions.PROP_DOWNLOADED_UPDATES, ArrayList(downloadedUpdates))
-                // Error
-                if (errors.isNotEmpty()) {
-                    putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
-                }
-            }
-        }
-
-        private fun <T : Parcelable, R : Parcelable> Intent.prepareFirmwareUpdateDownloaded(
-            intentAction: String,
-            foundUpdates: T,
-            downloadedUpdates: R,
-            error: Throwable? = null
-        ) {
-            this.apply {
-                action = intentAction
-                // Result
-                putExtra(IntentActions.PROP_FOUND_UPDATE, foundUpdates)
-                putExtra(IntentActions.PROP_DOWNLOADED_UPDATE, downloadedUpdates)
-                // Error
-                error?.let {
-                    putExtra(IntentActions.PROP_ERROR, it)
-                }
-            }
-        }
-
         /**
          * The method for the updater engine knows the install finishes and
          * to move on. The component responsible for installing should call this
@@ -399,38 +319,6 @@ class UpdaterService : Service() {
                 val serviceIntent = Intent(context, UpdaterService::class.java)
                 serviceIntent.prepareFirmwareUpdateInstalled(action, appliedUpdate, error)
                 context.startService(serviceIntent)
-            }
-        }
-
-        private fun <T : Parcelable> Intent.prepareUpdateInstalled(
-            intentAction: String,
-            appliedUpdates: List<T>,
-            errors: List<Throwable>
-        ) {
-            this.apply {
-                action = intentAction
-                // Result
-                putParcelableArrayListExtra(IntentActions.PROP_APPLIED_UPDATES, ArrayList(appliedUpdates))
-                // Error
-                if (errors.isNotEmpty()) {
-                    putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
-                }
-            }
-        }
-
-        private fun <T : Parcelable> Intent.prepareFirmwareUpdateInstalled(
-            intentAction: String,
-            appliedUpdate: T,
-            error: Throwable? = null
-        ) {
-            this.apply {
-                action = intentAction
-                // Result
-                putExtra(IntentActions.PROP_APPLIED_UPDATE, appliedUpdate)
-                // Error
-                error?.let {
-                    putExtra(IntentActions.PROP_ERROR, it)
-                }
             }
         }
     }
