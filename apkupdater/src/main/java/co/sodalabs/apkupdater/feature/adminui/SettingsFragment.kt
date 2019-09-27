@@ -1,5 +1,7 @@
 package co.sodalabs.apkupdater.feature.adminui
 
+import Packages
+import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
 import android.widget.Toast
@@ -33,6 +35,8 @@ private const val KEY_API_BASE_URL = PreferenceProps.API_BASE_URL
 private const val KEY_HEART_BEAT_WATCHER = "heartbeat_watcher"
 private const val KEY_HEART_BEAT_NOW = "send_heartbeat_now"
 private const val KEY_CHECK_UPDATE_NOW = "check_test_app_now"
+private const val KEY_SHOW_ANDROID_SETTINGS = "androidSettings"
+private const val KEY_SHOW_INTERNET_SPEED_TEST = "speedTestApp"
 
 class SettingsFragment :
     PreferenceFragmentCompat(),
@@ -68,6 +72,7 @@ class SettingsFragment :
         observeRecurringHeartBeat()
 
         observeCheckUpdateNowClicks()
+        observeOtherButtonClicks()
 
         observeCaughtErrors()
     }
@@ -259,5 +264,50 @@ class SettingsFragment :
         return preferenceClicks
             .filter { thisPreference.isEnabled && it == thisPreference }
             .map { Unit }
+    }
+
+    // Other buttons //////////////////////////////////////////////////////////
+
+    private val showAndroidSettingsPref by lazy {
+        findPreference<Preference>(KEY_SHOW_ANDROID_SETTINGS)
+            ?: throw IllegalStateException("Can't find preference!")
+    }
+    private val showInternetSpeedTestPref by lazy {
+        findPreference<Preference>(KEY_SHOW_INTERNET_SPEED_TEST)
+            ?: throw IllegalStateException("Can't find preference!")
+    }
+
+    private fun observeOtherButtonClicks() {
+        showAndroidSettingsPref.clicks()
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({
+                startActivity(Intent(android.provider.Settings.ACTION_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
+            }, Timber::e)
+            .addTo(disposables)
+
+        showInternetSpeedTestPref.clicks()
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({
+                val safeContext = context ?: return@subscribe
+                val pm = safeContext.packageManager
+                val speedTestAppIntent = pm.getLaunchIntentForPackage(Packages.NET_SPEED_TEST_PACKAGE_NAME)
+
+                speedTestAppIntent?.let { intent ->
+                    try {
+                        startActivity(intent.apply {
+                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        })
+                    } catch (error: Throwable) {
+                        Timber.e(error)
+                    }
+                } ?: kotlin.run {
+                    Toast.makeText(safeContext, "Cannot find the launch Intent for '${Packages.NET_SPEED_TEST_PACKAGE_NAME}'", Toast.LENGTH_LONG).show()
+                }
+            }, Timber::e)
+            .addTo(disposables)
     }
 }

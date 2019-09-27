@@ -127,6 +127,16 @@
         app:title="@string/other_category">
 
         <Preference
+            app:key="androidSettings"
+            app:summary="Show the Android settings UI"
+            app:title="Android Settings" />
+
+        <Preference
+            app:key="speedTestApp"
+            app:summary="Show the Internet Speed Test app"
+            app:title="Internet Speed Test" />
+
+        <Preference
             app:key="feedback"
             app:summary="Report technical issues or suggest new features"
             app:title="Send feedback" />
