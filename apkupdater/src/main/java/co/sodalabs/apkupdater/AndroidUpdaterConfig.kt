@@ -11,9 +11,11 @@ import java.io.File
 import javax.inject.Inject
 
 private const val CACHE_APK_DIR = "apks"
+private const val CACHE_APK_SIZE_MB = 1024
+private const val CACHE_FIRMWARE_DIR = "system_image"
+private const val CACHE_FIRMWARE_SIZE_MB = 1024
 private const val CACHE_DOWNLOADED_UPDATE_DIR = "downloaded_update"
 private const val CACHE_JOURNAL_VERSION = 1
-private const val CACHE_APK_SIZE_MB = 1024
 private const val CACHE_UPDATE_RECORDS_SIZE_MB = 10
 
 private const val DAY_MIN = 0
@@ -82,6 +84,16 @@ class AndroidUpdaterConfig @Inject constructor(
             CACHE_JOURNAL_VERSION,
             1,
             CACHE_APK_SIZE_MB.mbToBytes()
+        )
+    }
+
+    override val firmwareDiskCache: DiskLruCache by lazy {
+        // The cache dir would be "/storage/emulated/legacy/co.sodalabs.apkupdater/${CACHE_FIRMWARE_DIR}/"
+        DiskLruCache(
+            File(StorageUtils.getCacheDirectory(context, true), CACHE_FIRMWARE_DIR),
+            CACHE_JOURNAL_VERSION,
+            1,
+            CACHE_FIRMWARE_SIZE_MB.mbToBytes()
         )
     }
 
