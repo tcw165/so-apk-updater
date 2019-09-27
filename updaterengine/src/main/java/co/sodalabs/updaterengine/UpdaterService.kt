@@ -81,7 +81,8 @@ class UpdaterService : Service() {
          * Do a check and force a new session at check state.
          */
         fun checkUpdateNow(
-            context: Context
+            context: Context,
+            resetSession: Boolean
         ) {
             // Cancel pending jobs immediately.
             cancelPendingCheck(context)
@@ -93,7 +94,7 @@ class UpdaterService : Service() {
                     action = IntentActions.ACTION_CHECK_UPDATE
                     // Can't put boolean cause persistable bundle doesn't support
                     // boolean under 22.
-                    putExtra(IntentActions.PROP_RESET_UPDATER_SESSION, true.toInt())
+                    putExtra(IntentActions.PROP_RESET_UPDATER_SESSION, resetSession.toInt())
                 }
                 context.startService(serviceIntent)
             }
@@ -431,9 +432,8 @@ class UpdaterService : Service() {
 
         // In idle state, we'll schedule a next check in terms of the config
         // interval.
-        val packageNames = updaterConfig.packageNames
         val interval = updaterConfig.checkIntervalMillis
-        scheduleDelayedCheck(packageNames, interval)
+        scheduleDelayedCheck(interval)
     }
 
     private fun transitionToCheckState(
@@ -749,7 +749,6 @@ class UpdaterService : Service() {
      * Schedule a delayed check which replaces the previous pending check.
      */
     private fun scheduleDelayedCheck(
-        packageNames: List<String>,
         delayMillis: Long
     ) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
@@ -758,7 +757,6 @@ class UpdaterService : Service() {
             val intent = Intent(this, UpdaterService::class.java)
             intent.apply {
                 action = IntentActions.ACTION_CHECK_UPDATE
-                putExtra(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames.toTypedArray())
                 // Can't put boolean cause persistable bundle doesn't support
                 // boolean under 22.
                 putExtra(IntentActions.PROP_RESET_UPDATER_SESSION, false.toInt())
@@ -777,10 +775,9 @@ class UpdaterService : Service() {
             Timber.v("[Updater] (>= 21) Schedule a delayed check, using android-21 JobScheduler")
 
             val jobScheduler = this.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-            val componentName = ComponentName(this, UpdaterService::class.java)
+            val componentName = ComponentName(this, UpdaterJobService::class.java)
             val bundle = PersistableBundle()
             bundle.apply {
-                putStringArray(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames.toTypedArray())
                 // Can't put boolean cause that's implemented >= 22.
                 putInt(IntentActions.PROP_RESET_UPDATER_SESSION, false.toInt())
             }

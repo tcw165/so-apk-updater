@@ -119,10 +119,10 @@ class CheckJobIntentService : JobIntentService() {
 
     private fun checkUpdate() {
         // 1) Query firmware update.
-        val (firmwareUpdates, firmwareErrors) = checkFirmwareUpdate()
-        if (firmwareUpdates.isNotEmpty()) {
+        val (firmwareUpdate, firmwareError) = checkFirmwareUpdate()
+        firmwareUpdate?.let { safeFirmwareUpdate ->
             // Notify the updater the app update is found!
-            UpdaterService.notifyFirmwareUpdateFound(this, firmwareUpdates, firmwareErrors)
+            UpdaterService.notifyFirmwareUpdateFound(this, safeFirmwareUpdate, firmwareError)
             return
         }
 
@@ -132,9 +132,9 @@ class CheckJobIntentService : JobIntentService() {
         UpdaterService.notifyAppUpdateFound(this, appUpdates, appErrors)
     }
 
-    private fun checkFirmwareUpdate(): Pair<List<FirmwareUpdate>, List<Throwable>> {
+    private fun checkFirmwareUpdate(): Pair<FirmwareUpdate?, Throwable?> {
         // TODO: Implement it
-        return Pair(emptyList(), emptyList())
+        return Pair(null, null)
     }
 
     private fun checkAppUpdates(): Pair<List<AppUpdate>, List<Throwable>> {

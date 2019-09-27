@@ -30,6 +30,12 @@
             android:enabled="true"
             android:exported="true"
             tools:ignore="ExportedService" />
+        <!-- Core Dispatcher (>21) -->
+        <service
+            android:name=".UpdaterJobService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <receiver
             android:name=".BootCompleteReceiver"
