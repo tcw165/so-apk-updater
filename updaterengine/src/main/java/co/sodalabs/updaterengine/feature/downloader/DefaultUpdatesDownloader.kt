@@ -24,7 +24,7 @@ class DefaultUpdatesDownloader @Inject constructor(
     }
 
     override fun downloadFirmwareUpdateNow(
-        updates: List<FirmwareUpdate>
+        updates: FirmwareUpdate
     ) {
         DownloadJobIntentService.downloadFirmwareUpdateNow(context, updates)
     }

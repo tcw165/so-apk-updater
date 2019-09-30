@@ -119,22 +119,27 @@ class CheckJobIntentService : JobIntentService() {
 
     private fun checkUpdate() {
         // 1) Query firmware update.
-        val (firmwareUpdate, firmwareError) = checkFirmwareUpdate()
-        firmwareUpdate?.let { safeFirmwareUpdate ->
-            // Notify the updater the app update is found!
-            UpdaterService.notifyFirmwareUpdateFound(this, safeFirmwareUpdate, firmwareError)
+        try {
+            val firmwareUpdate = checkFirmwareUpdate()
+            // Notify the updater the firmware update is found!
+            UpdaterService.notifyFirmwareUpdateFound(this, firmwareUpdate)
             return
+        } catch (error: Throwable) {
+            // Notify the updater the firmware update failed!
+            UpdaterService.notifyFirmwareUpdateError(this, error)
         }
+
+        // FIXME: The UpdaterService should manage the app and firmware update
+        // FIXME: check and the error state, NOT here.
 
         // 2) Query app update.
         val (appUpdates, appErrors) = checkAppUpdates()
-        // Notify the updater the firmware update is found!
+        // Notify the updater the app update is found!
         UpdaterService.notifyAppUpdateFound(this, appUpdates, appErrors)
     }
 
-    private fun checkFirmwareUpdate(): Pair<FirmwareUpdate?, Throwable?> {
-        // TODO: Implement it
-        return Pair(null, null)
+    private fun checkFirmwareUpdate(): FirmwareUpdate {
+        TODO()
     }
 
     private fun checkAppUpdates(): Pair<List<AppUpdate>, List<Throwable>> {

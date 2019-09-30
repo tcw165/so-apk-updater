@@ -23,17 +23,23 @@ fun <T : Parcelable> Intent.prepareUpdateFound(
 
 fun <T : Parcelable> Intent.prepareFirmwareUpdateFound(
     intentAction: String,
-    updates: T,
-    error: Throwable? = null
+    updates: T
 ) {
     this.apply {
         action = intentAction
         // Result
         putExtra(IntentActions.PROP_FOUND_UPDATE, updates)
+    }
+}
+
+fun Intent.prepareFirmwareUpdateError(
+    intentAction: String,
+    error: Throwable
+) {
+    this.apply {
+        action = intentAction
         // Error
-        error?.let {
-            putExtra(IntentActions.PROP_ERROR, it)
-        }
+        putExtra(IntentActions.PROP_ERROR, error)
     }
 }
 

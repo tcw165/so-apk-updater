@@ -206,6 +206,8 @@ class InstallerJobIntentService : JobIntentService() {
 
     @Inject
     lateinit var updaterConfig: UpdaterConfig
+    @Inject
+    lateinit var rebootHelper: IRebootHelper
 
     override fun onCreate() {
         Timber.v("[Install] Installer Service is online")
@@ -273,9 +275,6 @@ class InstallerJobIntentService : JobIntentService() {
     }
 
     // Firmware Update ////////////////////////////////////////////////////////
-
-    @Inject
-    lateinit var rebootHelper: IRebootHelper
 
     private fun installFirmwareUpdate(
         intent: Intent
