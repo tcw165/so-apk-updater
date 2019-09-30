@@ -16,9 +16,11 @@ object IntentActions {
     const val ACTION_UNINSTALL_PACKAGES_COMPLETE = "$ACTION_PREFIX.uninstall_packages_complete"
     // Firmware update download & install
     const val ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE = "$ACTION_PREFIX.check_firmware_update_complete"
+    const val ACTION_CHECK_FIRMWARE_UPDATE_ERROR = "$ACTION_PREFIX.check_firmware_update_error"
     const val ACTION_DOWNLOAD_FIRMWARE_UPDATE = "$ACTION_PREFIX.download_firmware_update"
     const val ACTION_DOWNLOAD_FIRMWARE_UPDATE_PROGRESS = "$ACTION_PREFIX.download_firmware_update_progress"
     const val ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE = "$ACTION_PREFIX.download_firmware_update_complete"
+    const val ACTION_DOWNLOAD_FIRMWARE_UPDATE_ERROR = "$ACTION_PREFIX.download_firmware_update_error"
     const val ACTION_INSTALL_FIRMWARE_UPDATE = "$ACTION_PREFIX.install_firmware_update"
     const val ACTION_INSTALL_FIRMWARE_UPDATE_COMPLETE = "$ACTION_PREFIX.install_firmware_update_complete"
     // Heart-beat
@@ -30,7 +32,9 @@ object IntentActions {
     const val PROP_FOUND_UPDATE = "$ACTION_PREFIX.found_update"
     // Used for apks, since we have batch installs
     const val PROP_FOUND_UPDATES = "$ACTION_PREFIX.found_updates"
+    const val PROP_DOWNLOADED_UPDATE = "$EXTRA_PREFIX.downloaded_update"
     const val PROP_DOWNLOADED_UPDATES = "$EXTRA_PREFIX.downloaded_updates"
+    const val PROP_APPLIED_UPDATE = "$EXTRA_PREFIX.applied_update"
     const val PROP_APPLIED_UPDATES = "$EXTRA_PREFIX.applied_updates"
     const val PROP_APP_PACKAGE_NAMES = "$EXTRA_PREFIX.app_package_names"
 

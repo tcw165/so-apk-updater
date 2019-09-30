@@ -60,9 +60,9 @@ class DownloadJobIntentService : JobIntentService() {
 
         fun downloadFirmwareUpdateNow(
             context: Context,
-            updates: List<FirmwareUpdate>
+            update: FirmwareUpdate
         ) {
-            downloadUpdateNow(context, updates, IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE)
+            downloadUpdateNow(context, listOf(update), IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE)
         }
 
         private fun <T : Parcelable> downloadUpdateNow(

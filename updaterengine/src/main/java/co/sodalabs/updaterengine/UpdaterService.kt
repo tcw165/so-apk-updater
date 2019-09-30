@@ -13,7 +13,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.os.Parcelable
 import android.os.PersistableBundle
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import co.sodalabs.updaterengine.data.AppUpdate
@@ -24,6 +23,14 @@ import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
 import co.sodalabs.updaterengine.extension.ensureNotMainThread
 import co.sodalabs.updaterengine.extension.getIndicesToRemove
+import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateDownloaded
+import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateError
+import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateFound
+import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateInstalled
+import co.sodalabs.updaterengine.extension.prepareUpdateDownloadProgress
+import co.sodalabs.updaterengine.extension.prepareUpdateDownloaded
+import co.sodalabs.updaterengine.extension.prepareUpdateFound
+import co.sodalabs.updaterengine.extension.prepareUpdateInstalled
 import co.sodalabs.updaterengine.extension.toBoolean
 import co.sodalabs.updaterengine.extension.toInt
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
@@ -75,7 +82,8 @@ class UpdaterService : Service() {
          * Do a check and force a new session at check state.
          */
         fun checkUpdateNow(
-            context: Context
+            context: Context,
+            resetSession: Boolean
         ) {
             // Cancel pending jobs immediately.
             cancelPendingCheck(context)
@@ -87,7 +95,7 @@ class UpdaterService : Service() {
                     action = IntentActions.ACTION_CHECK_UPDATE
                     // Can't put boolean cause persistable bundle doesn't support
                     // boolean under 22.
-                    putExtra(IntentActions.PROP_RESET_UPDATER_SESSION, true.toInt())
+                    putExtra(IntentActions.PROP_RESET_UPDATER_SESSION, resetSession.toInt())
                 }
                 context.startService(serviceIntent)
             }
@@ -149,36 +157,42 @@ class UpdaterService : Service() {
          */
         fun notifyFirmwareUpdateFound(
             context: Context,
-            updates: List<FirmwareUpdate>,
-            errors: List<Throwable>
+            update: FirmwareUpdate
         ) {
             Timber.v("[Check] Check job just completes")
             uiHandler.post {
                 val action = IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE
                 val broadcastIntent = Intent()
-                broadcastIntent.prepareUpdateFound(action, updates, errors)
+                broadcastIntent.prepareFirmwareUpdateFound(action, update)
                 val broadcastManager = LocalBroadcastManager.getInstance(context)
                 broadcastManager.sendBroadcast(broadcastIntent)
 
                 val serviceIntent = Intent(context, UpdaterService::class.java)
-                serviceIntent.prepareUpdateFound(action, updates, errors)
+                serviceIntent.prepareFirmwareUpdateFound(action, update)
                 context.startService(serviceIntent)
             }
         }
 
-        private fun <T : Parcelable> Intent.prepareUpdateFound(
-            intentAction: String,
-            updates: List<T>,
-            errors: List<Throwable>
+        /**
+         * The method for the updater engine knows the update check finishes and
+         * to move on. The component is responsible for the check should call this
+         * method when the check completes.
+         */
+        fun notifyFirmwareUpdateError(
+            context: Context,
+            error: Throwable
         ) {
-            this.apply {
-                action = intentAction
-                // Result
-                putParcelableArrayListExtra(IntentActions.PROP_FOUND_UPDATES, ArrayList(updates))
-                // Error
-                if (errors.isNotEmpty()) {
-                    putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
-                }
+            Timber.v("[Check] Check job just completes")
+            uiHandler.post {
+                val action = IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_ERROR
+                val broadcastIntent = Intent()
+                broadcastIntent.prepareFirmwareUpdateError(action, error)
+                val broadcastManager = LocalBroadcastManager.getInstance(context)
+                broadcastManager.sendBroadcast(broadcastIntent)
+
+                val serviceIntent = Intent(context, UpdaterService::class.java)
+                serviceIntent.prepareFirmwareUpdateError(action, error)
+                context.startService(serviceIntent)
             }
         }
 
@@ -234,24 +248,6 @@ class UpdaterService : Service() {
             }
         }
 
-        private fun <T : Parcelable> Intent.prepareUpdateDownloadProgress(
-            intentAction: String,
-            update: T,
-            percentageComplete: Int,
-            currentBytes: Long,
-            totalBytes: Long
-        ) {
-            this.apply {
-                action = intentAction
-                // Result
-                putExtra(IntentActions.PROP_FOUND_UPDATE, update as Parcelable)
-                // Progress
-                putExtra(IntentActions.PROP_PROGRESS_PERCENTAGE, percentageComplete)
-                putExtra(IntentActions.PROP_DOWNLOAD_CURRENT_BYTES, currentBytes)
-                putExtra(IntentActions.PROP_DOWNLOAD_TOTAL_BYTES, totalBytes)
-            }
-        }
-
         /**
          * The method for the updater engine to know that the download finishes and
          * to move on. The component responsible for download should call this
@@ -284,39 +280,43 @@ class UpdaterService : Service() {
          */
         fun notifyFirmwareUpdateDownloaded(
             context: Context,
-            foundUpdates: List<FirmwareUpdate>,
-            downloadedUpdates: List<DownloadedFirmwareUpdate>,
-            errors: List<Throwable>
+            foundUpdate: FirmwareUpdate,
+            downloadedUpdate: DownloadedFirmwareUpdate
         ) {
             Timber.v("[Download] Download job just completes")
             uiHandler.post {
                 val action = IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE
                 val broadcastIntent = Intent()
-                broadcastIntent.prepareUpdateDownloaded(action, foundUpdates, downloadedUpdates, errors)
+                broadcastIntent.prepareFirmwareUpdateDownloaded(action, foundUpdate, downloadedUpdate)
                 val broadcastManager = LocalBroadcastManager.getInstance(context)
                 broadcastManager.sendBroadcast(broadcastIntent)
 
                 val serviceIntent = Intent(context, UpdaterService::class.java)
-                serviceIntent.prepareUpdateDownloaded(action, foundUpdates, downloadedUpdates, errors)
+                serviceIntent.prepareFirmwareUpdateDownloaded(action, foundUpdate, downloadedUpdate)
                 context.startService(serviceIntent)
             }
         }
 
-        private fun <T : Parcelable, R : Parcelable> Intent.prepareUpdateDownloaded(
-            intentAction: String,
-            foundUpdates: List<T>,
-            downloadedUpdates: List<R>,
-            errors: List<Throwable>
+        /**
+         * The method for the updater engine knows the download finishes and
+         * to move on. The component responsible for download should call this
+         * method when the download completes.
+         */
+        fun notifyFirmwareUpdateDownloadError(
+            context: Context,
+            error: Throwable
         ) {
-            this.apply {
-                action = intentAction
-                // Result
-                putParcelableArrayListExtra(IntentActions.PROP_FOUND_UPDATES, ArrayList(foundUpdates))
-                putParcelableArrayListExtra(IntentActions.PROP_DOWNLOADED_UPDATES, ArrayList(downloadedUpdates))
-                // Error
-                if (errors.isNotEmpty()) {
-                    putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
-                }
+            Timber.v("[Download] Download job just completes")
+            uiHandler.post {
+                val action = IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE
+                val broadcastIntent = Intent()
+                broadcastIntent.prepareFirmwareUpdateError(action, error)
+                val broadcastManager = LocalBroadcastManager.getInstance(context)
+                broadcastManager.sendBroadcast(broadcastIntent)
+
+                val serviceIntent = Intent(context, UpdaterService::class.java)
+                serviceIntent.prepareFirmwareUpdateError(action, error)
+                context.startService(serviceIntent)
             }
         }
 
@@ -351,36 +351,20 @@ class UpdaterService : Service() {
          */
         fun notifyFirmwareUpdateInstalled(
             context: Context,
-            appliedUpdates: List<FirmwareUpdate>,
-            errors: List<Throwable>
+            appliedUpdate: FirmwareUpdate,
+            error: Throwable
         ) {
             Timber.v("[Install] Install job just completes")
             uiHandler.post {
                 val action = IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE_COMPLETE
                 val broadcastIntent = Intent()
-                broadcastIntent.prepareUpdateInstalled(action, appliedUpdates, errors)
+                broadcastIntent.prepareFirmwareUpdateInstalled(action, appliedUpdate, error)
                 val broadcastManager = LocalBroadcastManager.getInstance(context)
                 broadcastManager.sendBroadcast(broadcastIntent)
 
                 val serviceIntent = Intent(context, UpdaterService::class.java)
-                serviceIntent.prepareUpdateInstalled(action, appliedUpdates, errors)
+                serviceIntent.prepareFirmwareUpdateInstalled(action, appliedUpdate, error)
                 context.startService(serviceIntent)
-            }
-        }
-
-        private fun <T : Parcelable> Intent.prepareUpdateInstalled(
-            intentAction: String,
-            appliedUpdates: List<T>,
-            errors: List<Throwable>
-        ) {
-            this.apply {
-                action = intentAction
-                // Result
-                putParcelableArrayListExtra(IntentActions.PROP_APPLIED_UPDATES, ArrayList(appliedUpdates))
-                // Error
-                if (errors.isNotEmpty()) {
-                    putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
-                }
             }
         }
     }
@@ -459,7 +443,8 @@ class UpdaterService : Service() {
                         IntentActions.ACTION_DOWNLOAD_APP_UPDATE_COMPLETE -> onAppUpdateDownloadCompleteOrError(intent)
                         IntentActions.ACTION_INSTALL_APP_UPDATE_COMPLETE -> onAppUpdateInstallCompleteOrError(intent)
                         // Firmware Update ////////////////////////////////////////
-                        IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE -> onFirmwareUpdateCheckCompleteOrError(intent)
+                        IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE -> onFirmwareUpdateCheckComplete(intent)
+                        IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_ERROR -> onFirmwareUpdateCheckError(intent)
                         IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_PROGRESS -> onFirmwareUpdateDownloadProgress(intent)
                         IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE -> onFirmwareUpdateDownloadCompleteOrError(intent)
                         IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE_COMPLETE -> onFirmwareUpdateInstallCompleteOrError(intent)
@@ -493,9 +478,8 @@ class UpdaterService : Service() {
 
         // In idle state, we'll schedule a next check in terms of the config
         // interval.
-        val packageNames = updaterConfig.packageNames
         val interval = updaterConfig.checkIntervalMillis
-        scheduleDelayedCheck(packageNames, interval)
+        scheduleDelayedCheck(interval)
     }
 
     private fun transitionToCheckState(
@@ -530,11 +514,11 @@ class UpdaterService : Service() {
     }
 
     private fun transitionToDownloadStateForFirmwareUpdate(
-        foundUpdates: List<FirmwareUpdate>
+        foundUpdate: FirmwareUpdate
     ) {
         if (updaterState == UpdaterState.Check) {
             transitionToState(UpdaterState.Download)
-            downloader.downloadFirmwareUpdateNow(foundUpdates)
+            downloader.downloadFirmwareUpdateNow(foundUpdate)
         } else {
             throw IllegalStateException("Can't transition from $updaterState to ${UpdaterState.Download}")
         }
@@ -811,7 +795,6 @@ class UpdaterService : Service() {
      * Schedule a delayed check which replaces the previous pending check.
      */
     private fun scheduleDelayedCheck(
-        packageNames: List<String>,
         delayMillis: Long
     ) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
@@ -820,7 +803,6 @@ class UpdaterService : Service() {
             val intent = Intent(this, UpdaterService::class.java)
             intent.apply {
                 action = IntentActions.ACTION_CHECK_UPDATE
-                putExtra(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames.toTypedArray())
                 // Can't put boolean cause persistable bundle doesn't support
                 // boolean under 22.
                 putExtra(IntentActions.PROP_RESET_UPDATER_SESSION, false.toInt())
@@ -839,10 +821,9 @@ class UpdaterService : Service() {
             Timber.v("[Updater] (>= 21) Schedule a delayed check, using android-21 JobScheduler")
 
             val jobScheduler = this.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-            val componentName = ComponentName(this, UpdaterService::class.java)
+            val componentName = ComponentName(this, UpdaterJobService::class.java)
             val bundle = PersistableBundle()
             bundle.apply {
-                putStringArray(IntentActions.PROP_APP_PACKAGE_NAMES, packageNames.toTypedArray())
                 // Can't put boolean cause that's implemented >= 22.
                 putInt(IntentActions.PROP_RESET_UPDATER_SESSION, false.toInt())
             }
@@ -869,20 +850,22 @@ class UpdaterService : Service() {
 
     // Firmware Update ////////////////////////////////////////////////////////
 
-    private fun onFirmwareUpdateCheckCompleteOrError(
+    private fun onFirmwareUpdateCheckComplete(
         intent: Intent
     ) {
-        val updatesError: Throwable? = intent.getSerializableExtra(IntentActions.PROP_ERROR) as Throwable?
-        updatesError?.let {
-            // TODO error-handling
-            Timber.e(it)
+        val updates = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATE)
+        transitionToDownloadStateForFirmwareUpdate(updates)
+    }
 
-            // Fall back to idle.
-            transitionToState(UpdaterState.Idle)
-        } ?: kotlin.run {
-            val updates = intent.getParcelableArrayListExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATES)
-            transitionToDownloadStateForFirmwareUpdate(updates)
-        }
+    private fun onFirmwareUpdateCheckError(
+        intent: Intent
+    ) {
+        val error: Throwable = intent.getSerializableExtra(IntentActions.PROP_ERROR) as Throwable
+        // TODO error-handling
+        Timber.e(error)
+
+        // Fall back to idle.
+        // transitionToState(UpdaterState.Idle)
     }
 
     private fun onFirmwareUpdateDownloadProgress(
