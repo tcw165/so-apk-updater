@@ -1,6 +1,8 @@
 <manifest package="co.sodalabs.updaterengine"
           xmlns:android="http://schemas.android.com/apk/res/android"
-          xmlns:tools="http://schemas.android.com/tools">
+          xmlns:tools="http://schemas.android.com/tools"
+          android:sharedUserId="android.uid.system">
+    <!--'sharedUserId' is for permission of read/writing '/cache/recovery/' directory-->
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

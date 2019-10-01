@@ -24,16 +24,16 @@ class DefaultUpdatesDownloader @Inject constructor(
     }
 
     override fun downloadFirmwareUpdateNow(
-        updates: FirmwareUpdate
+        update: FirmwareUpdate
     ) {
-        DownloadJobIntentService.downloadFirmwareUpdateNow(context, updates)
+        DownloadJobIntentService.downloadFirmwareUpdateNow(context, update)
     }
 
     override fun scheduleDownloadFirmwareUpdate(
-        updates: List<FirmwareUpdate>,
+        update: FirmwareUpdate,
         triggerAtMillis: Long
     ) {
-        DownloadJobIntentService.scheduleDownloadFirmwareUpdate(context, updates, triggerAtMillis)
+        DownloadJobIntentService.scheduleDownloadFirmwareUpdate(context, update, triggerAtMillis)
     }
 
     override fun cancelPendingAndWipDownloads() {

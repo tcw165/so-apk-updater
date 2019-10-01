@@ -23,9 +23,10 @@ import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
 import co.sodalabs.updaterengine.extension.ensureNotMainThread
 import co.sodalabs.updaterengine.extension.getIndicesToRemove
-import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateDownloaded
-import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateError
-import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateFound
+import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateDownloadComplete
+import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateDownloadError
+import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateCheckError
+import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateCheckComplete
 import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateInstalled
 import co.sodalabs.updaterengine.extension.prepareUpdateDownloadProgress
 import co.sodalabs.updaterengine.extension.prepareUpdateDownloaded
@@ -163,12 +164,12 @@ class UpdaterService : Service() {
             uiHandler.post {
                 val action = IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE
                 val broadcastIntent = Intent()
-                broadcastIntent.prepareFirmwareUpdateFound(action, update)
+                broadcastIntent.prepareFirmwareUpdateCheckComplete(action, update)
                 val broadcastManager = LocalBroadcastManager.getInstance(context)
                 broadcastManager.sendBroadcast(broadcastIntent)
 
                 val serviceIntent = Intent(context, UpdaterService::class.java)
-                serviceIntent.prepareFirmwareUpdateFound(action, update)
+                serviceIntent.prepareFirmwareUpdateCheckComplete(action, update)
                 context.startService(serviceIntent)
             }
         }
@@ -186,12 +187,12 @@ class UpdaterService : Service() {
             uiHandler.post {
                 val action = IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_ERROR
                 val broadcastIntent = Intent()
-                broadcastIntent.prepareFirmwareUpdateError(action, error)
+                broadcastIntent.prepareFirmwareUpdateCheckError(action, error)
                 val broadcastManager = LocalBroadcastManager.getInstance(context)
                 broadcastManager.sendBroadcast(broadcastIntent)
 
                 val serviceIntent = Intent(context, UpdaterService::class.java)
-                serviceIntent.prepareFirmwareUpdateError(action, error)
+                serviceIntent.prepareFirmwareUpdateCheckError(action, error)
                 context.startService(serviceIntent)
             }
         }
@@ -278,7 +279,7 @@ class UpdaterService : Service() {
          * to move on. The component responsible for download should call this
          * method when the download completes.
          */
-        fun notifyFirmwareUpdateDownloaded(
+        fun notifyFirmwareUpdateDownloadComplete(
             context: Context,
             foundUpdate: FirmwareUpdate,
             downloadedUpdate: DownloadedFirmwareUpdate
@@ -287,12 +288,12 @@ class UpdaterService : Service() {
             uiHandler.post {
                 val action = IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE
                 val broadcastIntent = Intent()
-                broadcastIntent.prepareFirmwareUpdateDownloaded(action, foundUpdate, downloadedUpdate)
+                broadcastIntent.prepareFirmwareUpdateDownloadComplete(action, foundUpdate, downloadedUpdate)
                 val broadcastManager = LocalBroadcastManager.getInstance(context)
                 broadcastManager.sendBroadcast(broadcastIntent)
 
                 val serviceIntent = Intent(context, UpdaterService::class.java)
-                serviceIntent.prepareFirmwareUpdateDownloaded(action, foundUpdate, downloadedUpdate)
+                serviceIntent.prepareFirmwareUpdateDownloadComplete(action, foundUpdate, downloadedUpdate)
                 context.startService(serviceIntent)
             }
         }
@@ -304,18 +305,19 @@ class UpdaterService : Service() {
          */
         fun notifyFirmwareUpdateDownloadError(
             context: Context,
+            foundUpdate: FirmwareUpdate,
             error: Throwable
         ) {
             Timber.v("[Download] Download job just completes")
             uiHandler.post {
-                val action = IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE
+                val action = IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_ERROR
                 val broadcastIntent = Intent()
-                broadcastIntent.prepareFirmwareUpdateError(action, error)
+                broadcastIntent.prepareFirmwareUpdateDownloadError(action, foundUpdate, error)
                 val broadcastManager = LocalBroadcastManager.getInstance(context)
                 broadcastManager.sendBroadcast(broadcastIntent)
 
                 val serviceIntent = Intent(context, UpdaterService::class.java)
-                serviceIntent.prepareFirmwareUpdateError(action, error)
+                serviceIntent.prepareFirmwareUpdateDownloadError(action, foundUpdate, error)
                 context.startService(serviceIntent)
             }
         }
@@ -446,7 +448,8 @@ class UpdaterService : Service() {
                         IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE -> onFirmwareUpdateCheckComplete(intent)
                         IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_ERROR -> onFirmwareUpdateCheckError(intent)
                         IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_PROGRESS -> onFirmwareUpdateDownloadProgress(intent)
-                        IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE -> onFirmwareUpdateDownloadCompleteOrError(intent)
+                        IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE -> onFirmwareUpdateDownloadComplete(intent)
+                        IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_ERROR -> onFirmwareUpdateDownloadError(intent)
                         IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE_COMPLETE -> onFirmwareUpdateInstallCompleteOrError(intent)
                     }
                 } catch (error: Throwable) {
@@ -542,7 +545,7 @@ class UpdaterService : Service() {
     }
 
     private fun transitionToInstallStateForFirmwareUpdate(
-        downloadedUpdates: List<DownloadedFirmwareUpdate>
+        downloadedUpdate: DownloadedFirmwareUpdate
     ) {
         if (updaterState == UpdaterState.Idle ||
             updaterState == UpdaterState.Download
@@ -552,7 +555,7 @@ class UpdaterService : Service() {
             val installWindow = updaterConfig.installWindow
             val time = ScheduleUtils.findNextInstallTimeMillis(installWindow)
 
-            installer.scheduleInstallFirmwareUpdate(downloadedUpdates, time)
+            installer.scheduleInstallFirmwareUpdate(downloadedUpdate, time)
         } else {
             throw IllegalStateException("Can't transition from $updaterState to ${UpdaterState.Install}")
         }
@@ -884,44 +887,55 @@ class UpdaterService : Service() {
         }
     }
 
-    private fun onFirmwareUpdateDownloadCompleteOrError(
+    private fun onFirmwareUpdateDownloadComplete(
         intent: Intent
     ) {
-        val foundUpdates = intent.getParcelableArrayListExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATES)
-        val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
-        val nullableError = intent.getSerializableExtra(IntentActions.PROP_ERROR) as? CompositeException
-        nullableError?.let { compositeError ->
+        try {
+            val foundUpdate = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATE)
+            val downloadedUpdate = intent.getParcelableExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATE)
+
+            // Serialize the downloaded updates on storage for the case if the
+            // device reboots, we'll continue the install on boot.
+            try {
+                // FIXME: Implement the firmware update cache
+                // persistDownloadedFirmwareUpdates(downloadedUpdates)
+            } catch (error: Throwable) {
+                Timber.e(error)
+            }
+            // Move on to installing updates.
+            transitionToInstallStateForFirmwareUpdate(downloadedUpdate)
+        } catch (error: Throwable) {
+            Timber.e(error)
+            // Fall back to idle when there's no downloaded update.
+            transitionToIdleState()
+        }
+    }
+
+    private fun onFirmwareUpdateDownloadError(
+        intent: Intent
+    ) {
+        try {
+            val foundUpdate = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATE)
+            val error = intent.getSerializableExtra(IntentActions.PROP_ERROR) as Throwable
             // TODO: Fall back to IDLE directly when there's no internet?
 
             val oldAttempts = downloadAttempts
             val newAttempts = ++downloadAttempts
             if (newAttempts < TOTAL_DOWNLOAD_ATTEMPTS_PER_SESSION) {
                 Timber.e("[Updater] Failed to download some of the found updates, will retry soon (there were $oldAttempts attempts)")
-                Timber.e(compositeError)
+                Timber.e(error)
                 val triggerAtMillis = ScheduleUtils.findNextDownloadTimeMillis(newAttempts)
 
                 // Retry (and stays in the same state).
-                downloader.scheduleDownloadFirmwareUpdate(foundUpdates, triggerAtMillis)
+                downloader.scheduleDownloadFirmwareUpdate(foundUpdate, triggerAtMillis)
             } else {
                 // Fall back to idle after all the attempts fail.
                 transitionToIdleState()
             }
-        } ?: kotlin.run {
-            if (downloadedUpdates.isNotEmpty()) {
-                // Serialize the downloaded updates on storage for the case if the
-                // device reboots, we'll continue the install on boot.
-                try {
-                    // FIXME: Implement the firmware update cache
-                    // persistDownloadedFirmwareUpdates(downloadedUpdates)
-                } catch (error: Throwable) {
-                    Timber.e(error)
-                }
-                // Move on to installing updates.
-                transitionToInstallStateForFirmwareUpdate(downloadedUpdates)
-            } else {
-                // Fall back to idle when there's no downloaded update.
-                transitionToIdleState()
-            }
+        } catch (error: Throwable) {
+            Timber.e(error)
+            // Fall back to idle when there's no downloaded update.
+            transitionToIdleState()
         }
     }
 
@@ -941,7 +955,7 @@ class UpdaterService : Service() {
             Timber.e(error)
         }
 
-        // Transition to idle at the end.
+        // Transition to idle at the end regardless success or fail.
         transitionToIdleState()
 
         // TODO: Countdown for rebooting to recovery mode

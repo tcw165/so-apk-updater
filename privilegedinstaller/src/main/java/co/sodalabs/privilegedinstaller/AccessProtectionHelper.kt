@@ -33,7 +33,7 @@ class AccessProtectionHelper(
         // callingPackages contains more than one entry when sharedUserId has been used
         // No plans to support sharedUserIds due to many bugs connected to them:
         // http://java-hamster.blogspot.de/2010/05/androids-shareduserid.html
-        val currentPkg = callingPackages[0]
+        val currentPkg = callingPackages.first()
         return isPackageAllowed(currentPkg)
     }
 

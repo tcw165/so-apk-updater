@@ -38,7 +38,7 @@ class NetworkModule {
 
     @Provides
     @ApplicationScope
-    fun provideSystemProperties(
+    fun provideHttpClient(
         appPreference: IAppPreference
     ): OkHttpClient {
         val hostResolutionInterceptor = provideHostResolutionInterceptor()

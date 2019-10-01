@@ -15,10 +15,14 @@ interface ISparkPointUpdateCheckApi {
         @Query("device_id") deviceId: String? = null
     ): Call<AppUpdate>
 
-    // TODO: Implement it
     @GET("firmware")
-    fun getFirmwareUpdate(
-        @Query("aaa") aaa: String? = null,
-        @Query("bbb") bbb: String? = null
+    fun getFirmwareIncrementalUpdate(
+        @Query("base_version") baseVersion: String
     ): Call<FirmwareUpdate>
+
+    @GET("firmware/latest")
+    fun getFirmwareFullUpdate(): Call<FirmwareUpdate>
+
+    @GET("firmware")
+    fun getFirmwareAllFullUpdate(): Call<List<FirmwareUpdate>>
 }

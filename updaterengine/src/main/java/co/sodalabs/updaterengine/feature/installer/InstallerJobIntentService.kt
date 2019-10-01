@@ -80,9 +80,10 @@ class InstallerJobIntentService : JobIntentService() {
 
         fun installFirmwareUpdateNow(
             context: Context,
-            downloadedUpdates: List<DownloadedFirmwareUpdate>
+            downloadedUpdate: DownloadedFirmwareUpdate
         ) {
-            installNow(context, downloadedUpdates, IntentActions.ACTION_INSTALL_APP_UPDATE)
+            // Note: We turn the singular update to a list to be compatible with the batch install.
+            installNow(context, listOf(downloadedUpdate), IntentActions.ACTION_INSTALL_APP_UPDATE)
         }
 
         private fun <T : Parcelable> installNow(
@@ -106,10 +107,11 @@ class InstallerJobIntentService : JobIntentService() {
 
         fun scheduleInstallFirmwareUpdate(
             context: Context,
-            downloadedUpdates: List<DownloadedFirmwareUpdate>,
+            downloadedUpdate: DownloadedFirmwareUpdate,
             triggerAtMillis: Long
         ) {
-            scheduleInstall(context, downloadedUpdates, triggerAtMillis, IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE)
+            // Note: We turn the singular update to a list to be compatible with the batch install.
+            scheduleInstall(context, listOf(downloadedUpdate), triggerAtMillis, IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE)
         }
 
         private fun <T : Parcelable> scheduleInstall(
@@ -286,8 +288,10 @@ class InstallerJobIntentService : JobIntentService() {
             // TODO: Get boolean for wipe-data & wipe-cache
 
             // Assume the downloaded update is the incremental update
-            val downloadedUpdate = intent.getParcelableExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATE)
-            writeCommandForIncrementalUpdate(downloadedUpdate, wipeData = false, wipeCache = false)
+            val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
+            require(downloadedUpdates.size == 1) { "For firmware update, there should be one downloaded update for installing!" }
+            val theSoleUpdate = downloadedUpdates.first()
+            writeCommandForIncrementalUpdate(theSoleUpdate, wipeData = false, wipeCache = false)
 
             // Assume it's a silent incremental update, so reboot once the command
             // is written.

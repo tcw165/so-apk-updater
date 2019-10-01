@@ -21,28 +21,6 @@ fun <T : Parcelable> Intent.prepareUpdateFound(
     }
 }
 
-fun <T : Parcelable> Intent.prepareFirmwareUpdateFound(
-    intentAction: String,
-    updates: T
-) {
-    this.apply {
-        action = intentAction
-        // Result
-        putExtra(IntentActions.PROP_FOUND_UPDATE, updates)
-    }
-}
-
-fun Intent.prepareFirmwareUpdateError(
-    intentAction: String,
-    error: Throwable
-) {
-    this.apply {
-        action = intentAction
-        // Error
-        putExtra(IntentActions.PROP_ERROR, error)
-    }
-}
-
 fun <T : Parcelable> Intent.prepareUpdateDownloadProgress(
     intentAction: String,
     update: T,
@@ -79,7 +57,47 @@ fun <T : Parcelable, R : Parcelable> Intent.prepareUpdateDownloaded(
     }
 }
 
-fun <T : Parcelable, R : Parcelable> Intent.prepareFirmwareUpdateDownloaded(
+fun <T : Parcelable> Intent.prepareUpdateInstalled(
+    intentAction: String,
+    appliedUpdates: List<T>,
+    errors: List<Throwable>
+) {
+    this.apply {
+        action = intentAction
+        // Result
+        putParcelableArrayListExtra(IntentActions.PROP_APPLIED_UPDATES, ArrayList(appliedUpdates))
+        // Error
+        if (errors.isNotEmpty()) {
+            putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
+        }
+    }
+}
+
+// Firmware OTA Specific //////////////////////////////////////////////////////
+
+fun <T : Parcelable> Intent.prepareFirmwareUpdateCheckComplete(
+    intentAction: String,
+    updates: T
+) {
+    this.apply {
+        action = intentAction
+        // Result
+        putExtra(IntentActions.PROP_FOUND_UPDATE, updates)
+    }
+}
+
+fun Intent.prepareFirmwareUpdateCheckError(
+    intentAction: String,
+    error: Throwable
+) {
+    this.apply {
+        action = intentAction
+        // Error
+        putExtra(IntentActions.PROP_ERROR, error)
+    }
+}
+
+fun <T : Parcelable, R : Parcelable> Intent.prepareFirmwareUpdateDownloadComplete(
     intentAction: String,
     foundUpdates: T,
     downloadedUpdates: R,
@@ -97,19 +115,17 @@ fun <T : Parcelable, R : Parcelable> Intent.prepareFirmwareUpdateDownloaded(
     }
 }
 
-fun <T : Parcelable> Intent.prepareUpdateInstalled(
+fun <T : Parcelable> Intent.prepareFirmwareUpdateDownloadError(
     intentAction: String,
-    appliedUpdates: List<T>,
-    errors: List<Throwable>
+    foundUpdates: T,
+    error: Throwable
 ) {
     this.apply {
         action = intentAction
-        // Result
-        putParcelableArrayListExtra(IntentActions.PROP_APPLIED_UPDATES, ArrayList(appliedUpdates))
+        // Original request
+        putExtra(IntentActions.PROP_FOUND_UPDATE, foundUpdates)
         // Error
-        if (errors.isNotEmpty()) {
-            putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
-        }
+        putExtra(IntentActions.PROP_ERROR, error)
     }
 }
 

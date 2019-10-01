@@ -18,6 +18,7 @@ import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.DownloadedAppUpdate
+import co.sodalabs.updaterengine.data.DownloadedFirmwareUpdate
 import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.exception.DownloadCancelledException
 import co.sodalabs.updaterengine.exception.DownloadInvalidFileSizeException
@@ -25,6 +26,7 @@ import co.sodalabs.updaterengine.exception.DownloadSizeNotFoundException
 import co.sodalabs.updaterengine.exception.DownloadUnknownErrorException
 import co.sodalabs.updaterengine.exception.HttpMalformedURIException
 import co.sodalabs.updaterengine.feature.installer.InstallerJobService
+import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
 import dagger.android.AndroidInjection
 import io.reactivex.disposables.CompositeDisposable
 import okhttp3.Headers
@@ -62,6 +64,7 @@ class DownloadJobIntentService : JobIntentService() {
             context: Context,
             update: FirmwareUpdate
         ) {
+            // Note: We turn the singular update to a list to be compatible with the batch download.
             downloadUpdateNow(context, listOf(update), IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE)
         }
 
@@ -88,13 +91,14 @@ class DownloadJobIntentService : JobIntentService() {
 
         fun scheduleDownloadFirmwareUpdate(
             context: Context,
-            updates: List<FirmwareUpdate>,
+            update: FirmwareUpdate,
             triggerAtMillis: Long
         ) {
-            scheduleDownloadUpdate(context, updates, triggerAtMillis, IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE)
+            // Note: We turn the singular update to a list to be compatible with the batch download.
+            scheduleDownloadUpdate(context, listOf(update), triggerAtMillis, IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE)
         }
 
-        fun <T : Parcelable> scheduleDownloadUpdate(
+        private fun <T : Parcelable> scheduleDownloadUpdate(
             context: Context,
             updates: List<T>,
             triggerAtMillis: Long,
@@ -205,35 +209,128 @@ class DownloadJobIntentService : JobIntentService() {
             }
             IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE -> {
                 val updates = intent.getParcelableArrayListExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATES)
-                downloadFirmwareUpdate(updates.toList())
+                require(updates.size == 1) { "For firmware update, there should be only one found update!" }
+                downloadFirmwareUpdate(updates)
             }
             else -> throw IllegalArgumentException("Hey develop, DownloadJobIntentService is for downloading the updates only!")
         }
     }
 
-    // Download ///////////////////////////////////////////////////////////////
+    // Download For App ///////////////////////////////////////////////////////
 
     private fun downloadAppUpdate(
         updates: List<AppUpdate>
     ) {
-        Timber.v("[Download] Start downloading ${updates.size} updates")
+        // Execute batch download
+        val (completedTasks, errors) = downloadBatchUpdate(
+            urls = updates.map { it.downloadUrl },
+            diskLruCache = updaterConfig.apkDiskCache,
+            downloadingCallback = { urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long ->
+                // Let the engine know the download is in-progress.
+                UpdaterService.notifyAppUpdateDownloadProgress(
+                    context = this,
+                    update = updates[urlIndex],
+                    percentageComplete = progressPercentage,
+                    currentBytes = currentBytes,
+                    totalBytes = totalBytes
+                )
+            }
+        )
 
+        // Let the engine know the download finishes.
+        UpdaterService.notifyAppUpdateDownloaded(
+            context = this,
+            foundUpdates = updates,
+            downloadedUpdates = completedTasks.toDownloadedAppUpdate(updates),
+            errors = errors
+        )
+    }
+
+    private fun List<CompletedTask>.toDownloadedAppUpdate(
+        updates: List<AppUpdate>
+    ): List<DownloadedAppUpdate> {
         val downloadedUpdates = mutableListOf<DownloadedAppUpdate>()
+        for (task in this) {
+            downloadedUpdates.add(DownloadedAppUpdate(
+                file = task.downloadedFile,
+                fromUpdate = updates[task.updateIndex]
+            ))
+        }
+        return downloadedUpdates
+    }
+
+    // Download For Firmware //////////////////////////////////////////////////
+
+    private fun downloadFirmwareUpdate(
+        updates: List<FirmwareUpdate>
+    ) {
+        require(updates.size == 1) { "There should be one firmware found at a time" }
+        val theSoleUpdate = updates.first()
+
+        // Execute batch download
+        val (completedTasks, errors) = downloadBatchUpdate(
+            urls = updates.map { it.fileURL },
+            diskLruCache = updaterConfig.apkDiskCache,
+            downloadingCallback = { urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long ->
+                // Let the engine know the download is in-progress.
+                UpdaterService.notifyFirmwareUpdateDownloadProgress(
+                    context = this,
+                    update = updates[urlIndex],
+                    percentageComplete = progressPercentage,
+                    currentBytes = currentBytes,
+                    totalBytes = totalBytes
+                )
+            }
+        )
+
+        if (completedTasks.isNotEmpty()) {
+            require(completedTasks.size == 1) { "There should be one firmware download task at a time" }
+
+            val theSoleTask = completedTasks.first()
+            val file = theSoleTask.downloadedFile
+
+            // Let the engine know the download finishes.
+            UpdaterService.notifyFirmwareUpdateDownloadComplete(
+                context = this,
+                foundUpdate = theSoleUpdate,
+                downloadedUpdate = DownloadedFirmwareUpdate(file, theSoleUpdate)
+            )
+        } else {
+            require(errors.size == 1) { "There should be an error" }
+            val theSoleError = errors.first()
+
+            // Let the engine know the download fails.
+            UpdaterService.notifyFirmwareUpdateDownloadError(
+                context = this,
+                foundUpdate = theSoleUpdate,
+                error = theSoleError
+            )
+        }
+    }
+
+    // Common /////////////////////////////////////////////////////////////////
+
+    private fun downloadBatchUpdate(
+        urls: List<String>,
+        diskLruCache: DiskLruCache,
+        downloadingCallback: (urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long) -> Unit
+    ): Pair<List<CompletedTask>, List<Throwable>> {
+        Timber.v("[Download] Start downloading ${urls.size} updates")
+
+        val completedTasks = mutableListOf<CompletedTask>()
         val errors = mutableListOf<Throwable>()
 
         // Delete the cache before downloading if we don't use cache.
-        val apkDiskCache = updaterConfig.apkDiskCache
         if (!updaterConfig.downloadUseCache) {
-            apkDiskCache.delete()
+            diskLruCache.delete()
         }
         // Open the cache
-        if (!apkDiskCache.isOpened) {
-            apkDiskCache.open()
+        if (!diskLruCache.isOpened) {
+            diskLruCache.open()
         }
 
-        for (i in 0 until updates.size) {
-            val update = updates[i]
-            val url = update.downloadUrl
+        for (i in 0 until urls.size) {
+            val url = urls[i]
             val urlFileName = try {
                 Uri.parse(url).lastPathSegment
                     ?: throw HttpMalformedURIException(url)
@@ -253,13 +350,12 @@ class DownloadJobIntentService : JobIntentService() {
             }
 
             // Step 2, download the file if cache file size is smaller than the total size.
-            val cache = updaterConfig.apkDiskCache
-            val cacheEditor = cache.edit(urlFileName)
+            val cacheEditor = diskLruCache.edit(urlFileName)
             val cacheFile = cacheEditor.getFile(0)
             Timber.v("[Download] Open the cache \"$cacheFile\"")
             try {
-                val downloadedUpdate = requestDownload(url, totalSize, update, cacheFile)
-                downloadedUpdates.add(downloadedUpdate)
+                executeDownload(i, url, totalSize, cacheFile, downloadingCallback)
+                completedTasks.add(CompletedTask(i, cacheFile))
             } catch (error: Throwable) {
                 Timber.e(error)
                 // We'll collect the error and continue.
@@ -270,20 +366,8 @@ class DownloadJobIntentService : JobIntentService() {
             }
         }
 
-        // Let the engine know the download finishes.
-        UpdaterService.notifyAppUpdateDownloaded(
-            context = this,
-            foundUpdates = updates,
-            downloadedUpdates = downloadedUpdates,
-            errors = errors
-        )
-    }
-
-    private fun downloadFirmwareUpdate(
-        updates: List<FirmwareUpdate>
-    ) {
-        // UpdaterService.notifyFirmwareUpdateDownloaded()
-        TODO()
+        // Complete
+        return Pair(completedTasks, errors)
     }
 
     private fun requestFileSize(
@@ -312,19 +396,20 @@ class DownloadJobIntentService : JobIntentService() {
         return length
     }
 
-    private fun requestDownload(
+    private fun executeDownload(
+        taskIndex: Int,
         url: String,
         totalSize: Long,
-        fromUpdate: AppUpdate,
-        cacheFile: File
-    ): DownloadedAppUpdate {
+        cacheFile: File,
+        onDownloadingCallback: (urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long) -> Unit
+    ) {
         cacheFile.createNewFile()
         val cacheFileSize = cacheFile.length()
 
         // Used to prevent progress updates of the same value
         var workingPercentage = -1
 
-        return if (cacheFileSize < totalSize) {
+        if (cacheFileSize < totalSize) {
             val startPercentage = (100f * cacheFileSize / totalSize).roundToInt()
             Timber.v("[Download] Download \"$url\"... $startPercentage%")
             val dateString = Instant.now()
@@ -381,12 +466,11 @@ class DownloadJobIntentService : JobIntentService() {
                 if (workingPercentage != percentage) {
                     workingPercentage = percentage
 
-                    UpdaterService.notifyAppUpdateDownloadProgress(
-                        context = this,
-                        update = fromUpdate,
-                        percentageComplete = percentage,
-                        currentBytes = currentSize,
-                        totalBytes = totalSize
+                    onDownloadingCallback.invoke(
+                        taskIndex,
+                        workingPercentage,
+                        currentSize,
+                        totalSize
                     )
                 }
             }
@@ -394,7 +478,7 @@ class DownloadJobIntentService : JobIntentService() {
             // TODO: Timeout management?
 
             if (currentSize == totalSize) {
-                DownloadedAppUpdate(cacheFile, fromUpdate)
+                Timber.v("[Download] Download \"$url\"... 100%")
             } else {
                 if (canRun.get()) {
                     // If the size is not matched and it's still allowed running,
@@ -407,10 +491,14 @@ class DownloadJobIntentService : JobIntentService() {
             }
         } else if (cacheFileSize == totalSize) {
             Timber.v("[Download] Download \"$url\"... 100%")
-            DownloadedAppUpdate(cacheFile, fromUpdate)
         } else {
             // Throw exception as the cache size is greater than the expected size.
             throw DownloadInvalidFileSizeException(cacheFile, cacheFileSize, totalSize)
         }
     }
+
+    private data class CompletedTask(
+        val updateIndex: Int,
+        val downloadedFile: File
+    )
 }
