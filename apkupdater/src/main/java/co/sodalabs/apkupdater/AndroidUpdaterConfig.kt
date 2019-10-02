@@ -33,6 +33,12 @@ class AndroidUpdaterConfig @Inject constructor(
     override val hostPackageName: String by lazy { context.packageName }
     override val packageNames: List<String> = listOf(*BuildUtils.PACKAGES_TO_CHECK)
 
+    override var installSilently: Boolean
+        get() = appPreference.getBoolean(PreferenceProps.INSTALL_SILENTLY, BuildConfig.INSTALL_SILENTLY)
+        set(value) {
+            appPreference.putBoolean(PreferenceProps.INSTALL_SILENTLY, value)
+        }
+
     override var heartbeatIntervalMillis: Long
         get() = 1000L * appPreference.getLong(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
         set(value) {

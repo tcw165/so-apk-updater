@@ -15,8 +15,11 @@ import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
 
+private const val EMPTY_STRING = ""
+
 class AndroidSharedSettings @Inject constructor(
     private val contentResolver: ContentResolver,
+    private val appPreference: IAppPreference,
     private val schedulers: IThreadSchedulers
 ) : ISharedSettings {
 
@@ -40,12 +43,18 @@ class AndroidSharedSettings @Inject constructor(
 
     @SuppressLint("HardwareIds")
     override fun getHardwareId(): String {
-        return try {
-            val androidId = getSecureString(Settings.Secure.ANDROID_ID)
-            "${Build.MANUFACTURER}:${BuildConfig.DEBUG}:$androidId"
-        } catch (error: Throwable) {
-            Timber.e(error)
-            ""
+        val androidId = getSecureString(Settings.Secure.ANDROID_ID)
+        return "${Build.MANUFACTURER}:${BuildConfig.DEBUG}:$androidId"
+    }
+
+    override fun getDeviceId(): String {
+        val debugID = appPreference.getString(PreferenceProps.MOCK_DEVICE_ID, EMPTY_STRING)
+        return if (debugID.isNotBlank()) {
+            debugID
+        } else {
+            // Actual value from system.
+            getSecureString(SharedSettingsProps.DEVICE_ID)
+                ?: throw NullPointerException("Can't find the device ID cause it's neither not set nor mocked")
         }
     }
 

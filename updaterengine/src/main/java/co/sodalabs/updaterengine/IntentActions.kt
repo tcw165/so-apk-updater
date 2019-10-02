@@ -43,4 +43,8 @@ object IntentActions {
     const val PROP_PROGRESS_PERCENTAGE = "$ACTION_PREFIX.progress_percentage"
     const val PROP_DOWNLOAD_CURRENT_BYTES = "$ACTION_PREFIX.download_current_bytes"
     const val PROP_DOWNLOAD_TOTAL_BYTES = "$ACTION_PREFIX.download_total_bytes"
+
+    // TODO: Determine the following properties and pass them around (as immutable) in the session.
+    const val PROP_INSTALL_SILENTLY = "$ACTION_PREFIX.install_silently"
+    const val PROP_INSTALL_ALLOW_DOWNGRADE = "$ACTION_PREFIX.install_silently"
 }

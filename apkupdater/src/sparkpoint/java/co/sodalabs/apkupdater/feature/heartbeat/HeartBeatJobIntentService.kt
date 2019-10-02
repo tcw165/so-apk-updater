@@ -8,18 +8,15 @@ import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PersistableBundle
 import android.os.SystemClock
 import androidx.core.app.JobIntentService
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import co.sodalabs.apkupdater.IAppPreference
+import co.sodalabs.apkupdater.IPackageVersionProvider
 import co.sodalabs.apkupdater.ISharedSettings
 import co.sodalabs.apkupdater.ISystemProperties
-import co.sodalabs.apkupdater.PreferenceProps
-import co.sodalabs.apkupdater.SharedSettingsProps
-import co.sodalabs.apkupdater.data.SystemProps
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
 import co.sodalabs.apkupdater.feature.heartbeat.data.HeartBeatBody
 import co.sodalabs.updaterengine.IntentActions
@@ -99,6 +96,8 @@ class HeartBeatJobIntentService : JobIntentService() {
     @Inject
     lateinit var appPreference: IAppPreference
     @Inject
+    lateinit var packageVersionProvider: IPackageVersionProvider
+    @Inject
     lateinit var sharedSettings: ISharedSettings
     @Inject
     lateinit var systemProperties: ISystemProperties
@@ -162,12 +161,7 @@ class HeartBeatJobIntentService : JobIntentService() {
     }
 
     private fun getDeviceID(): String {
-        val debugID = appPreference.getString(PreferenceProps.MOCK_DEVICE_ID, "")
-        return if (debugID.isNotBlank()) {
-            debugID
-        } else {
-            sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: ""
-        }
+        return sharedSettings.getDeviceId()
     }
 
     private fun getHardwareID(): String {
@@ -175,29 +169,11 @@ class HeartBeatJobIntentService : JobIntentService() {
     }
 
     private fun getFirmwareVersion(): String {
-        val debugVersion = appPreference.getString(PreferenceProps.MOCK_FIRMWARE_VERSION, "")
-        return if (debugVersion.isNotBlank()) {
-            debugVersion
-        } else {
-            // Actual firmware version from system.
-            systemProperties.getString(SystemProps.FIRMWARE_VERSION_INCREMENTAL, "")
-        }
+        return systemProperties.getFirmwareVersion()
     }
 
     private fun getSparkpointPlayerVersion(): String {
-        val debugVersion = appPreference.getString(PreferenceProps.MOCK_SPARKPOINT_VERSION, "")
-        return if (debugVersion.isNotBlank()) {
-            debugVersion
-        } else {
-            // Actual Sparkpoint version.
-            try {
-                val info = packageManager.getPackageInfo(Packages.SPARKPOINT_PACKAGE_NAME, PackageManager.GET_META_DATA)
-                info.versionName
-            } catch (error: PackageManager.NameNotFoundException) {
-                // The package is not installed (or deleted)
-                ""
-            }
-        }
+        return packageVersionProvider.getPackageVersion(Packages.SPARKPOINT_PACKAGE_NAME)
     }
 
     // Broadcast //////////////////////////////////////////////////////////////

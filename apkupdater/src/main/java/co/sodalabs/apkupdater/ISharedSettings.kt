@@ -7,6 +7,7 @@ interface ISharedSettings {
     fun isUserSetupComplete(): Boolean
 
     fun getHardwareId(): String
+    fun getDeviceId(): String
 
     fun getGlobalInt(key: String, default: Int): Int
     fun putGlobalInt(key: String, value: Int): Boolean

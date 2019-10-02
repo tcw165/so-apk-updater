@@ -5,13 +5,13 @@ package co.sodalabs.apkupdater.di.component
 import android.content.ContentResolver
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import co.sodalabs.apkupdater.IAppPreference
 import co.sodalabs.apkupdater.ISharedSettings
 import co.sodalabs.apkupdater.ISystemProperties
 import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.di.module.AppPreferenceModule
 import co.sodalabs.apkupdater.di.module.NetworkModule
-import co.sodalabs.apkupdater.di.module.SharedSettingsModule
 import co.sodalabs.apkupdater.di.module.SubComponentActivityModule
 import co.sodalabs.apkupdater.di.module.SubComponentServiceModule
 import co.sodalabs.apkupdater.di.module.SystemModule
@@ -31,7 +31,6 @@ import dagger.android.support.AndroidSupportInjectionModule
     // ApplicationContextModule::class,
     ThreadSchedulersModule::class,
     AppPreferenceModule::class,
-    SharedSettingsModule::class,
     SystemModule::class,
     NetworkModule::class,
     UpdaterModule::class,
@@ -52,6 +51,9 @@ interface AppComponent : AndroidInjector<UpdaterApp> {
 
         @BindsInstance
         fun setContentResolver(resolver: ContentResolver): Builder
+
+        @BindsInstance
+        fun setPackageManager(manager: PackageManager): Builder
 
         fun build(): AppComponent
     }

@@ -21,12 +21,12 @@ import co.sodalabs.updaterengine.data.DownloadedAppUpdate
 import co.sodalabs.updaterengine.data.DownloadedFirmwareUpdate
 import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
-import co.sodalabs.updaterengine.extension.ensureNotMainThread
+import co.sodalabs.updaterengine.extension.ensureBackgroundThread
 import co.sodalabs.updaterengine.extension.getIndicesToRemove
+import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateCheckComplete
+import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateCheckError
 import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateDownloadComplete
 import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateDownloadError
-import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateCheckError
-import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateCheckComplete
 import co.sodalabs.updaterengine.extension.prepareFirmwareUpdateInstalled
 import co.sodalabs.updaterengine.extension.prepareUpdateDownloadProgress
 import co.sodalabs.updaterengine.extension.prepareUpdateDownloaded
@@ -132,7 +132,7 @@ class UpdaterService : Service() {
          * to move on. The component is responsible for the check should call this
          * method when the check completes.
          */
-        fun notifyAppUpdateFound(
+        fun notifyAppUpdateCheckComplete(
             context: Context,
             updates: List<AppUpdate>,
             errors: List<Throwable>
@@ -595,7 +595,7 @@ class UpdaterService : Service() {
     private fun inflateUpdatesFromCache(): Single<List<DownloadedAppUpdate>> {
         return Single
             .fromCallable {
-                ensureNotMainThread()
+                ensureBackgroundThread()
 
                 val diskCache = updaterConfig.downloadedUpdateDiskCache
                 if (diskCache.isClosed) {
@@ -705,8 +705,9 @@ class UpdaterService : Service() {
     ) {
         val updatesError: Throwable? = intent.getSerializableExtra(IntentActions.PROP_ERROR) as Throwable?
         updatesError?.let {
-            // TODO error-handling
             Timber.e(it)
+
+            // TODO: Broadcast the error to the remote client.
 
             // Fall back to idle.
             transitionToState(UpdaterState.Idle)
@@ -864,11 +865,11 @@ class UpdaterService : Service() {
         intent: Intent
     ) {
         val error: Throwable = intent.getSerializableExtra(IntentActions.PROP_ERROR) as Throwable
-        // TODO error-handling
-        Timber.e(error)
 
         // Fall back to idle.
         // transitionToState(UpdaterState.Idle)
+
+        // TODO: Broadcast the error
     }
 
     private fun onFirmwareUpdateDownloadProgress(

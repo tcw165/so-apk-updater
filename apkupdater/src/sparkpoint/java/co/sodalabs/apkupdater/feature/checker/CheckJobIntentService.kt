@@ -11,7 +11,9 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PersistableBundle
 import androidx.core.app.JobIntentService
+import co.sodalabs.apkupdater.IAppPreference
 import co.sodalabs.apkupdater.ISharedSettings
+import co.sodalabs.apkupdater.ISystemProperties
 import co.sodalabs.apkupdater.SharedSettingsProps
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
 import co.sodalabs.updaterengine.IntentActions
@@ -22,6 +24,7 @@ import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.extension.getIndicesToRemove
+import co.sodalabs.updaterengine.extension.isGreaterThan
 import dagger.android.AndroidInjection
 import retrofit2.HttpException
 import timber.log.Timber
@@ -95,7 +98,11 @@ class CheckJobIntentService : JobIntentService() {
     @Inject
     lateinit var apiClient: ISparkPointUpdateCheckApi
     @Inject
+    lateinit var appPreference: IAppPreference
+    @Inject
     lateinit var sharedSettings: ISharedSettings
+    @Inject
+    lateinit var systemProperties: ISystemProperties
 
     override fun onCreate() {
         Timber.v("[Check] Check Service is online")
@@ -119,28 +126,105 @@ class CheckJobIntentService : JobIntentService() {
 
     private fun checkUpdate() {
         // 1) Query firmware update.
-        try {
-            val firmwareUpdate = checkFirmwareUpdate()
-            // Notify the updater the firmware update is found!
-            UpdaterService.notifyFirmwareUpdateFound(this, firmwareUpdate)
-            return
+        val firmwareUpdateOpt = try {
+            checkFirmwareUpdate()
         } catch (error: Throwable) {
-            // Notify the updater the firmware update failed!
+            Timber.e(error)
             UpdaterService.notifyFirmwareUpdateError(this, error)
-        }
 
-        // FIXME: The UpdaterService should manage the app and firmware update
-        // FIXME: check and the error state, NOT here.
+            // Move on cause we don't want this block the app update.
+            null
+        }
+        // Notify the updater the firmware update is found!
+        firmwareUpdateOpt?.let { firmwareUpdate ->
+            UpdaterService.notifyFirmwareUpdateFound(this, firmwareUpdate)
+            // Stop here since we have the firmware to update!
+            return
+        }
 
         // 2) Query app update.
         val (appUpdates, appErrors) = checkAppUpdates()
         // Notify the updater the app update is found!
-        UpdaterService.notifyAppUpdateFound(this, appUpdates, appErrors)
+        UpdaterService.notifyAppUpdateCheckComplete(this, appUpdates, appErrors)
     }
 
-    private fun checkFirmwareUpdate(): FirmwareUpdate {
-        TODO()
+    // Check for Firmware /////////////////////////////////////////////////////
+
+    private fun checkFirmwareUpdate(): FirmwareUpdate? {
+        val firmwareVersion = systemProperties.getFirmwareVersion()
+        val rawUpdate: FirmwareUpdate? = if (sharedSettings.isUserSetupComplete()) {
+            queryIncrementalFirmwareUpdate(firmwareVersion)
+        } else {
+            queryFullFirmwareUpdate(firmwareVersion)
+        }
+        return rawUpdate?.filterByVersionCheck(firmwareVersion)
     }
+
+    private fun FirmwareUpdate.filterByVersionCheck(
+        currentFirmwareVersion: String
+    ): FirmwareUpdate? {
+        val foundUpdate = this
+        val newVersion = foundUpdate.version
+        return if (newVersion.isGreaterThan(currentFirmwareVersion, orEqualTo = false)) {
+            Timber.v("[Check] Firmware update with version '$newVersion' (current is '$currentFirmwareVersion')... allowed!")
+            foundUpdate
+        } else {
+            // The version is NOT greater than the current version, we'll
+            // skip this update.
+            Timber.v("[Check] Firmware update with version '$newVersion' (current is '$currentFirmwareVersion')... skipped")
+            null
+        }
+    }
+
+    private fun queryFullFirmwareUpdate(
+        currentFirmwareVersion: String
+    ): FirmwareUpdate {
+        Timber.v("[Check] Check full firmware update for version '$currentFirmwareVersion'")
+
+        val request = apiClient.getFirmwareFullUpdate()
+        val response = request.execute()
+
+        return if (response.isSuccessful) {
+            val body = response.body() ?: throw NullPointerException("Couldn't get FirmwareUpdate body")
+            val bodyClone = body.copy()
+
+            // Make sure the response is actually a FULL update
+            require(!bodyClone.isIncremental) { "The response is NOT a full update" }
+
+            // Close the connection to avoid leak!
+            // response.raw().body()?.close()
+
+            bodyClone
+        } else {
+            throw HttpException(response)
+        }
+    }
+
+    private fun queryIncrementalFirmwareUpdate(
+        currentFirmwareVersion: String
+    ): FirmwareUpdate {
+        Timber.v("[Check] Check incremental firmware update for version '$currentFirmwareVersion'")
+
+        val request = apiClient.getFirmwareIncrementalUpdate(currentFirmwareVersion)
+        val response = request.execute()
+
+        return if (response.isSuccessful) {
+            val body = response.body() ?: throw NullPointerException("Couldn't get FirmwareUpdate body")
+            val bodyClone = body.copy()
+
+            // Make sure the response is actually an incremental update
+            require(bodyClone.isIncremental) { "The response is NOT an incremental update" }
+
+            // Close the connection to avoid leak!
+            // response.raw().body()?.close()
+
+            bodyClone
+        } else {
+            throw HttpException(response)
+        }
+    }
+
+    // Check for APPS /////////////////////////////////////////////////////////
 
     private fun checkAppUpdates(): Pair<List<AppUpdate>, List<Throwable>> {
         val packageNames = updaterConfig.packageNames

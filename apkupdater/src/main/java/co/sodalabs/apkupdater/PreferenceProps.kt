@@ -34,5 +34,6 @@ object PreferenceProps {
 
     const val INSTALL_HOUR_BEGIN = "$PREFIX.install_hour_begin"
     const val INSTALL_HOUR_END = "$PREFIX.install_hour_end"
+    const val INSTALL_SILENTLY = "$PREFIX.install_silently"
     const val INSTALL_ALLOW_DOWNGRADE = "$PREFIX.install_allow_downgrade"
 }

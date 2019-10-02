@@ -120,6 +120,7 @@ class UpdaterApp :
             .setApplication(this)
             .setAppPreference(rawPreference)
             .setContentResolver(contentResolver)
+            .setPackageManager(packageManager)
             .build()
             .inject(this)
     }

@@ -23,7 +23,7 @@ import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedAppUpdate
 import co.sodalabs.updaterengine.data.DownloadedFirmwareUpdate
-import co.sodalabs.updaterengine.extension.ensureNotMainThread
+import co.sodalabs.updaterengine.extension.ensureBackgroundThread
 import co.sodalabs.updaterengine.utils.BuildUtils
 import dagger.android.AndroidInjection
 import timber.log.Timber
@@ -83,7 +83,7 @@ class InstallerJobIntentService : JobIntentService() {
             downloadedUpdate: DownloadedFirmwareUpdate
         ) {
             // Note: We turn the singular update to a list to be compatible with the batch install.
-            installNow(context, listOf(downloadedUpdate), IntentActions.ACTION_INSTALL_APP_UPDATE)
+            installNow(context, listOf(downloadedUpdate), IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE)
         }
 
         private fun <T : Parcelable> installNow(
@@ -305,7 +305,7 @@ class InstallerJobIntentService : JobIntentService() {
     }
 
     private fun ensureInstallCommandFile() {
-        ensureNotMainThread()
+        ensureBackgroundThread()
 
         // Ensure the directory.
         if (!CACHE_DIR.exists()) {
@@ -329,7 +329,7 @@ class InstallerJobIntentService : JobIntentService() {
         wipeData: Boolean,
         wipeCache: Boolean
     ) {
-        ensureNotMainThread()
+        ensureBackgroundThread()
 
         COMMAND_FILE.bufferedWriter()
             .use { out ->
@@ -351,7 +351,13 @@ class InstallerJobIntentService : JobIntentService() {
                 val correctedFile = File(correctedFilePath)
                 cmdList.add("--update_package=$correctedFile")
 
-                out.write(cmdList.concatWithSpace())
+                // Note: The command segment is delimited by '\n'.
+                // e.g.
+                // boot-recovery\n
+                // --wipe_data\n
+                // --wipe_cache\n
+                // --update_package=file\n
+                out.write(cmdList.concatWithLinebreak())
             }
 
         // Log the content of the command file
@@ -361,11 +367,13 @@ class InstallerJobIntentService : JobIntentService() {
         }
     }
 
-    private fun List<String>.concatWithSpace(): String {
+    private fun List<String>.concatWithLinebreak(): String {
         val builder = StringBuilder()
         for (cmd in this) {
             builder.append(cmd)
-            builder.append(" ")
+            // Always append '\n' at the end of command even for the last line.
+            // The '\n' is recognized by the system.
+            builder.append("\n")
         }
         return builder.toString()
     }

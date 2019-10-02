@@ -25,6 +25,10 @@ interface UpdaterConfig {
      */
     var installWindow: IntRange
     /**
+     * Install the update automatically and silently
+     */
+    var installSilently: Boolean
+    /**
      * A debug function for install the downgrade version.
      */
     var installAllowDowngrade: Boolean
