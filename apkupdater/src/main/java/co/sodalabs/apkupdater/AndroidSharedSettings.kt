@@ -33,12 +33,15 @@ class AndroidSharedSettings @Inject constructor(
     }
 
     override fun isUserSetupComplete(): Boolean {
-        return try {
+        val mockValue = appPreference.getBoolean(PreferenceProps.MOCK_USER_SETUP_INCOMPLETE, false)
+        val actualValue = try {
             getSecureInt(SharedSettingsProps.USER_SETUP_COMPLETE, 0) == 1
         } catch (error: Throwable) {
             Timber.e(error)
             false
         }
+        // If the mock value is false, we will look for the actual value instead.
+        return mockValue || actualValue
     }
 
     @SuppressLint("HardwareIds")

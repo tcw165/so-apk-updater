@@ -19,6 +19,7 @@ object PreferenceProps {
 
     const val MOCK_DEVICE_ID = "$PREFIX.mock_device_id"
     const val MOCK_FIRMWARE_VERSION = "$PREFIX.mock_firmware_version"
+    const val MOCK_USER_SETUP_INCOMPLETE = "$PREFIX.mock_user_setup_incomplete"
     const val MOCK_SPARKPOINT_VERSION = "$PREFIX.mock_sparkpoint_version"
 
     // Heartbeat //////////////////////////////////////////////////////////////
