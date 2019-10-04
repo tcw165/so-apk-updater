@@ -290,18 +290,20 @@ class InstallerJobIntentService : JobIntentService() {
             // Assume the downloaded update is the incremental update
             val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
             require(downloadedUpdates.size == 1) { "For firmware update, there should be one downloaded update for installing!" }
-            val theSoleUpdate = downloadedUpdates.first()
-            writeCommandForIncrementalUpdate(theSoleUpdate, wipeData = false, wipeCache = false)
+            val downloadedUpdate = downloadedUpdates.first()
+            val fromUpdate = downloadedUpdate.fromUpdate
 
-            // Assume it's a silent incremental update, so reboot once the command
-            // is written.
-            rebootHelper.rebootToRecovery()
+            if (fromUpdate.isIncremental) {
+                writeUpdateCommand(downloadedUpdate, wipeData = false, wipeCache = false)
+            } else {
+                writeUpdateCommand(downloadedUpdate, wipeData = true, wipeCache = true)
+            }
+
+            // Notify the engine the install completes.
+            UpdaterService.notifyFirmwareUpdateInstallComplete(this, fromUpdate)
         } catch (error: Throwable) {
             Timber.e(error)
         }
-
-        // TODO: For full-update in OOBE, will wait user's decision to reboot.
-        // UpdaterService.notifyFirmwareUpdateInstalled(this, update, error)
     }
 
     private fun ensureInstallCommandFile() {
@@ -324,7 +326,7 @@ class InstallerJobIntentService : JobIntentService() {
         COMMAND_FILE.createNewFile()
     }
 
-    private fun writeCommandForIncrementalUpdate(
+    private fun writeUpdateCommand(
         update: DownloadedFirmwareUpdate,
         wipeData: Boolean,
         wipeCache: Boolean

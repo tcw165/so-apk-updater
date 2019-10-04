@@ -23,6 +23,7 @@ object IntentActions {
     const val ACTION_DOWNLOAD_FIRMWARE_UPDATE_ERROR = "$ACTION_PREFIX.download_firmware_update_error"
     const val ACTION_INSTALL_FIRMWARE_UPDATE = "$ACTION_PREFIX.install_firmware_update"
     const val ACTION_INSTALL_FIRMWARE_UPDATE_COMPLETE = "$ACTION_PREFIX.install_firmware_update_complete"
+    const val ACTION_INSTALL_FIRMWARE_UPDATE_ERROR = "$ACTION_PREFIX.install_firmware_update_error"
     // Heart-beat
     const val ACTION_SEND_HEART_BEAT_NOW = "$ACTION_PREFIX.send_heart_beat_now"
 

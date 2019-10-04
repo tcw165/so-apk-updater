@@ -5,6 +5,17 @@ import android.os.Parcelable
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.exception.CompositeException
 
+fun Intent.prepareError(
+    intentAction: String,
+    error: Throwable
+) {
+    this.apply {
+        action = intentAction
+        // Error
+        putExtra(IntentActions.PROP_ERROR, error)
+    }
+}
+
 fun <T : Parcelable> Intent.prepareUpdateFound(
     intentAction: String,
     updates: List<T>,
@@ -86,17 +97,6 @@ fun <T : Parcelable> Intent.prepareFirmwareUpdateCheckComplete(
     }
 }
 
-fun Intent.prepareFirmwareUpdateCheckError(
-    intentAction: String,
-    error: Throwable
-) {
-    this.apply {
-        action = intentAction
-        // Error
-        putExtra(IntentActions.PROP_ERROR, error)
-    }
-}
-
 fun <T : Parcelable, R : Parcelable> Intent.prepareFirmwareUpdateDownloadComplete(
     intentAction: String,
     foundUpdates: T,
@@ -129,18 +129,13 @@ fun <T : Parcelable> Intent.prepareFirmwareUpdateDownloadError(
     }
 }
 
-fun <T : Parcelable> Intent.prepareFirmwareUpdateInstalled(
+fun <T : Parcelable> Intent.prepareFirmwareUpdateInstallComplete(
     intentAction: String,
-    appliedUpdate: T,
-    error: Throwable? = null
+    appliedUpdate: T
 ) {
     this.apply {
         action = intentAction
         // Result
         putExtra(IntentActions.PROP_APPLIED_UPDATE, appliedUpdate)
-        // Error
-        error?.let {
-            putExtra(IntentActions.PROP_ERROR, it)
-        }
     }
 }
