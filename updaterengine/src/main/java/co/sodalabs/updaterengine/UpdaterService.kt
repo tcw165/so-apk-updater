@@ -44,7 +44,10 @@ import io.reactivex.Single
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.internal.schedulers.SingleScheduler
 import io.reactivex.rxkotlin.addTo
+import org.threeten.bp.Instant
+import org.threeten.bp.ZoneId
 import timber.log.Timber
+import java.io.File
 import javax.inject.Inject
 
 private const val NOTIFICATION_CHANNEL_ID = "updater_engine"
@@ -368,6 +371,35 @@ class UpdaterService : Service() {
                 context.startService(serviceIntent)
             }
         }
+
+        /**
+         * @hide
+         */
+        fun debugInstallFirmwareUpdate(
+            context: Context,
+            updateFile: File,
+            isIncremental: Boolean
+        ) {
+            val updateTypeLiteral = if (isIncremental) "incremental" else "full"
+            Timber.v("[Debug] install $updateTypeLiteral update at '$updateFile'")
+
+            uiHandler.post {
+                val serviceIntent = Intent(context, UpdaterService::class.java).apply {
+                    action = DebugIntentActions.ACTION_INSTALL_FIRMWARE_UPDATE
+                    val mockFoundUpdate = FirmwareUpdate(
+                        version = "99.99.99",
+                        isIncremental = isIncremental,
+                        fileURL = "",
+                        fileHash = "",
+                        updateOptions = ""
+                    )
+                    val mockDownloadedUpdate = DownloadedFirmwareUpdate(updateFile, mockFoundUpdate)
+                    putExtra(IntentActions.PROP_DOWNLOADED_UPDATE, mockDownloadedUpdate)
+                }
+
+                context.startService(serviceIntent)
+            }
+        }
     }
 
     // TODO: Pull out the business logic to the testable controller!
@@ -440,12 +472,12 @@ class UpdaterService : Service() {
                         IntentActions.ACTION_ENGINE_START -> start()
                         // Note: The only acceptable state from startService()
                         IntentActions.ACTION_CHECK_UPDATE -> onRequestGeneralUpdateCheck(intent)
-                        // App Update /////////////////////////////////////////////
+                        // App Update
                         IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE -> onAppUpdateCheckCompleteOrError(intent)
                         IntentActions.ACTION_DOWNLOAD_APP_UPDATE_PROGRESS -> onAppUpdateDownloadProgress(intent)
                         IntentActions.ACTION_DOWNLOAD_APP_UPDATE_COMPLETE -> onAppUpdateDownloadCompleteOrError(intent)
                         IntentActions.ACTION_INSTALL_APP_UPDATE_COMPLETE -> onAppUpdateInstallCompleteOrError(intent)
-                        // Firmware Update ////////////////////////////////////////
+                        // Firmware Update
                         IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE -> onFirmwareUpdateCheckComplete(intent)
                         IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_ERROR -> onFirmwareUpdateCheckError(intent)
                         IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_PROGRESS -> onFirmwareUpdateDownloadProgress(intent)
@@ -453,6 +485,8 @@ class UpdaterService : Service() {
                         IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_ERROR -> onFirmwareUpdateDownloadError(intent)
                         IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE_COMPLETE -> onFirmwareUpdateInstallComplete(intent)
                         IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE_ERROR -> onFirmwareUpdateInstallError(intent)
+                        // Debug
+                        DebugIntentActions.ACTION_INSTALL_FIRMWARE_UPDATE -> debugTransitionToInstallStateForFirmwareUpdate(intent)
                     }
                 } catch (error: Throwable) {
                     Timber.e(error)
@@ -564,6 +598,32 @@ class UpdaterService : Service() {
     }
 
     /**
+     * Note: This might disrupt the updater state.
+     */
+    private fun debugTransitionToInstallStateForFirmwareUpdate(
+        intent: Intent
+    ) {
+        // Reset attempts
+        checkAttempts = 0
+        downloadAttempts = 0
+
+        // Cancel pending jobs.
+        cancelDelayedCheck()
+        downloader.cancelPendingAndWipDownloads()
+        installer.cancelPendingInstalls()
+
+        transitionToState(UpdaterState.Install)
+
+        val update = intent.getParcelableExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATE)
+        val currentMillis = Instant.now()
+            .atZone(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+        val triggerTime = currentMillis + 1000L
+        installer.scheduleInstallFirmwareUpdate(update, triggerTime)
+    }
+
+    /**
      * Note: Only state transition function can call this method.
      */
     private fun transitionToState(
@@ -571,7 +631,7 @@ class UpdaterService : Service() {
     ) {
         // For visuals of state transition, check out the link here,
         // https://www.notion.so/sodalabs/APK-Updater-Overview-a3033e1f51604668a9dae02bdb1d7d09
-        Timber.v("[Updater] Transition updater state from \"$updaterState\" to \"$nextState\"")
+        Timber.v("[Updater] Transition updater state from $updaterState to $nextState")
         lastUpdaterState = updaterState
         updaterState = nextState
     }
@@ -854,6 +914,30 @@ class UpdaterService : Service() {
         }
     }
 
+    /**
+     * Cancel any delayed check.
+     */
+    private fun cancelDelayedCheck() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            Timber.v("[Updater] (< 21) Cancel any delayed check, using AlarmManager")
+
+            // Intent comparison is defined in [Intent#filterEquals] and the
+            // comparison doesn't use extra-bundle.
+            val intent = Intent(this, UpdaterService::class.java).apply {
+                action = IntentActions.ACTION_CHECK_UPDATE
+            }
+
+            val alarmManager = this.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val pendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+            alarmManager.cancel(pendingIntent)
+        } else {
+            Timber.v("[Updater] (>= 21) Cancel any delayed check, using android-21 JobScheduler")
+
+            val jobScheduler = this.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
+            jobScheduler.cancel(UpdaterJobs.JOB_ID_ENGINE_TRANSITION_TO_CHECK)
+        }
+    }
+
     // Firmware Update ////////////////////////////////////////////////////////
 
     private fun onFirmwareUpdateCheckComplete(
@@ -964,6 +1048,7 @@ class UpdaterService : Service() {
         } else {
             // TODO: Wait in the REBOOTING state so that OOBE UI can reboot on
             // TODO: its will.
+            rebootHelper.rebootToRecovery()
         }
     }
 

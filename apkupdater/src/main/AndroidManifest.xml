@@ -1,6 +1,7 @@
 <manifest package="co.sodalabs.apkupdater"
           xmlns:android="http://schemas.android.com/apk/res/android"
           xmlns:tools="http://schemas.android.com/tools"
+          android:sharedUserId="android.uid.system"
           tools:node="merge">
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -51,15 +52,5 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/apk_file_provider" />
         </provider>
-
-        <receiver
-            android:name=".SelfUpdatedReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <data android:scheme="package" />
-            </intent-filter>
-        </receiver>
     </application>
 </manifest>

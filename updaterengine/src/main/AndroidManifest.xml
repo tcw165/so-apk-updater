@@ -70,7 +70,7 @@
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
-        <!--TODO: The client integrating this library has to declare this in your manifest.-->
+        <!--Note: Add this to the manifest in the client integrating this library.-->
         <!--
         <provider
             android:name=".installer.ApkFileProvider"
@@ -82,5 +82,28 @@
                 android:resource="@xml/apk_file_provider" />
         </provider>
         -->
+
+        <!--
+        For DEBUG primarily. For example, the panel is completely hidden as a source
+        is casting. On that, you could show the settings action panel via an ADB
+        command.
+        e.g. adb shell am broadcast -a "install_incremental_update" -e file "$file"
+
+        Note: You might need to grant the permission first!
+        e.g. adb shell pm grant com.android.shell co.sodalabs.apkupdater.permission.WRITE_SECURE_SETTINGS
+
+        Check doc here, https://www.notion.so/sodalabs/APK-Updater-Overview-a3033e1f51604668a9dae02bdb1d7d09
+        -->
+        <!-- TODO: Add permission config for better security -->
+        <!-- android:permission="android.permission.WRITE_SECURE_SETTINGS" -->
+        <receiver
+            android:name=".DebugCommandReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="install_full_update" />
+                <action android:name="install_incremental_update" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

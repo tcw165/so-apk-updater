@@ -331,6 +331,7 @@ class InstallerJobIntentService : JobIntentService() {
         wipeData: Boolean,
         wipeCache: Boolean
     ) {
+        Timber.v("[Install] Write firmware install command...")
         ensureBackgroundThread()
 
         COMMAND_FILE.bufferedWriter()
@@ -365,7 +366,8 @@ class InstallerJobIntentService : JobIntentService() {
         // Log the content of the command file
         if (BuildUtils.isDebug()) {
             val content = COMMAND_FILE.bufferedReader().readText()
-            Timber.v("[Install] firmware install command is ready as '$content'")
+            Timber.v("[Install] Write firmware install command... successfully")
+            Timber.v("[Install] The actual command content:\n$content\n")
         }
     }
 
