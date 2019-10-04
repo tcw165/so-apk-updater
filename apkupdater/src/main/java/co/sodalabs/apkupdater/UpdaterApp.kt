@@ -4,12 +4,15 @@ import android.annotation.SuppressLint
 import android.provider.Settings
 import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
-import co.sodalabs.apkupdater.data.SystemProps
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
 import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
+import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.Intervals
+import co.sodalabs.updaterengine.PreferenceProps
+import co.sodalabs.updaterengine.SharedSettingsProps
 import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.UpdatesChecker

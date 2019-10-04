@@ -13,10 +13,10 @@ import android.os.PersistableBundle
 import android.os.SystemClock
 import androidx.core.app.JobIntentService
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import co.sodalabs.apkupdater.IAppPreference
-import co.sodalabs.apkupdater.IPackageVersionProvider
-import co.sodalabs.apkupdater.ISharedSettings
-import co.sodalabs.apkupdater.ISystemProperties
+import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.IPackageVersionProvider
+import co.sodalabs.updaterengine.ISharedSettings
+import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
 import co.sodalabs.apkupdater.feature.heartbeat.data.HeartBeatBody
 import co.sodalabs.updaterengine.IntentActions

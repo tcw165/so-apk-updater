@@ -8,6 +8,7 @@ import android.app.job.JobScheduler
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
@@ -43,11 +44,13 @@ import dagger.android.AndroidInjection
 import io.reactivex.Single
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.internal.schedulers.SingleScheduler
+import io.reactivex.rxkotlin.Observables
 import io.reactivex.rxkotlin.addTo
 import org.threeten.bp.Instant
 import org.threeten.bp.ZoneId
 import timber.log.Timber
 import java.io.File
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 private const val NOTIFICATION_CHANNEL_ID = "updater_engine"
@@ -102,6 +105,65 @@ class UpdaterService : Service() {
                     putExtra(IntentActions.PROP_RESET_UPDATER_SESSION, resetSession.toInt())
                 }
                 context.startService(serviceIntent)
+            }
+        }
+
+        /**
+         * Schedule a delayed check and replaces the previous pending check with
+         * the new one.
+         */
+        fun scheduleDelayedCheck(
+            context: Context,
+            delayMillis: Long
+        ) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                Timber.v("[Updater] (< 21) Schedule a delayed check, using AlarmManager")
+
+                val intent = Intent(context, UpdaterService::class.java)
+                intent.apply {
+                    action = IntentActions.ACTION_CHECK_UPDATE
+                    // Can't put boolean cause persistable bundle doesn't support
+                    // boolean under 22.
+                    putExtra(IntentActions.PROP_RESET_UPDATER_SESSION, false.toInt())
+                }
+
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+
+                alarmManager.cancel(pendingIntent)
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + delayMillis,
+                    pendingIntent
+                )
+            } else {
+                Timber.v("[Updater] (>= 21) Schedule a delayed check, using android-21 JobScheduler")
+
+                val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
+                val componentName = ComponentName(context, UpdaterJobService::class.java)
+                val bundle = PersistableBundle()
+                bundle.apply {
+                    // Can't put boolean cause that's implemented >= 22.
+                    putInt(IntentActions.PROP_RESET_UPDATER_SESSION, false.toInt())
+                }
+
+                val builder = JobInfo.Builder(UpdaterJobs.JOB_ID_ENGINE_TRANSITION_TO_CHECK, componentName)
+                    .setRequiresDeviceIdle(false)
+                    .setMinimumLatency(delayMillis)
+                    .setOverrideDeadline(delayMillis + LENGTH_10M_MILLIS)
+                    .setExtras(bundle)
+
+                if (Build.VERSION.SDK_INT >= 26) {
+                    builder.setRequiresBatteryNotLow(false)
+                        .setRequiresStorageNotLow(false)
+                }
+
+                builder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+
+                // Note: The job would be consumed by CheckJobService and translated
+                // to an Intent. Then the Intent is handled here in onHandleWork()!
+                jobScheduler.cancel(UpdaterJobs.JOB_ID_ENGINE_TRANSITION_TO_CHECK)
+                jobScheduler.schedule(builder.build())
             }
         }
 
@@ -421,6 +483,8 @@ class UpdaterService : Service() {
     @Inject
     lateinit var jsonBuilder: Moshi
     @Inject
+    lateinit var sharedSettings: ISharedSettings
+    @Inject
     lateinit var schedulers: IThreadSchedulers
 
     private val disposablesOnCreateDestroy = CompositeDisposable()
@@ -498,12 +562,17 @@ class UpdaterService : Service() {
     private fun start() {
         // Restore the updater state from the persistent store.
         // If it is in the INSTALL state, then install the updates from the disk cache.
-        continueInstallsOrScheduleCheck()
+        continueInstallsOrScheduleCheckOnStart()
 
         val heartbeatInterval = updaterConfig.heartbeatIntervalMillis
         heartBeater.scheduleRecurringHeartBeat(heartbeatInterval)
     }
 
+    /**
+     * Transitioning to idle state can happen anytime at any state. This
+     * transitioning also cancels all the pending works and resets the internal
+     * properties.
+     */
     private fun transitionToIdleState() {
         transitionToState(UpdaterState.Idle)
 
@@ -512,13 +581,25 @@ class UpdaterService : Service() {
         downloadAttempts = 0
 
         // Cancel pending downloads and installs.
+        cancelPendingCheck(this)
         downloader.cancelPendingAndWipDownloads()
         installer.cancelPendingInstalls()
+    }
 
-        // In idle state, we'll schedule a next check in terms of the config
-        // interval.
-        val interval = updaterConfig.checkIntervalMillis
-        scheduleDelayedCheck(interval)
+    /**
+     * Transitioning to idle state can happen anytime at any state. This
+     * transitioning also cancels all the pending works and resets the internal
+     * properties.
+     * But this one schedules a delayed check after the cleanup.
+     */
+    private fun transitionToIdleStateAndScheduleNextCheck() {
+        transitionToIdleState()
+
+        // Schedule a next check after the interval given from the config.
+        if (sharedSettings.isUserSetupComplete()) {
+            val interval = updaterConfig.checkIntervalMillis
+            scheduleDelayedCheck(this, interval)
+        }
     }
 
     private fun transitionToCheckState(
@@ -608,7 +689,7 @@ class UpdaterService : Service() {
         downloadAttempts = 0
 
         // Cancel pending jobs.
-        cancelDelayedCheck()
+        cancelPendingCheck(this)
         downloader.cancelPendingAndWipDownloads()
         installer.cancelPendingInstalls()
 
@@ -636,17 +717,24 @@ class UpdaterService : Service() {
         updaterState = nextState
     }
 
-    private fun continueInstallsOrScheduleCheck() {
-        inflateUpdatesFromCache()
+    private fun continueInstallsOrScheduleCheckOnStart() {
+        Observables.combineLatest(
+            inflateUpdatesFromCache().toObservable(),
+            sharedSettings.observeUserSetupComplete())
             .observeOn(updaterScheduler)
-            .subscribe({ foundInstallCache ->
+            .subscribe({ (foundInstallCache, userSetupComplete) ->
                 // TODO: Should check the timestamp of the install cache to see if it's due.
                 if (foundInstallCache.isNotEmpty()) {
-                    Timber.v("[Updater] Found the downloaded update cache on start!")
+                    Timber.v("[Updater] Found a fully downloaded update cache on start!")
                     transitionToInstallStateForAppUpdate(foundInstallCache)
                 } else {
-                    Timber.v("[Updater] Not found any downloaded update cache on start.")
-                    transitionToIdleState()
+                    if (userSetupComplete) {
+                        Timber.v("[Updater] Not found any fully downloaded update cache on start, with user-setup complete.")
+                        transitionToIdleStateAndScheduleNextCheck()
+                    } else {
+                        Timber.v("[Updater] Not found any fully downloaded update cache on start, with user-setup INCOMPLETE.")
+                        transitionToIdleState()
+                    }
                 }
             }, Timber::e)
             .addTo(disposablesOnCreateDestroy)
@@ -654,6 +742,10 @@ class UpdaterService : Service() {
 
     // Disk Cache /////////////////////////////////////////////////////////////
 
+    /**
+     * Inflate the persistable update (fully downloaded) and then delete the
+     * cache file (the journal file not the download cache).
+     */
     private fun inflateUpdatesFromCache(): Single<List<DownloadedAppUpdate>> {
         return Single
             .fromCallable {
@@ -791,7 +883,7 @@ class UpdaterService : Service() {
             // TODO: Send progress to remote
         } else {
             // Fall back to idle when there's no downloaded update.
-            transitionToIdleState()
+            transitionToIdleStateAndScheduleNextCheck()
         }
     }
 
@@ -815,7 +907,7 @@ class UpdaterService : Service() {
                 downloader.scheduleDownloadAppUpdate(foundUpdates, triggerAtMillis)
             } else {
                 // Fall back to idle after all the attempts fail.
-                transitionToIdleState()
+                transitionToIdleStateAndScheduleNextCheck()
             }
         } ?: kotlin.run {
             if (downloadedUpdates.isNotEmpty()) {
@@ -830,7 +922,7 @@ class UpdaterService : Service() {
                 transitionToInstallStateForAppUpdate(downloadedUpdates)
             } else {
                 // Fall back to idle when there's no downloaded update.
-                transitionToIdleState()
+                transitionToIdleStateAndScheduleNextCheck()
             }
         }
     }
@@ -854,88 +946,7 @@ class UpdaterService : Service() {
         // TODO: What shall we do with this info?
 
         // Transition to idle at the end.
-        transitionToIdleState()
-    }
-
-    /**
-     * Schedule a delayed check which replaces the previous pending check.
-     */
-    private fun scheduleDelayedCheck(
-        delayMillis: Long
-    ) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            Timber.v("[Updater] (< 21) Schedule a delayed check, using AlarmManager")
-
-            val intent = Intent(this, UpdaterService::class.java)
-            intent.apply {
-                action = IntentActions.ACTION_CHECK_UPDATE
-                // Can't put boolean cause persistable bundle doesn't support
-                // boolean under 22.
-                putExtra(IntentActions.PROP_RESET_UPDATER_SESSION, false.toInt())
-            }
-
-            val alarmManager = this.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val pendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
-
-            alarmManager.cancel(pendingIntent)
-            alarmManager.setExact(
-                AlarmManager.RTC_WAKEUP,
-                System.currentTimeMillis() + delayMillis,
-                pendingIntent
-            )
-        } else {
-            Timber.v("[Updater] (>= 21) Schedule a delayed check, using android-21 JobScheduler")
-
-            val jobScheduler = this.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-            val componentName = ComponentName(this, UpdaterJobService::class.java)
-            val bundle = PersistableBundle()
-            bundle.apply {
-                // Can't put boolean cause that's implemented >= 22.
-                putInt(IntentActions.PROP_RESET_UPDATER_SESSION, false.toInt())
-            }
-
-            val builder = JobInfo.Builder(UpdaterJobs.JOB_ID_ENGINE_TRANSITION_TO_CHECK, componentName)
-                .setRequiresDeviceIdle(false)
-                .setMinimumLatency(delayMillis)
-                .setOverrideDeadline(delayMillis + LENGTH_10M_MILLIS)
-                .setExtras(bundle)
-
-            if (Build.VERSION.SDK_INT >= 26) {
-                builder.setRequiresBatteryNotLow(false)
-                    .setRequiresStorageNotLow(false)
-            }
-
-            builder.setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
-
-            // Note: The job would be consumed by CheckJobService and translated
-            // to an Intent. Then the Intent is handled here in onHandleWork()!
-            jobScheduler.cancel(UpdaterJobs.JOB_ID_ENGINE_TRANSITION_TO_CHECK)
-            jobScheduler.schedule(builder.build())
-        }
-    }
-
-    /**
-     * Cancel any delayed check.
-     */
-    private fun cancelDelayedCheck() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-            Timber.v("[Updater] (< 21) Cancel any delayed check, using AlarmManager")
-
-            // Intent comparison is defined in [Intent#filterEquals] and the
-            // comparison doesn't use extra-bundle.
-            val intent = Intent(this, UpdaterService::class.java).apply {
-                action = IntentActions.ACTION_CHECK_UPDATE
-            }
-
-            val alarmManager = this.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val pendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
-            alarmManager.cancel(pendingIntent)
-        } else {
-            Timber.v("[Updater] (>= 21) Cancel any delayed check, using android-21 JobScheduler")
-
-            val jobScheduler = this.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-            jobScheduler.cancel(UpdaterJobs.JOB_ID_ENGINE_TRANSITION_TO_CHECK)
-        }
+        transitionToIdleStateAndScheduleNextCheck()
     }
 
     // Firmware Update ////////////////////////////////////////////////////////
@@ -970,7 +981,7 @@ class UpdaterService : Service() {
             // TODO: Send progress to remote
         } else {
             // Fall back to idle when there's no downloaded update.
-            transitionToIdleState()
+            transitionToIdleStateAndScheduleNextCheck()
         }
     }
 
@@ -994,7 +1005,7 @@ class UpdaterService : Service() {
         } catch (error: Throwable) {
             Timber.e(error)
             // Fall back to idle when there's no downloaded update.
-            transitionToIdleState()
+            transitionToIdleStateAndScheduleNextCheck()
         }
     }
 
@@ -1017,12 +1028,12 @@ class UpdaterService : Service() {
                 downloader.scheduleDownloadFirmwareUpdate(foundUpdate, triggerAtMillis)
             } else {
                 // Fall back to idle after all the attempts fail.
-                transitionToIdleState()
+                transitionToIdleStateAndScheduleNextCheck()
             }
         } catch (error: Throwable) {
             Timber.e(error)
             // Fall back to idle when there's no downloaded update.
-            transitionToIdleState()
+            transitionToIdleStateAndScheduleNextCheck()
         }
     }
 
@@ -1038,8 +1049,8 @@ class UpdaterService : Service() {
         }
 
         // TODO: Maybe we should transition to 'REBOOTING' state
-        // Transition to idle on success.
-        transitionToIdleState()
+        // Transition to idle at the end regardless success or fail.
+        transitionToIdleStateAndScheduleNextCheck()
 
         val appliedUpdate = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_APPLIED_UPDATE)
         if (appliedUpdate.isIncremental) {
@@ -1067,7 +1078,30 @@ class UpdaterService : Service() {
     // Time ///////////////////////////////////////////////////////////////////
 
     private fun observeDeviceTimeChanges() {
-        // TODO: Capture time changes and adjust the schedule of check or download.
+        val intentFilter = IntentFilter().apply {
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            addAction(Intent.ACTION_DATE_CHANGED)
+        }
+        val timeChangedObservable = RxBroadcastReceiver.bind(this, intentFilter)
+            // Wait for the date time settled.
+            .debounce(Intervals.DEBOUNCE_DATETIME_CHANGE, TimeUnit.MILLISECONDS, schedulers.computation())
+
+        // Wait for the user-setup-COMPLETE to reflect the date time change.
+        Observables.combineLatest(
+            timeChangedObservable,
+            sharedSettings.observeUserSetupComplete())
+            .observeOn(updaterScheduler)
+            .subscribe({ (_, userSetupComplete) ->
+                if (userSetupComplete) {
+                    Timber.v("[Updater] Detect the date time change with user-setup complete!")
+                    transitionToIdleStateAndScheduleNextCheck()
+                } else {
+                    Timber.v("[Updater] Detect the date time change with user-setup INCOMPLETE!")
+                    transitionToIdleState()
+                }
+            }, Timber::e)
+            .addTo(disposablesOnCreateDestroy)
     }
 
     // IBinder ////////////////////////////////////////////////////////////////

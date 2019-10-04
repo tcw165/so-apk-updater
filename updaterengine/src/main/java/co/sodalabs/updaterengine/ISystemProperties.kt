@@ -1,4 +1,4 @@
-package co.sodalabs.apkupdater
+package co.sodalabs.updaterengine
 
 interface ISystemProperties {
     fun getFirmwareVersion(): String

@@ -3,11 +3,11 @@
 package co.sodalabs.apkupdater.di.module
 
 import co.sodalabs.apkupdater.AndroidPackageVersionProvider
-import co.sodalabs.apkupdater.AndroidSharedSettings
+import co.sodalabs.updaterengine.AndroidSharedSettings
 import co.sodalabs.apkupdater.AndroidSystemProperties
-import co.sodalabs.apkupdater.IPackageVersionProvider
-import co.sodalabs.apkupdater.ISharedSettings
-import co.sodalabs.apkupdater.ISystemProperties
+import co.sodalabs.updaterengine.IPackageVersionProvider
+import co.sodalabs.updaterengine.ISharedSettings
+import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.updaterengine.AndroidRebootHelper
 import co.sodalabs.updaterengine.IRebootHelper

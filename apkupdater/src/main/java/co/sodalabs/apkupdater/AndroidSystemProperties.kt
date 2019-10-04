@@ -1,6 +1,8 @@
 package co.sodalabs.apkupdater
 
-import co.sodalabs.apkupdater.data.SystemProps
+import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.ISystemProperties
+import co.sodalabs.updaterengine.PreferenceProps
 import timber.log.Timber
 import java.lang.reflect.Method
 import javax.inject.Inject

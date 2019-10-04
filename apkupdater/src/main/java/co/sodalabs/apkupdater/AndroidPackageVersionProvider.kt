@@ -2,6 +2,9 @@ package co.sodalabs.apkupdater
 
 import Packages
 import android.content.pm.PackageManager
+import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.IPackageVersionProvider
+import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.extension.ensureBackgroundThread
 import javax.inject.Inject
 

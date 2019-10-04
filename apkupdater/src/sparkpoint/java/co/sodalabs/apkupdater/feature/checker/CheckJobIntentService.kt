@@ -11,12 +11,12 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PersistableBundle
 import androidx.core.app.JobIntentService
-import co.sodalabs.apkupdater.IAppPreference
-import co.sodalabs.apkupdater.ISharedSettings
-import co.sodalabs.apkupdater.ISystemProperties
-import co.sodalabs.apkupdater.SharedSettingsProps
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
+import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.ISharedSettings
+import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.IntentActions
+import co.sodalabs.updaterengine.SharedSettingsProps
 import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.UpdaterJobs.JOB_ID_CHECK_UPDATES

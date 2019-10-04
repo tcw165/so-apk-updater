@@ -1,4 +1,4 @@
-package co.sodalabs.apkupdater
+package co.sodalabs.updaterengine
 
 import android.annotation.SuppressLint
 import android.content.ContentResolver
@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.provider.Settings
-import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.rx.InitialValueObservable
 import io.reactivex.Observable
 import timber.log.Timber
@@ -40,8 +39,17 @@ class AndroidSharedSettings @Inject constructor(
             Timber.e(error)
             false
         }
+        Timber.v("[SharedSettings] user-setup-complete: mock=$mockValue, actual=$actualValue")
         // If the mock value is false, we will look for the actual value instead.
         return mockValue || actualValue
+    }
+
+    override fun observeUserSetupComplete(): InitialValueObservable<Boolean> {
+        return observeSecureInt(SharedSettingsProps.USER_SETUP_COMPLETE, 0)
+            .map {
+                // Delegate to the getter function to allow the mock value.
+                isUserSetupComplete()
+            }
     }
 
     @SuppressLint("HardwareIds")
@@ -181,7 +189,7 @@ class AndroidSharedSettings @Inject constructor(
                         override fun onChange(selfChange: Boolean) {
                             if (!selfChange) return
 
-                            val value = when (default) {
+                            val value: Any = when (default) {
                                 is Int -> namespace.getIntFor(key, default)
                                 is String -> namespace.getStringFor(key) ?: default
                                 else -> throw IllegalArgumentException()

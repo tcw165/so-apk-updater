@@ -9,6 +9,7 @@ object Intervals {
     const val RETRY_AFTER_1S = 1000L
 
     const val DEBOUNCE_VALUE_CHANGE = 250L
+    const val DEBOUNCE_DATETIME_CHANGE = 5000L
 
     const val TIMEOUT_COMMON = 350L
     const val TIMEOUT_SERVICE_BINDING = 5000L

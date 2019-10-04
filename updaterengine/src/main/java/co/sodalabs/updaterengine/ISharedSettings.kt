@@ -1,10 +1,11 @@
-package co.sodalabs.apkupdater
+package co.sodalabs.updaterengine
 
 import co.sodalabs.updaterengine.rx.InitialValueObservable
 
 interface ISharedSettings {
     fun isDeviceProvisioned(): Boolean
     fun isUserSetupComplete(): Boolean
+    fun observeUserSetupComplete(): InitialValueObservable<Boolean>
 
     fun getHardwareId(): String
     fun getDeviceId(): String

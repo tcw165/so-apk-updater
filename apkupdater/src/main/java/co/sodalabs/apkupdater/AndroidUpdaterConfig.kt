@@ -2,7 +2,9 @@ package co.sodalabs.apkupdater
 
 import android.content.Context
 import co.sodalabs.apkupdater.utils.BuildUtils
+import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.Intervals
+import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.extension.mbToBytes
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
