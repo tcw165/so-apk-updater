@@ -7,6 +7,8 @@
     <string name="auto_download">Auto Download</string>
     <string name="check_for_updates">Check for Updates</string>
 
+    <string name="admin_passcode">Admin Passcode</string>
+
     <string name="device_category">Device</string>
     <string name="device_id">Device ID</string>
     <string name="device_mock_user_setup_complete">Mock User-Setup-Incomplete</string>

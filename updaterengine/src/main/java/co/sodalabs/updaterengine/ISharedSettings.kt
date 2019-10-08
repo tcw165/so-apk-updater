@@ -7,6 +7,8 @@ interface ISharedSettings {
     fun isUserSetupComplete(): Boolean
     fun observeUserSetupComplete(): InitialValueObservable<Boolean>
 
+    fun isPasscodeAuthorized(code: String): Boolean
+
     fun getHardwareId(): String
     fun getDeviceId(): String
 

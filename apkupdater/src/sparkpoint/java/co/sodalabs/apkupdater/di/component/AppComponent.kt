@@ -6,9 +6,6 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import co.sodalabs.updaterengine.IAppPreference
-import co.sodalabs.updaterengine.ISharedSettings
-import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.di.module.AppPreferenceModule
 import co.sodalabs.apkupdater.di.module.NetworkModule
@@ -16,8 +13,12 @@ import co.sodalabs.apkupdater.di.module.SubComponentActivityModule
 import co.sodalabs.apkupdater.di.module.SubComponentServiceModule
 import co.sodalabs.apkupdater.di.module.SystemModule
 import co.sodalabs.apkupdater.di.module.ThreadSchedulersModule
+import co.sodalabs.apkupdater.di.module.TrackersModule
 import co.sodalabs.apkupdater.di.module.UpdaterModule
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
+import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.ISharedSettings
+import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.IThreadSchedulers
 import dagger.BindsInstance
 import dagger.Component
@@ -33,6 +34,7 @@ import dagger.android.support.AndroidSupportInjectionModule
     AppPreferenceModule::class,
     SystemModule::class,
     NetworkModule::class,
+    TrackersModule::class,
     UpdaterModule::class,
     // Modules for constructing sub-components
     SubComponentActivityModule::class,

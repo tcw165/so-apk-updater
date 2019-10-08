@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.provider.Settings
+import androidx.multidex.BuildConfig
 import co.sodalabs.updaterengine.rx.InitialValueObservable
 import io.reactivex.Observable
 import timber.log.Timber
@@ -50,6 +51,10 @@ class AndroidSharedSettings @Inject constructor(
                 // Delegate to the getter function to allow the mock value.
                 isUserSetupComplete()
             }
+    }
+
+    override fun isPasscodeAuthorized(code: String): Boolean {
+        return getSecureString(SharedSettingsProps.ADMIN_PASSCODE)?.contentEquals(code) ?: false
     }
 
     @SuppressLint("HardwareIds")

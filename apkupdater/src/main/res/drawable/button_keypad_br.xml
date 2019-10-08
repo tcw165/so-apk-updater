@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- pressed state -->
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <corners android:bottomLeftRadius="@dimen/keypad_button_corner_small"
+                     android:bottomRightRadius="@dimen/keypad_button_corner_large"
+                     android:topLeftRadius="@dimen/keypad_button_corner_small"
+                     android:topRightRadius="@dimen/keypad_button_corner_small" />
+            <solid android:color="@color/gray" />
+            <padding android:bottom="@dimen/keypad_button_padding_vertical"
+                     android:left="@dimen/keypad_button_padding_horizontal"
+                     android:right="@dimen/keypad_button_padding_horizontal"
+                     android:top="@dimen/keypad_button_padding_vertical" />
+        </shape>
+    </item>
+
+    <!-- focused state -->
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <corners android:bottomLeftRadius="@dimen/keypad_button_corner_small"
+                     android:bottomRightRadius="@dimen/keypad_button_corner_large"
+                     android:topLeftRadius="@dimen/keypad_button_corner_small"
+                     android:topRightRadius="@dimen/keypad_button_corner_small" />
+            <solid android:color="@color/gray" />
+            <padding android:bottom="@dimen/keypad_button_padding_vertical"
+                     android:left="@dimen/keypad_button_padding_horizontal"
+                     android:right="@dimen/keypad_button_padding_horizontal"
+                     android:top="@dimen/keypad_button_padding_vertical" />
+        </shape>
+    </item>
+
+    <!-- normal state -->
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:bottomLeftRadius="@dimen/keypad_button_corner_small"
+                     android:bottomRightRadius="@dimen/keypad_button_corner_large"
+                     android:topLeftRadius="@dimen/keypad_button_corner_small"
+                     android:topRightRadius="@dimen/keypad_button_corner_small" />
+            <solid android:color="@color/gray_semi" />
+            <padding android:bottom="@dimen/keypad_button_padding_vertical"
+                     android:left="@dimen/keypad_button_padding_horizontal"
+                     android:right="@dimen/keypad_button_padding_horizontal"
+                     android:top="@dimen/keypad_button_padding_vertical" />
+        </shape>
+    </item>
+</selector>

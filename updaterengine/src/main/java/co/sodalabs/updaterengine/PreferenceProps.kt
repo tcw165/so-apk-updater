@@ -5,7 +5,7 @@ import androidx.annotation.Keep
 @Keep
 object PreferenceProps {
 
-    private const val PREFIX = BuildConfig.APPLICATION_ID
+    private const val PREFIX = "co.sodalabs"
 
     const val NETWORK_CONNECTION_TIMEOUT_SECONDS = "$PREFIX.network_connection_timeout"
     const val NETWORK_READ_TIMEOUT_SECONDS = "$PREFIX.network_read_timeout"

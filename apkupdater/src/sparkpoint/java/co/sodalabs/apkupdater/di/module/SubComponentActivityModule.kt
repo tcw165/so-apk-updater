@@ -16,7 +16,9 @@ abstract class SubComponentActivityModule {
      */
     @ActivityScope
     @ContributesAndroidInjector(modules = [
-        SettingsActivityModule::class
+        SettingsActivityModule::class,
+        AutoExitModule::class,
+        DialogModule::class
     ])
     abstract fun contributeWelcomeActivityInjector(): SettingsActivity
 }

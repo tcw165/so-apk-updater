@@ -51,6 +51,7 @@ android {
         buildConfigField "String", "BUGSNAG_API_KEY", "\"$bugsnagAPIKey\""
 
         buildConfigField "String[]", "BASE_URLS", "{\"Hey developer, make sure update this!\"}"
+        buildConfigField "String", "ADMIN_PASSCODE", "\"000000\"" // Must be 0..9
 
         buildConfigField "long", "HEARTBEAT_INTERVAL_SECONDS", "15"
         buildConfigField "long", "CHECK_INTERVAL_SECONDS", "1440" // 1 day
@@ -266,8 +267,9 @@ dependencies {
     implementation 'com.bugsnag:bugsnag-android:4.17.2'
 
     // Better dimens
-    implementation deps.scaleDimen.sdp
-    implementation deps.scaleDimen.ssp
+    // FIXME: Figure out the right resolution in design assets!
+    // implementation deps.scaleDimen.sdp
+    // implementation deps.scaleDimen.ssp
 
     // Unit tests.
     testImplementation deps.test.junit

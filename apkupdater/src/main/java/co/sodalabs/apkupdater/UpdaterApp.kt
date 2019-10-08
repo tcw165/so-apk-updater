@@ -150,6 +150,16 @@ class UpdaterApp :
             Timber.w("[Updater] Unable to access device ID due to no WRITE_SECURE_SETTINGS!\n$error")
         }
 
+        // Admin Passcode
+        if (Settings.Secure.getString(contentResolver, SharedSettingsProps.ADMIN_PASSCODE) == null) {
+            Timber.v("[Updater] The admin passcode is '${BuildConfig.ADMIN_PASSCODE}'")
+            Settings.Secure.putString(contentResolver, SharedSettingsProps.ADMIN_PASSCODE, BuildConfig.ADMIN_PASSCODE)
+        } else {
+            val passcode = Settings.Secure.getString(contentResolver, SharedSettingsProps.ADMIN_PASSCODE)
+                ?: throw IllegalStateException()
+            Timber.v("[Updater] The admin passcode is '$passcode'")
+        }
+
         // Mock firmware version
         if (!rawPreference.contains(PreferenceProps.MOCK_FIRMWARE_VERSION)) {
             if (BuildUtils.isDebug()) {

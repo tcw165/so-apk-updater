@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="keypad_button_corner_small">@dimen/_2sdp</dimen>
+    <dimen name="keypad_button_corner_large">@dimen/_6sdp</dimen>
+    <dimen name="keypad_button_padding_vertical">@dimen/_2sdp</dimen>
+    <dimen name="keypad_button_padding_horizontal">@dimen/_8sdp</dimen>
+</resources>
