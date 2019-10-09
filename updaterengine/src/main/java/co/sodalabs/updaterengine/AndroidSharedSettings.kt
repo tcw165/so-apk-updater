@@ -33,16 +33,22 @@ class AndroidSharedSettings @Inject constructor(
     }
 
     override fun isUserSetupComplete(): Boolean {
-        val mockValue = appPreference.getBoolean(PreferenceProps.MOCK_USER_SETUP_INCOMPLETE, false)
+        val mockUserSetupNOTComplete = appPreference.getBoolean(PreferenceProps.MOCK_USER_SETUP_INCOMPLETE, false)
         val actualValue = try {
             getSecureInt(SharedSettingsProps.USER_SETUP_COMPLETE, 0) == 1
         } catch (error: Throwable) {
             Timber.e(error)
             false
         }
-        Timber.v("[SharedSettings] user-setup-complete: mock=$mockValue, actual=$actualValue")
-        // If the mock value is false, we will look for the actual value instead.
-        return mockValue || actualValue
+        Timber.v("[SharedSettings] user-setup-complete: mock=$mockUserSetupNOTComplete, actual=$actualValue")
+
+        // If the mock is true, that means we are pretending like we are still in OOBE.
+        if (mockUserSetupNOTComplete) {
+            return false
+        }
+
+        // If the mock is false, just return the actual value.
+        return actualValue
     }
 
     override fun observeUserSetupComplete(): InitialValueObservable<Boolean> {

@@ -19,7 +19,7 @@
 
         <SwitchPreference
             app:defaultValue="false"
-            app:key="co.sodalabs.mock_user_setup_complete"
+            app:key="co.sodalabs.mock_user_setup_incomplete"
             app:summary="Turning this on enables the FULL firmware update; Off for the silently incremental firmware update"
             app:title="@string/device_mock_user_setup_complete" />
 

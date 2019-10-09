@@ -19,5 +19,5 @@ data class FirmwareUpdate(
     @Json(name = "file_hash")
     val fileHash: String,
     @Json(name = "update_options")
-    val updateOptions: String
+    val updateOptions: String?
 ) : Parcelable
