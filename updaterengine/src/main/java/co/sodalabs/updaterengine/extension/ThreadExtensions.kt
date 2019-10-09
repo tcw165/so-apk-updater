@@ -10,7 +10,7 @@ fun ensureMainThread() {
     }
 }
 
-fun ensureNotMainThread() {
+fun ensureBackgroundThread() {
     if (Looper.myLooper() == Looper.getMainLooper()) {
         throw IllegalThreadStateException("Must NOT run on MAIN thread")
     }

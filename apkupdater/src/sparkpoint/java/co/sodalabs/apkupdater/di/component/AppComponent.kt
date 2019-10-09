@@ -5,19 +5,20 @@ package co.sodalabs.apkupdater.di.component
 import android.content.ContentResolver
 import android.content.Context
 import android.content.SharedPreferences
-import co.sodalabs.apkupdater.IAppPreference
-import co.sodalabs.apkupdater.ISharedSettings
-import co.sodalabs.apkupdater.ISystemProperties
+import android.content.pm.PackageManager
 import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.di.module.AppPreferenceModule
 import co.sodalabs.apkupdater.di.module.NetworkModule
-import co.sodalabs.apkupdater.di.module.SharedSettingsModule
 import co.sodalabs.apkupdater.di.module.SubComponentActivityModule
 import co.sodalabs.apkupdater.di.module.SubComponentServiceModule
-import co.sodalabs.apkupdater.di.module.SystemPropertiesModule
+import co.sodalabs.apkupdater.di.module.SystemModule
 import co.sodalabs.apkupdater.di.module.ThreadSchedulersModule
+import co.sodalabs.apkupdater.di.module.TrackersModule
 import co.sodalabs.apkupdater.di.module.UpdaterModule
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
+import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.ISharedSettings
+import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.IThreadSchedulers
 import dagger.BindsInstance
 import dagger.Component
@@ -31,9 +32,9 @@ import dagger.android.support.AndroidSupportInjectionModule
     // ApplicationContextModule::class,
     ThreadSchedulersModule::class,
     AppPreferenceModule::class,
-    SharedSettingsModule::class,
-    SystemPropertiesModule::class,
+    SystemModule::class,
     NetworkModule::class,
+    TrackersModule::class,
     UpdaterModule::class,
     // Modules for constructing sub-components
     SubComponentActivityModule::class,
@@ -52,6 +53,9 @@ interface AppComponent : AndroidInjector<UpdaterApp> {
 
         @BindsInstance
         fun setContentResolver(resolver: ContentResolver): Builder
+
+        @BindsInstance
+        fun setPackageManager(manager: PackageManager): Builder
 
         fun build(): AppComponent
     }

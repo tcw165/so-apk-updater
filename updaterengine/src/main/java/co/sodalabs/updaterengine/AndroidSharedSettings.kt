@@ -1,4 +1,4 @@
-package co.sodalabs.apkupdater
+package co.sodalabs.updaterengine
 
 import android.annotation.SuppressLint
 import android.content.ContentResolver
@@ -8,15 +8,18 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.provider.Settings
-import co.sodalabs.updaterengine.IThreadSchedulers
+import androidx.multidex.BuildConfig
 import co.sodalabs.updaterengine.rx.InitialValueObservable
 import io.reactivex.Observable
 import timber.log.Timber
 import java.util.UUID
 import javax.inject.Inject
 
+private const val EMPTY_STRING = ""
+
 class AndroidSharedSettings @Inject constructor(
     private val contentResolver: ContentResolver,
+    private val appPreference: IAppPreference,
     private val schedulers: IThreadSchedulers
 ) : ISharedSettings {
 
@@ -30,22 +33,50 @@ class AndroidSharedSettings @Inject constructor(
     }
 
     override fun isUserSetupComplete(): Boolean {
-        return try {
+        val mockUserSetupNOTComplete = appPreference.getBoolean(PreferenceProps.MOCK_USER_SETUP_INCOMPLETE, false)
+        val actualValue = try {
             getSecureInt(SharedSettingsProps.USER_SETUP_COMPLETE, 0) == 1
         } catch (error: Throwable) {
             Timber.e(error)
             false
         }
+        Timber.v("[SharedSettings] user-setup-complete: mock=$mockUserSetupNOTComplete, actual=$actualValue")
+
+        // If the mock is true, that means we are pretending like we are still in OOBE.
+        if (mockUserSetupNOTComplete) {
+            return false
+        }
+
+        // If the mock is false, just return the actual value.
+        return actualValue
+    }
+
+    override fun observeUserSetupComplete(): InitialValueObservable<Boolean> {
+        return observeSecureInt(SharedSettingsProps.USER_SETUP_COMPLETE, 0)
+            .map {
+                // Delegate to the getter function to allow the mock value.
+                isUserSetupComplete()
+            }
+    }
+
+    override fun isPasscodeAuthorized(code: String): Boolean {
+        return getSecureString(SharedSettingsProps.ADMIN_PASSCODE)?.contentEquals(code) ?: false
     }
 
     @SuppressLint("HardwareIds")
     override fun getHardwareId(): String {
-        return try {
-            val androidId = getSecureString(Settings.Secure.ANDROID_ID)
-            "${Build.MANUFACTURER}:${BuildConfig.DEBUG}:$androidId"
-        } catch (error: Throwable) {
-            Timber.e(error)
-            ""
+        val androidId = getSecureString(Settings.Secure.ANDROID_ID)
+        return "${Build.MANUFACTURER}:${BuildConfig.DEBUG}:$androidId"
+    }
+
+    override fun getDeviceId(): String {
+        val debugID = appPreference.getString(PreferenceProps.MOCK_DEVICE_ID, EMPTY_STRING)
+        return if (debugID.isNotBlank()) {
+            debugID
+        } else {
+            // Actual value from system.
+            getSecureString(SharedSettingsProps.DEVICE_ID)
+                ?: throw NullPointerException("Can't find the device ID cause it's neither not set nor mocked")
         }
     }
 
@@ -169,7 +200,7 @@ class AndroidSharedSettings @Inject constructor(
                         override fun onChange(selfChange: Boolean) {
                             if (!selfChange) return
 
-                            val value = when (default) {
+                            val value: Any = when (default) {
                                 is Int -> namespace.getIntFor(key, default)
                                 is String -> namespace.getStringFor(key) ?: default
                                 else -> throw IllegalArgumentException()

@@ -17,9 +17,9 @@ class DefaultUpdatesInstaller @Inject constructor(
     }
 
     override fun installFirmwareUpdateNow(
-        downloadedUpdates: List<DownloadedFirmwareUpdate>
+        downloadedUpdate: DownloadedFirmwareUpdate
     ) {
-        InstallerJobIntentService.installFirmwareUpdateNow(context, downloadedUpdates)
+        InstallerJobIntentService.installFirmwareUpdateNow(context, downloadedUpdate)
     }
 
     override fun scheduleInstallAppUpdate(
@@ -30,10 +30,10 @@ class DefaultUpdatesInstaller @Inject constructor(
     }
 
     override fun scheduleInstallFirmwareUpdate(
-        downloadedUpdates: List<DownloadedFirmwareUpdate>,
+        downloadedUpdate: DownloadedFirmwareUpdate,
         triggerAtMillis: Long
     ) {
-        InstallerJobIntentService.scheduleInstallFirmwareUpdate(context, downloadedUpdates, triggerAtMillis)
+        InstallerJobIntentService.scheduleInstallFirmwareUpdate(context, downloadedUpdate, triggerAtMillis)
     }
 
     override fun cancelPendingInstalls() {

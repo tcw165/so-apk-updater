@@ -5,8 +5,8 @@ import co.sodalabs.updaterengine.data.DownloadedFirmwareUpdate
 
 interface UpdatesInstaller {
     fun installAppUpdateNow(downloadedUpdates: List<DownloadedAppUpdate>)
-    fun installFirmwareUpdateNow(downloadedUpdates: List<DownloadedFirmwareUpdate>)
+    fun installFirmwareUpdateNow(downloadedUpdate: DownloadedFirmwareUpdate)
     fun scheduleInstallAppUpdate(downloadedUpdates: List<DownloadedAppUpdate>, triggerAtMillis: Long)
-    fun scheduleInstallFirmwareUpdate(downloadedUpdates: List<DownloadedFirmwareUpdate>, triggerAtMillis: Long)
+    fun scheduleInstallFirmwareUpdate(downloadedUpdate: DownloadedFirmwareUpdate, triggerAtMillis: Long)
     fun cancelPendingInstalls()
 }

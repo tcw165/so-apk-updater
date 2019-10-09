@@ -1,4 +1,4 @@
-package co.sodalabs.privilegedinstaller
+package co.sodalabs.updaterengine
 
 import android.content.BroadcastReceiver
 import android.content.Context

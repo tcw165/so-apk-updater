@@ -7,27 +7,39 @@
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.SecureStringEditTextPreference
+            app:key="admin_passcode"
+            app:summary="The passcode for accessing the administration settings."
+            app:title="@string/admin_passcode" />
+
+        <!--suppress AndroidElementNotAllowed -->
+        <co.sodalabs.apkupdater.feature.adminui.SecureStringEditTextPreference
             app:key="device_id"
             app:summary="Actual device ID stored in the secure settings and sharable among the apps with the permission."
             app:title="@string/device_id" />
 
+        <SwitchPreference
+            app:defaultValue="false"
+            app:key="co.sodalabs.mock_user_setup_incomplete"
+            app:summary="Turning this on enables the FULL firmware update; Off for the silently incremental firmware update"
+            app:title="@string/device_mock_user_setup_complete" />
+
         <EditTextPreference
-            app:key="co.sodalabs.apkupdater.mock_device_id"
+            app:key="co.sodalabs.mock_device_id"
             app:summary="Mock the device ID for testing. Set the empty string to clear the mock."
             app:title="@string/device_mock_device_id" />
 
         <EditTextPreference
-            app:key="co.sodalabs.apkupdater.mock_firmware_version"
+            app:key="co.sodalabs.mock_firmware_version"
             app:summary="Mock the firmware version for testing. Set the empty string to clear the mock."
             app:title="@string/device_mock_firmware_version" />
 
         <EditTextPreference
-            app:key="co.sodalabs.apkupdater.mock_sparkpoint_version"
+            app:key="co.sodalabs.mock_sparkpoint_version"
             app:summary="Mock the Sparkpoint version for testing. Set the empty string to clear the mock."
             app:title="@string/device_mock_sparkpoint_version" />
 
         <ListPreference
-            app:key="co.sodalabs.apkupdater.api_base_url"
+            app:key="co.sodalabs.api_base_url"
             app:summary="The base URL of the API"
             app:title="@string/api_base_urls" />
     </PreferenceCategory>
@@ -37,7 +49,7 @@
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.LongEditTextPreference
-            app:key="co.sodalabs.apkupdater.heartbeat_interval"
+            app:key="co.sodalabs.heartbeat_interval"
             app:summary="Engine reports the heart-beat every this interval in seconds."
             app:title="@string/heartbeat_interval" />
 
@@ -57,7 +69,7 @@
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.LongEditTextPreference
-            app:key="co.sodalabs.apkupdater.check_interval"
+            app:key="co.sodalabs.check_interval"
             app:summary="Interval in seconds that the recurring update check happens"
             app:title="@string/check_interval" />
 
@@ -71,12 +83,12 @@
         app:title="@string/download_category">
 
         <SwitchPreference
-            app:key="co.sodalabs.apkupdater.download_use_cache"
+            app:key="co.sodalabs.download_use_cache"
             app:title="@string/download_use_cache" />
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
-            app:key="co.sodalabs.apkupdater.download_cache_max_size"
+            app:key="co.sodalabs.download_cache_max_size"
             app:summary="The maximum size of cache for storing the download files (in MB)"
             app:title="@string/download_cache_max_size" />
     </PreferenceCategory>
@@ -86,18 +98,18 @@
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
-            app:key="co.sodalabs.apkupdater.install_hour_begin"
+            app:key="co.sodalabs.install_hour_begin"
             app:summary="The begin hour of the day of install window"
             app:title="@string/install_hour_begin" />
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
-            app:key="co.sodalabs.apkupdater.install_hour_end"
+            app:key="co.sodalabs.install_hour_end"
             app:summary="The end hour of the day of install window"
             app:title="@string/install_hour_end" />
 
         <SwitchPreference
-            app:key="co.sodalabs.apkupdater.install_allow_downgrade"
+            app:key="co.sodalabs.install_allow_downgrade"
             app:title="@string/install_allow_downgrade" />
     </PreferenceCategory>
 
@@ -106,25 +118,35 @@
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
-            app:key="co.sodalabs.apkupdater.network_connection_timeout"
+            app:key="co.sodalabs.network_connection_timeout"
             app:summary="HTTP/HTTPS connection timeout in seconds."
             app:title="@string/network_connection_timeout" />
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
-            app:key="co.sodalabs.apkupdater.network_read_timeout"
+            app:key="co.sodalabs.network_read_timeout"
             app:summary="HTTP/HTTPS read timeout in seconds."
             app:title="@string/network_read_timeout" />
 
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.IntEditTextPreference
-            app:key="co.sodalabs.apkupdater.network_write_timeout"
+            app:key="co.sodalabs.network_write_timeout"
             app:summary="HTTP/HTTPS write timeout in seconds."
             app:title="@string/network_write_timeout" />
     </PreferenceCategory>
 
     <PreferenceCategory
         app:title="@string/other_category">
+
+        <Preference
+            app:key="androidSettings"
+            app:summary="Show the Android settings UI"
+            app:title="Android Settings" />
+
+        <Preference
+            app:key="speedTestApp"
+            app:summary="Show the Internet Speed Test app"
+            app:title="Internet Speed Test" />
 
         <Preference
             app:key="feedback"

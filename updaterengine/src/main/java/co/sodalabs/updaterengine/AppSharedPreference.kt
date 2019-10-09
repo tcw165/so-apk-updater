@@ -1,4 +1,4 @@
-package co.sodalabs.apkupdater
+package co.sodalabs.updaterengine
 
 import android.annotation.SuppressLint
 import android.content.SharedPreferences

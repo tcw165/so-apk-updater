@@ -1,10 +1,17 @@
 package co.sodalabs.apkupdater
 
+import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.ISystemProperties
+import co.sodalabs.updaterengine.PreferenceProps
 import timber.log.Timber
 import java.lang.reflect.Method
 import javax.inject.Inject
 
-class AndroidSystemProperties @Inject constructor() : ISystemProperties {
+private const val EMPTY_STRING = ""
+
+class AndroidSystemProperties @Inject constructor(
+    private val appPreference: IAppPreference
+) : ISystemProperties {
 
     private var getStringMethod: Method? = null
     private var getIntMethod: Method? = null
@@ -32,6 +39,16 @@ class AndroidSystemProperties @Inject constructor() : ISystemProperties {
             getBooleanMethod = propClazz.getDeclaredMethod("getBoolean", String::class.java, Boolean::class.java)
         } catch (error: Throwable) {
             Timber.w(error, "Can't reflect android.os.SystemProperties.getBoolean(boolean)")
+        }
+    }
+
+    override fun getFirmwareVersion(): String {
+        val debugVersion = appPreference.getString(PreferenceProps.MOCK_FIRMWARE_VERSION, EMPTY_STRING)
+        return if (debugVersion.isNotBlank()) {
+            debugVersion
+        } else {
+            // Actual value from system.
+            getString(SystemProps.FIRMWARE_VERSION_INCREMENTAL, EMPTY_STRING)
         }
     }
 

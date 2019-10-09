@@ -10,9 +10,14 @@ import kotlinx.android.parcel.Parcelize
 @Parcelize
 @JsonClass(generateAdapter = true)
 data class FirmwareUpdate(
-    @Json(name = "sequential_update_download_url")
-    val sequentialUpdateDownloadURL: String,
-    @Json(name = "full_update_download_url")
-    val fullUpdateDownloadURL: String
-    // TODO: Finish the definition
+    @Json(name = "version")
+    val version: String,
+    @Json(name = "is_incremental")
+    val isIncremental: Boolean,
+    @Json(name = "file_url")
+    val fileURL: String,
+    @Json(name = "file_hash")
+    val fileHash: String,
+    @Json(name = "update_options")
+    val updateOptions: String?
 ) : Parcelable

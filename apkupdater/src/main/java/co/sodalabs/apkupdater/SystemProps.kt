@@ -1,4 +1,4 @@
-package co.sodalabs.apkupdater.data
+package co.sodalabs.apkupdater
 
 import androidx.annotation.Keep
 

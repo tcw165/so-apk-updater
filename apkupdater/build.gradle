@@ -23,7 +23,7 @@ versionProperties.load(new FileInputStream(versionPropertiesFile))
 // Bugsnag service
 def getBugsnagAPIKeyFromFile = {
     // If you are missing this file, please download from our internal file repo
-    // https://drive.google.com/open?id=1eYL1lPB0mHgXj4rttdDycjmOFPoF4vfN
+    // https://drive.google.com/drive/folders/1V8tpGNrdw0P_58fjmFp1oi3S6UhDy5Tv?usp=sharing
     def bugsnagPropertiesFile = project.file("bugsnag.properties")
     def bugsnagProperties = new Properties()
     bugsnagProperties.load(new FileInputStream(bugsnagPropertiesFile))
@@ -51,11 +51,13 @@ android {
         buildConfigField "String", "BUGSNAG_API_KEY", "\"$bugsnagAPIKey\""
 
         buildConfigField "String[]", "BASE_URLS", "{\"Hey developer, make sure update this!\"}"
+        buildConfigField "String", "ADMIN_PASSCODE", "\"000000\"" // Must be 0..9
 
         buildConfigField "long", "HEARTBEAT_INTERVAL_SECONDS", "15"
         buildConfigField "long", "CHECK_INTERVAL_SECONDS", "1440" // 1 day
         buildConfigField "int", "INSTALL_HOUR_BEGIN", "0" // 00:00
         buildConfigField "int", "INSTALL_HOUR_END", "23" // 23:00
+        buildConfigField "boolean", "INSTALL_SILENTLY", "true"
         buildConfigField "boolean", "INSTALL_ALLOW_DOWNGRADE", "false"
         buildConfigField "boolean", "DOWNLOAD_USE_CACHE", "true"
 
@@ -265,8 +267,9 @@ dependencies {
     implementation 'com.bugsnag:bugsnag-android:4.17.2'
 
     // Better dimens
-    implementation deps.scaleDimen.sdp
-    implementation deps.scaleDimen.ssp
+    // FIXME: Figure out the right resolution in design assets!
+    // implementation deps.scaleDimen.sdp
+    // implementation deps.scaleDimen.ssp
 
     // Unit tests.
     testImplementation deps.test.junit

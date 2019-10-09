@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="@dimen/_400sdp"
+    android:layout_height="@dimen/_256sdp">
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btOne"
+        style="@style/Text.Button.NumPad"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/button_keypad_tl"
+        android:text="@string/numpad_1"
+        app:layout_constraintBottom_toTopOf="@id/btFour"
+        app:layout_constraintEnd_toStartOf="@+id/btTwo"
+        app:layout_constraintHorizontal_chainStyle="spread_inside"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_percent="0.32" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btTwo"
+        style="@style/Text.Button.NumPad"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:text="@string/numpad_2"
+        app:layout_constraintBottom_toTopOf="@id/btFive"
+        app:layout_constraintEnd_toStartOf="@+id/btThree"
+        app:layout_constraintStart_toEndOf="@+id/btOne"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_percent="0.32" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btThree"
+        style="@style/Text.Button.NumPad"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/button_keypad_tr"
+        android:text="@string/numpad_3"
+        app:layout_constraintBottom_toTopOf="@id/btSix"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/btTwo"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_percent="0.32" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btFour"
+        style="@style/Text.Button.NumPad"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:text="@string/numpad_4"
+        app:layout_constraintBottom_toTopOf="@id/btSeven"
+        app:layout_constraintEnd_toStartOf="@+id/btFive"
+        app:layout_constraintHorizontal_chainStyle="spread_inside"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btOne"
+        app:layout_constraintWidth_percent="0.32" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btFive"
+        style="@style/Text.Button.NumPad"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:text="@string/numpad_5"
+        app:layout_constraintBottom_toTopOf="@id/btEight"
+        app:layout_constraintEnd_toStartOf="@+id/btSix"
+        app:layout_constraintStart_toEndOf="@+id/btFour"
+        app:layout_constraintTop_toBottomOf="@id/btTwo"
+        app:layout_constraintWidth_percent="0.32" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btSix"
+        style="@style/Text.Button.NumPad"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:text="@string/numpad_6"
+        app:layout_constraintBottom_toTopOf="@id/btNine"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/btFive"
+        app:layout_constraintTop_toBottomOf="@id/btThree"
+        app:layout_constraintWidth_percent="0.32" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btSeven"
+        style="@style/Text.Button.NumPad"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:text="@string/numpad_7"
+        app:layout_constraintBottom_toTopOf="@id/btHash"
+        app:layout_constraintEnd_toStartOf="@+id/btEight"
+        app:layout_constraintHorizontal_chainStyle="spread_inside"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btFour"
+        app:layout_constraintWidth_percent="0.32" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btEight"
+        style="@style/Text.Button.NumPad"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:text="@string/numpad_8"
+        app:layout_constraintBottom_toTopOf="@id/btZero"
+        app:layout_constraintEnd_toStartOf="@+id/btNine"
+        app:layout_constraintStart_toEndOf="@+id/btSeven"
+        app:layout_constraintTop_toBottomOf="@id/btFive"
+        app:layout_constraintWidth_percent="0.32" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btNine"
+        style="@style/Text.Button.NumPad"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:text="@string/numpad_9"
+        app:layout_constraintBottom_toTopOf="@id/btDelete"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/btEight"
+        app:layout_constraintTop_toBottomOf="@id/btSix"
+        app:layout_constraintWidth_percent="0.32" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btHash"
+        style="@style/Text.Button.NumPad"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/button_keypad_bl"
+        android:text="@string/numpad_hash"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btZero"
+        app:layout_constraintHorizontal_chainStyle="spread_inside"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btSeven"
+        app:layout_constraintWidth_percent="0.32" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btZero"
+        style="@style/Text.Button.NumPad"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:text="@string/numpad_0"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btDelete"
+        app:layout_constraintStart_toEndOf="@+id/btHash"
+        app:layout_constraintTop_toBottomOf="@id/btEight"
+        app:layout_constraintWidth_percent="0.32" />
+
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/btDelete"
+        style="@style/Text.Button.NumPad"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/button_keypad_br"
+        android:padding="@dimen/_15sdp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/btZero"
+        app:layout_constraintTop_toBottomOf="@id/btNine"
+        app:layout_constraintWidth_percent="0.32"
+        app:srcCompat="@drawable/ic_dialog_backspace" />
+</androidx.constraintlayout.widget.ConstraintLayout>

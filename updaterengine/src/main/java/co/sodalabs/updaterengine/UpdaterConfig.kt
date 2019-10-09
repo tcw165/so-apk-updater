@@ -25,6 +25,10 @@ interface UpdaterConfig {
      */
     var installWindow: IntRange
     /**
+     * Install the update automatically and silently
+     */
+    var installSilently: Boolean
+    /**
      * A debug function for install the downgrade version.
      */
     var installAllowDowngrade: Boolean
@@ -34,11 +38,15 @@ interface UpdaterConfig {
      */
     var downloadUseCache: Boolean
     /**
-     * We cache the downloaded APK files under the LRU disk cache.
+     * Used for caching the downloaded APK files in disk.
      */
     val apkDiskCache: DiskLruCache
     /**
-     * We cache the downloaded updates under the LRU disk cache.
+     * Used for caching the downloaded firmware patch in disk.
+     */
+    val firmwareDiskCache: DiskLruCache
+    /**
+     * Used for caching the journal of downloaded updates in disk.
      */
     val downloadedUpdateDiskCache: DiskLruCache
 }

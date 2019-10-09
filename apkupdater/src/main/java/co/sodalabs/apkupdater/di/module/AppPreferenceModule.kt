@@ -2,8 +2,8 @@
 
 package co.sodalabs.apkupdater.di.module
 
-import co.sodalabs.apkupdater.AppSharedPreference
-import co.sodalabs.apkupdater.IAppPreference
+import co.sodalabs.updaterengine.AppSharedPreference
+import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import dagger.Binds
 import dagger.Module

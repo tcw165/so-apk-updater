@@ -3,8 +3,8 @@
 package co.sodalabs.apkupdater.di.module
 
 import co.sodalabs.apkupdater.BuildConfig
-import co.sodalabs.apkupdater.IAppPreference
-import co.sodalabs.apkupdater.PreferenceProps
+import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
@@ -38,7 +38,7 @@ class NetworkModule {
 
     @Provides
     @ApplicationScope
-    fun provideSystemProperties(
+    fun provideHttpClient(
         appPreference: IAppPreference
     ): OkHttpClient {
         val hostResolutionInterceptor = provideHostResolutionInterceptor()

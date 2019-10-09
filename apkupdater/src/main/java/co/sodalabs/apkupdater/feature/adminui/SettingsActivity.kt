@@ -7,10 +7,15 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.MotionEvent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import co.sodalabs.apkupdater.IAutoExitHelper
+import co.sodalabs.apkupdater.IPasscodeDialogFactory
+import co.sodalabs.apkupdater.ITouchTracker
 import co.sodalabs.apkupdater.R
+import co.sodalabs.updaterengine.Intervals
 import com.jakewharton.rxbinding3.view.clicks
 import dagger.android.AndroidInjection
 import dagger.android.AndroidInjector
@@ -32,11 +37,18 @@ class SettingsActivity :
     HasAndroidInjector {
 
     @Inject
+    lateinit var passcodeDialogFactory: IPasscodeDialogFactory
+    @Inject
+    lateinit var touchTracker: ITouchTracker
+    @Inject
+    lateinit var autoExitHelper: IAutoExitHelper
+    @Inject
     lateinit var actualInjector: DispatchingAndroidInjector<Any>
 
     override fun androidInjector(): AndroidInjector<Any> = actualInjector
 
-    private val disposes = CompositeDisposable()
+    private val disposesOnCreateDestroy = CompositeDisposable()
+    private val disposesOnResumePause = CompositeDisposable()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AndroidInjection.inject(this)
@@ -47,6 +59,8 @@ class SettingsActivity :
         logSSLProtocols()
         requestPermissions()
 
+        // TODO: Pull out to Presenter
+        showPasscodeDialog()
         observeCloseClicks()
 
         supportFragmentManager
@@ -57,8 +71,41 @@ class SettingsActivity :
 
     override fun onDestroy() {
         Timber.v("[Updater] App Updater UI is offline")
-        disposes.dispose()
+        disposesOnCreateDestroy.dispose()
         super.onDestroy()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        startAutoExitCountdown()
+    }
+
+    override fun onPause() {
+        disposesOnResumePause.clear()
+        super.onPause()
+    }
+
+    override fun dispatchTouchEvent(
+        ev: MotionEvent
+    ): Boolean {
+        touchTracker.trackEvent(ev)
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun startAutoExitCountdown() {
+        autoExitHelper.startAutoExitCountDown(Intervals.AUTO_EXIT)
+            .subscribe({}, Timber::e)
+            .addTo(disposesOnResumePause)
+    }
+
+    private fun showPasscodeDialog() {
+        passcodeDialogFactory.showPasscodeDialog()
+            .subscribe({ authorized ->
+                if (!authorized) {
+                    finish()
+                }
+            }, Timber::e)
+            .addTo(disposesOnCreateDestroy)
     }
 
     private fun observeCloseClicks() {
@@ -67,7 +114,7 @@ class SettingsActivity :
             .subscribe({
                 finish()
             }, Timber::e)
-            .addTo(disposes)
+            .addTo(disposesOnCreateDestroy)
     }
 
     private fun requestPermissions() {

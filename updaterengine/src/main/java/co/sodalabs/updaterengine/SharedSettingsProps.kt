@@ -1,4 +1,4 @@
-package co.sodalabs.apkupdater
+package co.sodalabs.updaterengine
 
 import android.provider.Settings
 
@@ -12,4 +12,6 @@ object SharedSettingsProps {
     const val DEVICE_PROVISIONED = Settings.Global.DEVICE_PROVISIONED
 
     const val USER_SETUP_COMPLETE = "user_setup_complete"
+
+    const val ADMIN_PASSCODE = "admin_passcode"
 }

@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Parcelable
 import android.os.PersistableBundle
 import androidx.core.app.JobIntentService
+import co.sodalabs.updaterengine.IRebootHelper
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Packages
 import co.sodalabs.updaterengine.UpdaterConfig
@@ -22,9 +23,17 @@ import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedAppUpdate
 import co.sodalabs.updaterengine.data.DownloadedFirmwareUpdate
+import co.sodalabs.updaterengine.extension.ensureBackgroundThread
+import co.sodalabs.updaterengine.utils.BuildUtils
 import dagger.android.AndroidInjection
 import timber.log.Timber
+import java.io.File
 import javax.inject.Inject
+
+private val CACHE_DIR = File("/cache/recovery")
+
+private val COMMAND_FILE = File(CACHE_DIR, "command")
+private val EXTENDED_COMMAND_FILE = File(CACHE_DIR, "extendedcommand")
 
 /**
  * MODIFIED FROM F-DROID OPEN SOURCE.
@@ -71,9 +80,10 @@ class InstallerJobIntentService : JobIntentService() {
 
         fun installFirmwareUpdateNow(
             context: Context,
-            downloadedUpdates: List<DownloadedFirmwareUpdate>
+            downloadedUpdate: DownloadedFirmwareUpdate
         ) {
-            installNow(context, downloadedUpdates, IntentActions.ACTION_INSTALL_APP_UPDATE)
+            // Note: We turn the singular update to a list to be compatible with the batch install.
+            installNow(context, listOf(downloadedUpdate), IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE)
         }
 
         private fun <T : Parcelable> installNow(
@@ -97,10 +107,11 @@ class InstallerJobIntentService : JobIntentService() {
 
         fun scheduleInstallFirmwareUpdate(
             context: Context,
-            downloadedUpdates: List<DownloadedFirmwareUpdate>,
+            downloadedUpdate: DownloadedFirmwareUpdate,
             triggerAtMillis: Long
         ) {
-            scheduleInstall(context, downloadedUpdates, triggerAtMillis, IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE)
+            // Note: We turn the singular update to a list to be compatible with the batch install.
+            scheduleInstall(context, listOf(downloadedUpdate), triggerAtMillis, IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE)
         }
 
         private fun <T : Parcelable> scheduleInstall(
@@ -197,6 +208,8 @@ class InstallerJobIntentService : JobIntentService() {
 
     @Inject
     lateinit var updaterConfig: UpdaterConfig
+    @Inject
+    lateinit var rebootHelper: IRebootHelper
 
     override fun onCreate() {
         Timber.v("[Install] Installer Service is online")
@@ -211,12 +224,16 @@ class InstallerJobIntentService : JobIntentService() {
 
     override fun onHandleWork(intent: Intent) {
         when (intent.action) {
+            // App Update
             IntentActions.ACTION_INSTALL_APP_UPDATE -> installAppUpdate(intent)
-            IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE -> installFirmwareUpdate(intent)
             IntentActions.ACTION_UNINSTALL_PACKAGES -> uninstallPackages(intent)
+            // Firmware Update
+            IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE -> installFirmwareUpdate(intent)
             else -> throw IllegalArgumentException("${intent.action} is not supported")
         }
     }
+
+    // App Update /////////////////////////////////////////////////////////////
 
     private fun installAppUpdate(
         intent: Intent
@@ -233,14 +250,6 @@ class InstallerJobIntentService : JobIntentService() {
         UpdaterService.notifyAppUpdateInstalled(this, appliedUpdates, errors)
     }
 
-    private fun installFirmwareUpdate(
-        intent: Intent
-    ) {
-        // val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
-        // UpdaterService.notifyFirmwareUpdateInstalled(this, downloadedUpdates, errors)
-        TODO()
-    }
-
     private fun uninstallPackages(
         intent: Intent
     ) {
@@ -248,8 +257,6 @@ class InstallerJobIntentService : JobIntentService() {
         // installer.uninstallPackage(packageNames)
         TODO()
     }
-
-    // Installer Factory //////////////////////////////////////////////////////
 
     private fun createInstaller(): Installer {
         val installedPackages: List<PackageInfo> = packageManager.getInstalledPackages(PackageManager.GET_SERVICES)
@@ -267,5 +274,111 @@ class InstallerJobIntentService : JobIntentService() {
         } else {
             DefaultInstaller(this)
         }
+    }
+
+    // Firmware Update ////////////////////////////////////////////////////////
+
+    private fun installFirmwareUpdate(
+        intent: Intent
+    ) {
+        try {
+            ensureInstallCommandFile()
+
+            // TODO: Differentiate the full or incremental update
+            // TODO: Get boolean for wipe-data & wipe-cache
+
+            // Assume the downloaded update is the incremental update
+            val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
+            require(downloadedUpdates.size == 1) { "For firmware update, there should be one downloaded update for installing!" }
+            val downloadedUpdate = downloadedUpdates.first()
+            val fromUpdate = downloadedUpdate.fromUpdate
+
+            if (fromUpdate.isIncremental) {
+                writeUpdateCommand(downloadedUpdate, wipeData = false, wipeCache = false)
+            } else {
+                writeUpdateCommand(downloadedUpdate, wipeData = true, wipeCache = true)
+            }
+
+            // Notify the engine the install completes.
+            UpdaterService.notifyFirmwareUpdateInstallComplete(this, fromUpdate)
+        } catch (error: Throwable) {
+            Timber.e(error)
+        }
+    }
+
+    private fun ensureInstallCommandFile() {
+        ensureBackgroundThread()
+
+        // Ensure the directory.
+        if (!CACHE_DIR.exists()) {
+            CACHE_DIR.mkdirs()
+        }
+
+        // Clean up any previous commands.
+        if (EXTENDED_COMMAND_FILE.exists()) {
+            EXTENDED_COMMAND_FILE.delete()
+        }
+        if (COMMAND_FILE.exists()) {
+            COMMAND_FILE.delete()
+        }
+
+        // Create a clean command file
+        COMMAND_FILE.createNewFile()
+    }
+
+    private fun writeUpdateCommand(
+        update: DownloadedFirmwareUpdate,
+        wipeData: Boolean,
+        wipeCache: Boolean
+    ) {
+        Timber.v("[Install] Write firmware install command...")
+        ensureBackgroundThread()
+
+        COMMAND_FILE.bufferedWriter()
+            .use { out ->
+                val cmdList = mutableListOf<String>()
+
+                cmdList.add("boot-recovery")
+                if (wipeData) {
+                    cmdList.add("--wipe_data")
+                }
+                if (wipeCache) {
+                    cmdList.add("--wipe_cache")
+                }
+
+                val originalFilePath = update.file.canonicalPath
+                // Correct the file path due to some Android constraint. The
+                // partition is mounted as 'legacy' in the normal boot, while it
+                // is '0' in the recovery mode.
+                val correctedFilePath = originalFilePath.replaceFirst("/storage/emulated/legacy/", "/data/media/0/")
+                val correctedFile = File(correctedFilePath)
+                cmdList.add("--update_package=$correctedFile")
+
+                // Note: The command segment is delimited by '\n'.
+                // e.g.
+                // boot-recovery\n
+                // --wipe_data\n
+                // --wipe_cache\n
+                // --update_package=file\n
+                out.write(cmdList.concatWithLinebreak())
+            }
+
+        // Log the content of the command file
+        if (BuildUtils.isDebug()) {
+            val content = COMMAND_FILE.bufferedReader().readText()
+            Timber.v("[Install] Write firmware install command... successfully")
+            Timber.v("[Install] The actual command content:\n$content\n")
+        }
+    }
+
+    private fun List<String>.concatWithLinebreak(): String {
+        val builder = StringBuilder()
+        for (cmd in this) {
+            builder.append(cmd)
+            // Always append '\n' at the end of command even for the last line.
+            // The '\n' is recognized by the system.
+            builder.append("\n")
+        }
+        return builder.toString()
     }
 }

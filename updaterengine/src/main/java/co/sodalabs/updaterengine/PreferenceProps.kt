@@ -1,11 +1,11 @@
-package co.sodalabs.apkupdater
+package co.sodalabs.updaterengine
 
 import androidx.annotation.Keep
 
 @Keep
 object PreferenceProps {
 
-    private const val PREFIX = BuildConfig.APPLICATION_ID
+    private const val PREFIX = "co.sodalabs"
 
     const val NETWORK_CONNECTION_TIMEOUT_SECONDS = "$PREFIX.network_connection_timeout"
     const val NETWORK_READ_TIMEOUT_SECONDS = "$PREFIX.network_read_timeout"
@@ -19,6 +19,7 @@ object PreferenceProps {
 
     const val MOCK_DEVICE_ID = "$PREFIX.mock_device_id"
     const val MOCK_FIRMWARE_VERSION = "$PREFIX.mock_firmware_version"
+    const val MOCK_USER_SETUP_INCOMPLETE = "$PREFIX.mock_user_setup_incomplete"
     const val MOCK_SPARKPOINT_VERSION = "$PREFIX.mock_sparkpoint_version"
 
     // Heartbeat //////////////////////////////////////////////////////////////
@@ -34,5 +35,6 @@ object PreferenceProps {
 
     const val INSTALL_HOUR_BEGIN = "$PREFIX.install_hour_begin"
     const val INSTALL_HOUR_END = "$PREFIX.install_hour_end"
+    const val INSTALL_SILENTLY = "$PREFIX.install_silently"
     const val INSTALL_ALLOW_DOWNGRADE = "$PREFIX.install_allow_downgrade"
 }

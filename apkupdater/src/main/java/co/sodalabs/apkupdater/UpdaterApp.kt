@@ -4,12 +4,15 @@ import android.annotation.SuppressLint
 import android.provider.Settings
 import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
-import co.sodalabs.apkupdater.data.SystemProps
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
 import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
+import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.Intervals
+import co.sodalabs.updaterengine.PreferenceProps
+import co.sodalabs.updaterengine.SharedSettingsProps
 import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.UpdatesChecker
@@ -120,6 +123,7 @@ class UpdaterApp :
             .setApplication(this)
             .setAppPreference(rawPreference)
             .setContentResolver(contentResolver)
+            .setPackageManager(packageManager)
             .build()
             .inject(this)
     }
@@ -144,6 +148,16 @@ class UpdaterApp :
             Timber.v("[Updater] The device ID is \"$deviceID\"")
         } catch (error: Throwable) {
             Timber.w("[Updater] Unable to access device ID due to no WRITE_SECURE_SETTINGS!\n$error")
+        }
+
+        // Admin Passcode
+        if (Settings.Secure.getString(contentResolver, SharedSettingsProps.ADMIN_PASSCODE) == null) {
+            Timber.v("[Updater] The admin passcode is '${BuildConfig.ADMIN_PASSCODE}'")
+            Settings.Secure.putString(contentResolver, SharedSettingsProps.ADMIN_PASSCODE, BuildConfig.ADMIN_PASSCODE)
+        } else {
+            val passcode = Settings.Secure.getString(contentResolver, SharedSettingsProps.ADMIN_PASSCODE)
+                ?: throw IllegalStateException()
+            Timber.v("[Updater] The admin passcode is '$passcode'")
         }
 
         // Mock firmware version
