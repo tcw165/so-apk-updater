@@ -270,7 +270,7 @@ class DownloadJobIntentService : JobIntentService() {
         // Execute batch download
         val (completedTasks, errors) = downloadBatchUpdate(
             urls = updates.map { it.fileURL },
-            diskLruCache = updaterConfig.apkDiskCache,
+            diskLruCache = updaterConfig.firmwareDiskCache,
             downloadingCallback = { urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long ->
                 // Let the engine know the download is in-progress.
                 UpdaterService.notifyFirmwareUpdateDownloadProgress(
