@@ -350,7 +350,9 @@ class InstallerJobIntentService : JobIntentService() {
                 // Correct the file path due to some Android constraint. The
                 // partition is mounted as 'legacy' in the normal boot, while it
                 // is '0' in the recovery mode.
-                val correctedFilePath = originalFilePath.replaceFirst("/storage/emulated/legacy/", "/data/media/0/")
+                val correctedFilePath = originalFilePath
+                    .replaceFirst("/storage/emulated/legacy/", "/data/media/0/")
+                    .replaceFirst("/storage/emulated/0/", "/data/media/0/")
                 val correctedFile = File(correctedFilePath)
                 cmdList.add("--update_package=$correctedFile")
 
