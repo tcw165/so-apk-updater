@@ -977,6 +977,9 @@ class UpdaterService : Service() {
         val downloadProgressCurrentBytes = intent.getLongExtra(IntentActions.PROP_DOWNLOAD_CURRENT_BYTES, INVALID_PROGRESS_VALUE.toLong())
         val downloadProgressTotalBytes = intent.getLongExtra(IntentActions.PROP_DOWNLOAD_TOTAL_BYTES, INVALID_PROGRESS_VALUE.toLong())
 
+        // As the download has new progress, reset the attempts.
+        downloadAttempts = 0
+
         if (foundUpdate != null) {
             // TODO: Send progress to remote
         } else {
