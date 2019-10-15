@@ -16,7 +16,7 @@ object Intervals {
     const val TIMEOUT_DOWNLOAD_HR = 5L
     const val TIMEOUT_INSTALL_MIN = 3L
 
-    const val AUTO_EXIT = 15 * 1000L
+    const val AUTO_EXIT = 60 * 1000L
 
     const val RETRY_CHECK = 3000L
     const val RETRY_DOWNLOAD = 3000L

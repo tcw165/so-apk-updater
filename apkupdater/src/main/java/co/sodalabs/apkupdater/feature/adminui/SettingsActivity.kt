@@ -15,6 +15,7 @@ import co.sodalabs.apkupdater.IAutoExitHelper
 import co.sodalabs.apkupdater.IPasscodeDialogFactory
 import co.sodalabs.apkupdater.ITouchTracker
 import co.sodalabs.apkupdater.R
+import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.updaterengine.Intervals
 import com.jakewharton.rxbinding3.view.clicks
 import dagger.android.AndroidInjection
@@ -93,6 +94,8 @@ class SettingsActivity :
     }
 
     private fun startAutoExitCountdown() {
+        if (BuildUtils.isDebug()) return
+
         autoExitHelper.startAutoExitCountDown(Intervals.AUTO_EXIT)
             .subscribe({}, Timber::e)
             .addTo(disposesOnResumePause)
