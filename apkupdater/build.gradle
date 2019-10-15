@@ -101,7 +101,9 @@ android {
             initWith release
             matchingFallbacks = ['release']
 
-            debuggable true
+            // Note: Disabling debuggable allows the ZIP alignment to be applied,
+            // which also allows this build to be baked in the Android image.
+            debuggable false
             useProguard true
             minifyEnabled true
             shrinkResources true
@@ -113,6 +115,8 @@ android {
         }
 
         release {
+            // Note: Disabling debuggable allows the ZIP alignment to be applied,
+            // which also allows this build to be baked in the Android image.
             debuggable false
             useProguard true
             minifyEnabled true
