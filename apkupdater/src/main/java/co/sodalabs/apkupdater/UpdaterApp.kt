@@ -160,22 +160,6 @@ class UpdaterApp :
             Timber.v("[Updater] The admin passcode is '$passcode'")
         }
 
-        // Mock firmware version
-        if (!rawPreference.contains(PreferenceProps.MOCK_FIRMWARE_VERSION)) {
-            if (BuildUtils.isDebug()) {
-                rawPreference.edit()
-                    .putString(PreferenceProps.MOCK_FIRMWARE_VERSION, DEBUG_FIRMWARE_VERSION)
-                    .apply()
-            }
-        }
-        if (!rawPreference.contains(PreferenceProps.MOCK_SPARKPOINT_VERSION)) {
-            if (BuildUtils.isDebug()) {
-                rawPreference.edit()
-                    .putString(PreferenceProps.MOCK_SPARKPOINT_VERSION, DEBUG_SPARKPOINT_VERSION)
-                    .apply()
-            }
-        }
-
         // Network
         if (!rawPreference.contains(PreferenceProps.NETWORK_CONNECTION_TIMEOUT_SECONDS)) {
             rawPreference.edit()
