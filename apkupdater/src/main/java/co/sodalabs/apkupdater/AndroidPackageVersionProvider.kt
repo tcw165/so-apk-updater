@@ -23,11 +23,7 @@ class AndroidPackageVersionProvider @Inject constructor(
         val debugVersion: String? = when (packageName) {
             Packages.SPARKPOINT_PACKAGE_NAME -> {
                 val debugVersion = appPreference.getString(PreferenceProps.MOCK_SPARKPOINT_VERSION, EMPTY_STRING)
-                if (debugVersion == EMPTY_STRING) {
-                    debugVersion
-                } else {
-                    null
-                }
+                if (debugVersion.isNotBlank()) debugVersion else null
             }
             else -> null
         }

@@ -9,16 +9,17 @@ import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import co.sodalabs.apkupdater.BuildConfig
-import co.sodalabs.updaterengine.IAppPreference
-import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.apkupdater.R
 import co.sodalabs.apkupdater.data.UiState
 import co.sodalabs.privilegedinstaller.RxLocalBroadcastReceiver
+import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
+import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.UpdaterService
+import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import co.sodalabs.updaterengine.extension.smartRetryWhen
@@ -140,7 +141,14 @@ class SettingsFragment :
 
                         val httpCode = uiState.data
                         context?.let { c ->
-                            Toast.makeText(c, "Heart beat returns $httpCode", Toast.LENGTH_SHORT).show()
+                            val message = when (httpCode) {
+                                HTTPResponseCode.NotFound.code -> "Heartbeat returns $httpCode. Are you sure this device exists on Airtable?"
+                                HTTPResponseCode.UnprocessableEntity.code -> "Heartbeat returns $httpCode. There is something wrong with your request."
+                                HTTPResponseCode.OK.code -> "Heartbeat returns $httpCode. Heartbeat was a success."
+                                else -> "Heart beat returns $httpCode. An unknown error occured."
+                            }
+
+                            Toast.makeText(c, message, Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
