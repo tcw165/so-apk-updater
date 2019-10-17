@@ -434,7 +434,9 @@ class DownloadJobIntentService : JobIntentService() {
                     .build()
                 val response = okHttpClient.newCall(request).execute()
 
-                if (canRun.get() && response.isSuccessful) {
+                if (!canRun.get()) break
+
+                if (response.isSuccessful) {
                     var inputStream: InputStream? = null
                     val outputStream = FileOutputStream(cacheFile, true)
                     try {
