@@ -17,7 +17,12 @@ private const val CACHE_APK_SIZE_MB = 1024
 private const val CACHE_FIRMWARE_DIR = "system_image"
 private const val CACHE_FIRMWARE_SIZE_MB = 1024
 private const val CACHE_DOWNLOADED_UPDATE_DIR = "downloaded_update"
-private const val CACHE_JOURNAL_VERSION = 1
+/**
+ * Version history:
+ * 1 - The initial cache with the nested key hierarchy.
+ * 2 - The flat key hierarchy.
+ */
+private const val CACHE_JOURNAL_VERSION = 2
 private const val CACHE_UPDATE_RECORDS_SIZE_MB = 10
 
 private const val DAY_MIN = 0
@@ -90,7 +95,6 @@ class AndroidUpdaterConfig @Inject constructor(
         DiskLruCache(
             File(StorageUtils.getCacheDirectory(context, true), CACHE_APK_DIR),
             CACHE_JOURNAL_VERSION,
-            1,
             CACHE_APK_SIZE_MB.mbToBytes()
         )
     }
@@ -100,7 +104,6 @@ class AndroidUpdaterConfig @Inject constructor(
         DiskLruCache(
             File(StorageUtils.getCacheDirectory(context, true), CACHE_FIRMWARE_DIR),
             CACHE_JOURNAL_VERSION,
-            1,
             CACHE_FIRMWARE_SIZE_MB.mbToBytes()
         )
     }
@@ -110,7 +113,6 @@ class AndroidUpdaterConfig @Inject constructor(
         DiskLruCache(
             File(StorageUtils.getCacheDirectory(context, true), CACHE_DOWNLOADED_UPDATE_DIR),
             CACHE_JOURNAL_VERSION,
-            1,
             CACHE_UPDATE_RECORDS_SIZE_MB.mbToBytes()
         )
     }
