@@ -351,7 +351,7 @@ class DownloadJobIntentService : JobIntentService() {
 
             // Step 2, download the file if cache file size is smaller than the total size.
             val cacheEditor = diskLruCache.edit(urlFileName)
-            val cacheFile = cacheEditor.getFile(0)
+            val cacheFile = cacheEditor.getFile()
             Timber.v("[Download] Open the cache \"$cacheFile\"")
             try {
                 executeDownload(i, url, totalSize, cacheFile, downloadingCallback)
@@ -434,7 +434,9 @@ class DownloadJobIntentService : JobIntentService() {
                     .build()
                 val response = okHttpClient.newCall(request).execute()
 
-                if (canRun.get() && response.isSuccessful) {
+                if (!canRun.get()) break
+
+                if (response.isSuccessful) {
                     var inputStream: InputStream? = null
                     val outputStream = FileOutputStream(cacheFile, true)
                     try {

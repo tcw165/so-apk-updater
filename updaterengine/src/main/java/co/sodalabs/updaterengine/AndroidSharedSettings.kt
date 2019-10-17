@@ -80,6 +80,10 @@ class AndroidSharedSettings @Inject constructor(
         }
     }
 
+    override fun observeDeviceId(): InitialValueObservable<String> {
+        return observeWithNamespaceAndType(SharedSettingsNamespace.Secure, SharedSettingsProps.DEVICE_ID, EMPTY_STRING)
+    }
+
     override fun getGlobalInt(key: String, default: Int): Int {
         return try {
             Settings.Global.getInt(contentResolver, key, default)

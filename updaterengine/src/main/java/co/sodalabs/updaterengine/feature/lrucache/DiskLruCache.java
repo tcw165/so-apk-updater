@@ -143,10 +143,11 @@ public final class DiskLruCache implements Closeable {
     private final File journalFileBackup;
     private final int appVersion;
     private long maxSize;
-    private final int valueCount;
+    // We flat the nested hierarchy inside key by forcing the value count as one.
+    private final int valueCount = 1;
     private long size = 0;
     private Writer journalWriter;
-    private final LinkedHashMap<String, Entry> lruEntries = new LinkedHashMap<String, Entry>(0, 0.75f, true);
+    private final LinkedHashMap<String, Entry> lruEntries = new LinkedHashMap<>(0, 0.75f, true);
     private int redundantOpCount;
 
     /**
@@ -175,13 +176,12 @@ public final class DiskLruCache implements Closeable {
         }
     };
 
-    public DiskLruCache(File directory, int appVersion, int valueCount, long maxSize) {
+    public DiskLruCache(File directory, int appVersion, long maxSize) {
         this.directory = directory;
         this.appVersion = appVersion;
         this.journalFile = new File(directory, JOURNAL_FILE);
         this.journalFileTmp = new File(directory, JOURNAL_FILE_TEMP);
         this.journalFileBackup = new File(directory, JOURNAL_FILE_BACKUP);
-        this.valueCount = valueCount;
         this.maxSize = maxSize;
     }
 
@@ -194,9 +194,6 @@ public final class DiskLruCache implements Closeable {
     public void open() throws IOException {
         if (maxSize <= 0) {
             throw new IllegalArgumentException("maxSize <= 0");
-        }
-        if (valueCount <= 0) {
-            throw new IllegalArgumentException("valueCount <= 0");
         }
 
         // If a bkp file exists, use it instead.
@@ -770,20 +767,20 @@ public final class DiskLruCache implements Closeable {
          * Returns the last committed value as a string, or null if no value
          * has been committed.
          */
-        public String getString(int index) throws IOException {
-            InputStream in = newInputStream(index);
+        public String getString() throws IOException {
+            InputStream in = newInputStream(0);
             return in != null ? inputStreamToString(in) : null;
         }
 
-        public File getFile(int index) throws IOException {
+        public File getFile() throws IOException {
             synchronized (DiskLruCache.this) {
                 if (entry.currentEditor != this) {
                     throw new IllegalStateException();
                 }
                 if (!entry.readable) {
-                    written[index] = true;
+                    written[0] = true;
                 }
-                File dirtyFile = entry.getDirtyFile(index);
+                File dirtyFile = entry.getDirtyFile(0);
                 if (!directory.exists()) {
                     directory.mkdirs();
                 }
@@ -792,10 +789,10 @@ public final class DiskLruCache implements Closeable {
         }
 
         /** Sets the value at {@code index} to {@code value}. */
-        public void set(int index, String value) throws IOException {
+        public void set(String value) throws IOException {
             Writer writer = null;
             try {
-                OutputStream os = new FileOutputStream(getFile(index));
+                OutputStream os = new FileOutputStream(getFile());
                 writer = new OutputStreamWriter(os, Charsets.UTF_8);
                 writer.write(value);
             } finally {
@@ -860,18 +857,13 @@ public final class DiskLruCache implements Closeable {
             dirtyFiles = new File[valueCount];
 
             // The names are repetitive so re-use the same builder to avoid allocations.
-            StringBuilder fileBuilder = new StringBuilder(key).append('.');
+            StringBuilder fileBuilder = new StringBuilder(key);
             int truncateTo = fileBuilder.length();
-            for (int i = 0; i < valueCount; i++) {
-                fileBuilder.append(i);
-                cleanFiles[i] = new File(directory, fileBuilder.toString());
 
-                // FIXME: TC comments this out because
-                // fileBuilder.append(".tmp");
-
-                dirtyFiles[i] = new File(directory, fileBuilder.toString());
-                fileBuilder.setLength(truncateTo);
-            }
+            // Note: We've removed the nested key hierarchy.
+            cleanFiles[0] = new File(directory, fileBuilder.toString());
+            dirtyFiles[0] = new File(directory, fileBuilder.toString());
+            fileBuilder.setLength(truncateTo);
         }
 
         public String getLengths() throws IOException {

@@ -796,7 +796,7 @@ class UpdaterService : Service() {
                 diskCache.open()
             }
             val editor = diskCache.edit(CACHE_KEY_DOWNLOADED_UPDATES)
-            val editorFile = editor.getFile(0)
+            val editorFile = editor.getFile()
 
             try {
                 editorFile.writeText(jsonText)

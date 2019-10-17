@@ -11,6 +11,7 @@ interface ISharedSettings {
 
     fun getHardwareId(): String
     fun getDeviceId(): String
+    fun observeDeviceId(): InitialValueObservable<String>
 
     fun getGlobalInt(key: String, default: Int): Int
     fun putGlobalInt(key: String, value: Int): Boolean

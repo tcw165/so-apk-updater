@@ -13,12 +13,18 @@ import co.sodalabs.apkupdater.R
 import co.sodalabs.apkupdater.data.UiState
 import co.sodalabs.privilegedinstaller.RxLocalBroadcastReceiver
 import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.IPackageVersionProvider
+import co.sodalabs.updaterengine.ISharedSettings
+import co.sodalabs.updaterengine.ISystemProperties
+import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.UpdaterService
+import co.sodalabs.updaterengine.data.AppUpdate
+import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
@@ -26,6 +32,7 @@ import co.sodalabs.updaterengine.extension.smartRetryWhen
 import com.jakewharton.rxrelay2.PublishRelay
 import dagger.android.support.AndroidSupportInjection
 import io.reactivex.Observable
+import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
@@ -33,11 +40,17 @@ import timber.log.Timber
 import javax.inject.Inject
 
 private const val KEY_API_BASE_URL = PreferenceProps.API_BASE_URL
+private const val KEY_VERSIONS = "versions"
 private const val KEY_HEART_BEAT_WATCHER = "heartbeat_watcher"
 private const val KEY_HEART_BEAT_NOW = "send_heartbeat_now"
 private const val KEY_CHECK_UPDATE_NOW = "check_test_app_now"
+private const val KEY_CHECK_STATUS = "check_status"
 private const val KEY_SHOW_ANDROID_SETTINGS = "androidSettings"
 private const val KEY_SHOW_INTERNET_SPEED_TEST = "speedTestApp"
+
+private const val PACKAGE_APK_UPDATER = BuildConfig.APPLICATION_ID
+private const val PACKAGE_PRIVILEGED_INSTALLER = co.sodalabs.updaterengine.Packages.PRIVILEGED_EXTENSION_PACKAGE_NAME
+private const val PACKAGE_SPARKPOINT = Packages.SPARKPOINT_PACKAGE_NAME
 
 class SettingsFragment :
     PreferenceFragmentCompat(),
@@ -48,7 +61,15 @@ class SettingsFragment :
     @Inject
     lateinit var heartbeater: UpdaterHeartBeater
     @Inject
+    lateinit var schedulers: IThreadSchedulers
+    @Inject
+    lateinit var packageVersionProvider: IPackageVersionProvider
+    @Inject
     lateinit var appPreference: IAppPreference
+    @Inject
+    lateinit var sharedSettings: ISharedSettings
+    @Inject
+    lateinit var systemProperties: ISystemProperties
 
     private val disposables = CompositeDisposable()
 
@@ -69,6 +90,7 @@ class SettingsFragment :
 
         setupBaseURLPreference()
 
+        observeVersions()
         observeHeartBeatNowClicks()
         observeRecurringHeartBeat()
 
@@ -81,6 +103,45 @@ class SettingsFragment :
     override fun onPause() {
         disposables.clear()
         super.onPause()
+    }
+
+    // Versions ///////////////////////////////////////////////////////////////
+
+    private val versionsPref by lazy {
+        findPreference<Preference>(KEY_VERSIONS)
+            ?: throw IllegalStateException("Can't find preference!")
+    }
+
+    private fun observeVersions() {
+        Observable
+            // Upstream is the combination of initial trigger and the later change
+            // trigger.
+            .merge<Unit>(
+                sharedSettings.observeDeviceId().map { Unit },
+                appPreference.observeAnyChange()
+            )
+            .startWith(Unit)
+            .switchMapSingle { getVersionsSingle() }
+            .observeOn(schedulers.main())
+            .subscribe({ versionsString ->
+                versionsPref.summary = versionsString
+            }, Timber::e)
+            .addTo(disposables)
+    }
+
+    private fun getVersionsSingle(): Single<String> {
+        return Single
+            .fromCallable {
+                val sb = StringBuilder()
+                sb.appendln("Device ID: ${sharedSettings.getDeviceId()}")
+                sb.appendln("Hardware ID: ${sharedSettings.getHardwareId()}")
+                sb.appendln("Firmware Version: ${systemProperties.getFirmwareVersion()}")
+                sb.appendln("Updater Version: ${packageVersionProvider.getPackageVersion(PACKAGE_APK_UPDATER)}")
+                sb.appendln("Privileged Installer Version: ${packageVersionProvider.getPackageVersion(PACKAGE_PRIVILEGED_INSTALLER)}")
+                sb.appendln("Sparkpoint Player Version: ${packageVersionProvider.getPackageVersion(PACKAGE_SPARKPOINT)}")
+                sb.toString()
+            }
+            .subscribeOn(schedulers.io())
     }
 
     // API ////////////////////////////////////////////////////////////////////
@@ -193,6 +254,11 @@ class SettingsFragment :
     }
     private val checkUpdateNowTitle by lazy { checkUpdateNowPref.title.toString() }
 
+    private val checkStatusPref by lazy {
+        findPreference<Preference>(KEY_CHECK_STATUS)
+            ?: throw java.lang.IllegalStateException("Can't find preference!")
+    }
+
     @Suppress("USELESS_CAST")
     private fun observeCheckUpdateNowClicks() {
         val safeContext = context ?: throw NullPointerException("Context is null")
@@ -224,6 +290,86 @@ class SettingsFragment :
                     }
                     is UiState.Done<Boolean> -> {
                         markCheckUpdateDone()
+                    }
+                }
+            }, Timber::e)
+            .addTo(disposables)
+
+        val intentFilter = IntentFilter().apply {
+            addAction(IntentActions.ACTION_CHECK_UPDATE)
+            addAction(IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE)
+            addAction(IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE)
+            addAction(IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_ERROR)
+
+            addAction(IntentActions.ACTION_DOWNLOAD_APP_UPDATE)
+            addAction(IntentActions.ACTION_DOWNLOAD_APP_UPDATE_PROGRESS)
+            addAction(IntentActions.ACTION_DOWNLOAD_APP_UPDATE_COMPLETE)
+            addAction(IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE)
+            addAction(IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_PROGRESS)
+            addAction(IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE)
+
+            addAction(IntentActions.ACTION_INSTALL_APP_UPDATE)
+            addAction(IntentActions.ACTION_INSTALL_APP_UPDATE_COMPLETE)
+            addAction(IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE)
+            addAction(IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE_COMPLETE)
+            addAction(IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE_ERROR)
+        }
+        RxLocalBroadcastReceiver.bind(safeContext, intentFilter)
+            .observeOn(schedulers.main())
+            .subscribe({ intent ->
+                when (intent.action) {
+                    IntentActions.ACTION_CHECK_UPDATE -> checkStatusPref.summary = "Check"
+                    IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE -> checkStatusPref.summary = "Check... found available app updates"
+                    IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE -> {
+                        val foundUpdate = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATE)
+                        checkStatusPref.summary = "Check... found available firmware update, '${foundUpdate.fileURL}'"
+                    }
+                    IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_ERROR -> {
+                        val error = intent.getSerializableExtra(IntentActions.PROP_ERROR) as Throwable
+                        checkStatusPref.summary = "Check... failed for firmware, $error"
+                    }
+
+                    // Download section
+                    IntentActions.ACTION_DOWNLOAD_APP_UPDATE -> {
+                        checkStatusPref.summary = "Download... apps"
+                    }
+                    IntentActions.ACTION_DOWNLOAD_APP_UPDATE_PROGRESS -> {
+                        val update = intent.getParcelableExtra<AppUpdate>(IntentActions.PROP_FOUND_UPDATE)
+                        val progressPercentage = intent.getIntExtra(IntentActions.PROP_PROGRESS_PERCENTAGE, 0)
+                        checkStatusPref.summary = "Download... '${update.packageName}' at $progressPercentage%"
+                    }
+                    IntentActions.ACTION_DOWNLOAD_APP_UPDATE_COMPLETE -> {
+                        val update = intent.getParcelableExtra<AppUpdate>(IntentActions.PROP_FOUND_UPDATE)
+                        checkStatusPref.summary = "Download... '${update.packageName}' finished"
+                    }
+                    IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE -> {
+                        checkStatusPref.summary = "Download... firmware"
+                    }
+                    IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_PROGRESS -> {
+                        val update = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATE)
+                        val progressPercentage = intent.getIntExtra(IntentActions.PROP_PROGRESS_PERCENTAGE, 0)
+                        checkStatusPref.summary = "Download... '${update.fileURL}' at $progressPercentage%"
+                    }
+                    IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE -> {
+                        val update = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATE)
+                        checkStatusPref.summary = "Download... '${update.fileURL}' finished"
+                    }
+
+                    // Install section
+                    IntentActions.ACTION_INSTALL_APP_UPDATE -> {
+                        checkStatusPref.summary = "Install... downloaded apps"
+                    }
+                    IntentActions.ACTION_INSTALL_APP_UPDATE_COMPLETE -> {
+                        checkStatusPref.summary = "Idle"
+                    }
+                    IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE -> {
+                        checkStatusPref.summary = "Install... downloaded firmware"
+                    }
+                    IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE_COMPLETE -> {
+                        checkStatusPref.summary = "Idle"
+                    }
+                    IntentActions.ACTION_INSTALL_FIRMWARE_UPDATE_ERROR -> {
+                        checkStatusPref.summary = "Install... failed for firmware"
                     }
                 }
             }, Timber::e)

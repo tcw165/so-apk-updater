@@ -5,6 +5,11 @@
     <PreferenceCategory
         app:title="@string/device_category">
 
+        <Preference
+            app:key="versions"
+            app:summary="Mock content"
+            app:title="Version Information" />
+
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.SecureStringEditTextPreference
             app:key="admin_passcode"
@@ -77,6 +82,10 @@
             app:icon="@drawable/bt_check"
             app:key="check_test_app_now"
             app:title="Check for Update Now" />
+
+        <Preference
+            app:key="check_status"
+            app:summary="Idle" />
     </PreferenceCategory>
 
     <PreferenceCategory
