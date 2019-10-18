@@ -17,8 +17,19 @@ class VersionExtensionsTest {
 
     @Test
     fun `version set with different lengths`() {
-        assertTrue("1.2.4".isGreaterThan("1.2.3.99", orEqualTo = true)) // Consider 1.2.4 is 1.2.4.0
+        assertTrue("1.2.4".isGreaterThan("1.2.3.99", orEqualTo = true)) // Consider '1.2.4' as '1.2.4.0'
         assertTrue("1.2.33.4".isGreaterThan("1.2.6", orEqualTo = true))
+
+        assertTrue("1.2.33.4.0.0".isGreaterThan("1.2.33.4", orEqualTo = true)) // Consider '1.2.33.4.0.0' as '1.2.33.4'
+        assertFalse("1.2.33.4.0.0".isGreaterThan("1.2.33.4", orEqualTo = false)) // Consider '1.2.33.4.0.0' as '1.2.33.4'
+    }
+
+    @Test
+    fun `version set with one empty`() {
+        assertFalse("0.0.0.0".isGreaterThan("", orEqualTo = false)) // Consider '0.0.0.0' as '0', and '' as '0'
+
+        assertTrue("0.4.5.0".isGreaterThan("", orEqualTo = false)) // Case as NO version could found
+        assertFalse("".isGreaterThan("0.4.5.0", orEqualTo = false)) // The opposite as above
     }
 
     @Test
