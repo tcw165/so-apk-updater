@@ -8,6 +8,7 @@ import co.sodalabs.apkupdater.di.component.DaggerAppComponent
 import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.Intervals
@@ -52,24 +53,22 @@ class UpdaterApp :
     lateinit var updatesInstaller: UpdatesInstaller
     @Inject
     lateinit var heartBeater: UpdaterHeartBeater
+    @Inject
+    lateinit var sharedSettings: ISharedSettings
 
     private val globalDisposables = CompositeDisposable()
 
     override fun onCreate() {
         super.onCreate()
-
-        Timber.v("[Updater] App Version Name: ${BuildConfig.VERSION_NAME}")
-        Timber.v("[Updater] App Version Code: ${BuildConfig.VERSION_CODE}")
-
-        initLogging()
-        initCrashReporting()
-        initDatetime()
-
         // Note: Injection of default rawPreference must be prior than dependencies
         // injection! Because the modules like network depends on the default
         // preference to instantiate.
         injectDefaultPreferencesBeforeInjectingDep()
         injectDependencies()
+        initCrashReporting()
+        initLogging()
+        initDatetime()
+
         logSystemInfo()
 
         observeSystemConfigChange()
@@ -89,9 +88,13 @@ class UpdaterApp :
             // Only send report for staging and release
             notifyReleaseStages = arrayOf(BuildUtils.TYPE_STAGING, BuildUtils.TYPE_RELEASE)
             releaseStage = BuildConfig.BUILD_TYPE
+
+            val deviceID = sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: "device ID not set yet!"
+            metaData.addToTab(MetadataProps.BUCKET_DEVICE, MetadataProps.KEY_DEVICE_ID, deviceID)
         }
-        Bugsnag.init(this, config)
-        Timber.plant(BugsnagTree())
+        val bugTracker = Bugsnag.init(this, config)
+
+        Timber.plant(BugsnagTree(bugTracker))
     }
 
     private fun initDatetime() {
@@ -104,7 +107,9 @@ class UpdaterApp :
     private fun logSystemInfo() {
         val firmwareVersion = rawPreference.getString(PreferenceProps.MOCK_FIRMWARE_VERSION, null)
             ?: systemProperties.getString(SystemProps.FIRMWARE_VERSION_INCREMENTAL, "")
-        Timber.v("[Updater] The firmware version is \"$firmwareVersion\"")
+        Timber.v("[Updater] App version name: ${BuildConfig.VERSION_NAME}")
+        Timber.v("[Updater] App version code: ${BuildConfig.VERSION_CODE}")
+        Timber.v("[Updater] Firmware version: \"$firmwareVersion\"")
     }
 
     // Application Singletons /////////////////////////////////////////////////
