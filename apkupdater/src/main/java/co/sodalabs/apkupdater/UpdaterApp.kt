@@ -28,6 +28,7 @@ import dagger.android.AndroidInjector
 import dagger.android.DispatchingAndroidInjector
 import dagger.android.HasAndroidInjector
 import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.plugins.RxJavaPlugins
 import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
@@ -70,6 +71,8 @@ class UpdaterApp :
         initLogging()
         initDatetime()
         logSystemInfo()
+
+        safeguardsUndeliverableException()
 
         observeSystemConfigChange()
 
@@ -125,6 +128,16 @@ class UpdaterApp :
 
     private fun initDatetime() {
         AndroidThreeTen.init(this)
+    }
+
+    private fun safeguardsUndeliverableException() {
+        // The global error funnel for RxJava
+        RxJavaPlugins.setErrorHandler { error ->
+            // Observable/Single/Maybe/Completable/Flowable's 'fromCallable'
+            // sends errors to here if the stream is disposed but some error
+            // needs to be taken care of.
+            Timber.e(error)
+        }
     }
 
     /**
