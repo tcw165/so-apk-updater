@@ -9,8 +9,6 @@ Utils class used for system interaction. Specifically useful for killing service
 object BuildUtils {
 
     fun isDebug() = BuildConfig.BUILD_TYPE == "debug"
-
-    fun isStaging() = BuildConfig.BUILD_TYPE == "staging"
-
+    fun isPreRelease() = BuildConfig.BUILD_TYPE == "preRelease"
     fun isRelease() = BuildConfig.BUILD_TYPE == "release"
 }

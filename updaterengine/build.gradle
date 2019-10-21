@@ -38,7 +38,7 @@ android {
             debuggable true
         }
 
-        staging {
+        preRelease {
             initWith(release)
             matchingFallbacks = ['release']
         }

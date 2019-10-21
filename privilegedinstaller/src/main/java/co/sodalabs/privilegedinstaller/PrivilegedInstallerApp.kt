@@ -19,7 +19,7 @@ class PrivilegedInstallerApp : MultiDexApplication() {
     }
 
     private fun initLogging() {
-        if (BuildUtils.isDebug() || BuildUtils.isStaging()) {
+        if (BuildUtils.isDebug() || BuildUtils.isPreRelease()) {
             Timber.plant(Timber.DebugTree())
         }
     }
@@ -27,7 +27,7 @@ class PrivilegedInstallerApp : MultiDexApplication() {
     private fun initCrashReporting() {
         val config = Configuration(BuildConfig.BUGSNAG_API_KEY).apply {
             // Only send report for staging and release
-            notifyReleaseStages = arrayOf(BuildUtils.TYPE_STAGING, BuildUtils.TYPE_RELEASE)
+            notifyReleaseStages = arrayOf(BuildUtils.TYPE_PRE_RELEASE, BuildUtils.TYPE_RELEASE)
             releaseStage = BuildConfig.BUILD_TYPE
         }
         Bugsnag.init(this, config)

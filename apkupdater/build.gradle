@@ -50,6 +50,7 @@ android {
 
         buildConfigField "String", "BUGSNAG_API_KEY", "\"$bugsnagAPIKey\""
 
+        buildConfigField "String", "GIT_SHA", "\"${getGitHash()}\""
         buildConfigField "String[]", "BASE_URLS", "{\"Hey developer, make sure update this!\"}"
         buildConfigField "String", "ADMIN_PASSCODE", "\"000000\"" // Must be 0..9
 
@@ -97,7 +98,7 @@ android {
             signingConfig signingConfigs.platform
         }
 
-        staging {
+        preRelease {
             initWith release
             matchingFallbacks = ['release']
 
@@ -269,6 +270,18 @@ dependencies {
     // Tracking
     implementation deps.tracking.timber
     implementation 'com.bugsnag:bugsnag-android:4.17.2'
+
+    // Leak Canary
+    debugImplementation deps.leakcanary.android
+    preReleaseImplementation deps.leakcanary.androidNoOp
+    releaseImplementation deps.leakcanary.androidNoOp
+    testImplementation deps.leakcanary.androidNoOp
+
+    // Block Canary
+    debugImplementation deps.blockcanary.android
+    preReleaseImplementation deps.blockcanary.androidNoOp
+    releaseImplementation deps.blockcanary.androidNoOp
+    testImplementation deps.blockcanary.androidNoOp
 
     // Better dimens
     // FIXME: Figure out the right resolution in design assets!

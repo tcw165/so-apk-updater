@@ -2,6 +2,7 @@ package co.sodalabs.apkupdater
 
 import android.annotation.SuppressLint
 import android.provider.Settings
+import android.util.Log
 import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
@@ -33,8 +34,6 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 private const val DEBUG_DEVICE_ID = "999999"
-private const val DEBUG_FIRMWARE_VERSION = "1.0.0"
-private const val DEBUG_SPARKPOINT_VERSION = "0.2.6.1"
 
 class UpdaterApp :
     MultiDexApplication(),
@@ -43,6 +42,7 @@ class UpdaterApp :
     @Inject
     lateinit var actualInjector: DispatchingAndroidInjector<UpdaterApp>
 
+    @Suppress("UNCHECKED_CAST")
     override fun androidInjector(): AndroidInjector<Any> = actualInjector as AndroidInjector<Any>
 
     @Inject
@@ -60,6 +60,7 @@ class UpdaterApp :
 
     override fun onCreate() {
         super.onCreate()
+
         // Note: Injection of default rawPreference must be prior than dependencies
         // injection! Because the modules like network depends on the default
         // preference to instantiate.
@@ -68,7 +69,6 @@ class UpdaterApp :
         initCrashReporting()
         initLogging()
         initDatetime()
-
         logSystemInfo()
 
         observeSystemConfigChange()
@@ -77,16 +77,42 @@ class UpdaterApp :
         UpdaterService.start(this)
     }
 
+    @SuppressLint("LogNotTimber")
     private fun initLogging() {
-        if (BuildUtils.isDebug() || BuildUtils.isStaging()) {
-            Timber.plant(Timber.DebugTree())
+        val logTree = Timber.DebugTree()
+
+        if (BuildUtils.isRelease()) {
+            // Note: There would be a short latency on planting the log tree on
+            // release build.
+            sharedSettings.observeSecureBoolean(SharedSettingsProps.ADMIN_FORCEFULLY_LOGGABLE, false)
+                .observeOn(schedulers.main())
+                .subscribe({ forcefullyLoggable ->
+                    val treeSnapshot = Timber.forest()
+                    if (forcefullyLoggable) {
+                        Log.w("[Updater]", "Enable the log :D")
+                        if (!treeSnapshot.contains(logTree)) {
+                            Timber.plant(logTree)
+                        }
+                    } else {
+                        Log.w("[Updater]", "Disable the log...")
+                        if (treeSnapshot.contains(logTree)) {
+                            Timber.uproot(logTree)
+                        }
+                    }
+                }, { err ->
+                    Log.e("[Updater]", err.toString())
+                })
+                .addTo(globalDisposables)
+        } else {
+            // Otherwise, always log.
+            Timber.plant(logTree)
         }
     }
 
     private fun initCrashReporting() {
         val config = Configuration(BuildConfig.BUGSNAG_API_KEY).apply {
             // Only send report for staging and release
-            notifyReleaseStages = arrayOf(BuildUtils.TYPE_STAGING, BuildUtils.TYPE_RELEASE)
+            notifyReleaseStages = arrayOf(BuildUtils.TYPE_PRE_RELEASE, BuildUtils.TYPE_RELEASE)
             releaseStage = BuildConfig.BUILD_TYPE
 
             val deviceID = sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: "device ID not set yet!"
@@ -141,6 +167,7 @@ class UpdaterApp :
      * since the DI isn't setup yet.
      */
     @SuppressLint("ApplySharedPref")
+    @Deprecated("Remove all these injection when we retire settings.xml")
     private fun injectDefaultPreferencesBeforeInjectingDep() {
         // Debug device ID
         try {

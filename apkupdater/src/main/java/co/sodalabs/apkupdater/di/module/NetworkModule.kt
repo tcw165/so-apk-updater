@@ -3,12 +3,14 @@
 package co.sodalabs.apkupdater.di.module
 
 import co.sodalabs.apkupdater.BuildConfig
-import co.sodalabs.updaterengine.IAppPreference
-import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
 import co.sodalabs.apkupdater.net.HostResolutionInterceptor
+import co.sodalabs.apkupdater.utils.BuildUtils
+import co.sodalabs.apkupdater.utils.HttpTimberLogger
+import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.jsonadapter.FileAdapter
 import com.squareup.moshi.Moshi
 import dagger.Module
@@ -67,11 +69,11 @@ class NetworkModule {
     }
 
     private fun provideLogsInterceptor(): Interceptor {
-        val logsInterceptor = HttpLoggingInterceptor()
-        logsInterceptor.level = if (BuildConfig.DEBUG) {
+        val logsInterceptor = HttpLoggingInterceptor(HttpTimberLogger())
+        logsInterceptor.level = if (BuildUtils.isRelease()) {
             HttpLoggingInterceptor.Level.HEADERS
         } else {
-            HttpLoggingInterceptor.Level.NONE
+            HttpLoggingInterceptor.Level.BODY
         }
         return logsInterceptor
     }

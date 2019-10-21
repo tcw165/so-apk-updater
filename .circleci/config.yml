@@ -151,7 +151,7 @@ jobs:
           key: jars-{{ checksum "build.gradle" }}-{{ checksum "gradleScripts/dependencies.gradle" }}-{{ checksum ".circleci/config.yml" }}-{{ checksum "Gemfile.lock" }}
       - run:
           name: Build APK Updater (Release)
-          command: ./gradlew :updaterengine:assembleRelease :apkupdater:assembleStaging :apkupdater:assembleRelease :privilegedinstaller:assembleStaging :privilegedinstaller:assembleRelease --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
+          command: ./gradlew :updaterengine:assembleRelease :apkupdater:assemblePreRelease :apkupdater:assembleRelease :privilegedinstaller:assemblePreRelease :privilegedinstaller:assembleRelease --no-daemon -Pkotlin.incremental=false --max-workers=2 --stacktrace
       - run:
           name: Install FastLane
           command: |
