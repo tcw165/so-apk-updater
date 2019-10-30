@@ -118,7 +118,7 @@ class SettingsFragment :
             // trigger.
             .merge<Unit>(
                 sharedSettings.observeDeviceId().map { Unit },
-                appPreference.observeAnyChange()
+                appPreference.observeAnyChange().map { Unit }
             )
             .startWith(Unit)
             .switchMapSingle { getVersionsSingle() }

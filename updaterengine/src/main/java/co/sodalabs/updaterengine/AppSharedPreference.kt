@@ -87,11 +87,11 @@ class AppSharedPreference @Inject constructor(
         return preferences.contains(prop)
     }
 
-    override fun observeAnyChange(): Observable<Unit> {
+    override fun observeAnyChange(): Observable<String> {
         return Observable.create { emitter ->
-            val listener = SharedPreferences.OnSharedPreferenceChangeListener { preferences, _ ->
+            val listener = SharedPreferences.OnSharedPreferenceChangeListener { preferences, key ->
                 if (this.preferences == preferences) {
-                    emitter.onNext(Unit)
+                    emitter.onNext(key)
                 }
             }
             preferences.registerOnSharedPreferenceChangeListener(listener)

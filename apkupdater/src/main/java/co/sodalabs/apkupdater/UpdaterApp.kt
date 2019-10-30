@@ -15,6 +15,7 @@ import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.SharedSettingsProps
+import co.sodalabs.updaterengine.SharedSettingsProps.SERVER_ENVIRONMENT
 import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.UpdatesChecker
@@ -185,7 +186,8 @@ class UpdaterApp :
         // Debug device ID
         try {
             if (Settings.Secure.getString(contentResolver, SharedSettingsProps.DEVICE_ID) == null &&
-                (BuildUtils.isDebug())) {
+                (BuildUtils.isDebug())
+            ) {
                 Timber.v("[Updater] Inject the debug device ID as \"$DEBUG_DEVICE_ID\"")
                 Settings.Secure.putString(contentResolver, SharedSettingsProps.DEVICE_ID, DEBUG_DEVICE_ID)
             }
@@ -232,6 +234,9 @@ class UpdaterApp :
                 .apply()
         }
         val apiBaseURL = rawPreference.getString(PreferenceProps.API_BASE_URL, "")
+        val environment = ServerEnvironment.fromRawUrl(apiBaseURL)
+        sharedSettings.putGlobalString(SERVER_ENVIRONMENT, environment.name)
+        Timber.v("[Updater] API environment, \"$environment\"")
         Timber.v("[Updater] API base URL, \"$apiBaseURL\"")
 
         // Heartbeat
@@ -295,7 +300,13 @@ class UpdaterApp :
         appPreference.observeAnyChange()
             .debounce(Intervals.DEBOUNCE_VALUE_CHANGE, TimeUnit.MILLISECONDS)
             .observeOn(schedulers.main())
-            .subscribe({
+            .subscribe({ key ->
+                if (key == PreferenceProps.API_BASE_URL) {
+                    val rawApiUrl = rawPreference.getString(PreferenceProps.API_BASE_URL, "")
+                    val environment = ServerEnvironment.fromRawUrl(rawApiUrl)
+                    sharedSettings.putGlobalString(SERVER_ENVIRONMENT, environment.name)
+                }
+
                 Timber.v("[Updater] System configuration changes, so restart the process!")
                 // Forcefully flush
                 appPreference.forceFlush()

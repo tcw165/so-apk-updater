@@ -15,4 +15,5 @@ object SharedSettingsProps {
 
     const val ADMIN_PASSCODE = "admin_passcode"
     const val ADMIN_FORCEFULLY_LOGGABLE = "forcefully_loggable"
+    const val SERVER_ENVIRONMENT = "server_environment"
 }
