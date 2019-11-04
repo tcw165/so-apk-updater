@@ -752,7 +752,7 @@ class UpdaterService : Service() {
                 ensureBackgroundThread()
 
                 val diskCache = updaterConfig.downloadedUpdateDiskCache
-                if (diskCache.isClosed) {
+                if (diskCache.isClosed()) {
                     diskCache.open()
                 }
 
@@ -792,7 +792,7 @@ class UpdaterService : Service() {
             val jsonText = jsonAdapter.toJson(downloadedUpdates)
 
             val diskCache = updaterConfig.downloadedUpdateDiskCache
-            if (diskCache.isClosed) {
+            if (diskCache.isClosed()) {
                 diskCache.open()
             }
             val editor = diskCache.edit(CACHE_KEY_DOWNLOADED_UPDATES)
@@ -810,7 +810,7 @@ class UpdaterService : Service() {
 
     private fun cleanDownloadedAppUpdateCache() {
         val diskCache = updaterConfig.downloadedUpdateDiskCache
-        if (diskCache.isOpened) {
+        if (diskCache.isOpened()) {
             Timber.v("[Updater] Remove installs cache")
             diskCache.delete()
         }

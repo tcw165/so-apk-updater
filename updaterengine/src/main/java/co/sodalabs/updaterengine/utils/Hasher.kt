@@ -1,5 +1,6 @@
 package co.sodalabs.updaterengine.utils
 
+import co.sodalabs.updaterengine.extension.toHex
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream

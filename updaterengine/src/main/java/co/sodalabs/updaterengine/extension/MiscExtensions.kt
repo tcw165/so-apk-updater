@@ -1,4 +1,4 @@
-package co.sodalabs.updaterengine.utils
+package co.sodalabs.updaterengine.extension
 
 import android.content.Context
 import android.content.pm.PackageManager
