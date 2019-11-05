@@ -15,6 +15,7 @@ import co.sodalabs.apkupdater.di.module.SystemModule
 import co.sodalabs.apkupdater.di.module.ThreadSchedulersModule
 import co.sodalabs.apkupdater.di.module.TrackersModule
 import co.sodalabs.apkupdater.di.module.UpdaterModule
+import co.sodalabs.apkupdater.di.module.UtilsModule
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.ISharedSettings
@@ -35,6 +36,7 @@ import dagger.android.support.AndroidSupportInjectionModule
     SystemModule::class,
     NetworkModule::class,
     TrackersModule::class,
+    UtilsModule::class,
     UpdaterModule::class,
     // Modules for constructing sub-components
     SubComponentActivityModule::class,

@@ -1,7 +1,6 @@
 package co.sodalabs.apkupdater
 
 import android.content.Context
-import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.PreferenceProps
@@ -38,7 +37,7 @@ class AndroidUpdaterConfig @Inject constructor(
     }
 
     override val hostPackageName: String by lazy { context.packageName }
-    override val packageNames: List<String> = listOf(*BuildUtils.PACKAGES_TO_CHECK)
+    override val packageNames: List<String> = listOf(*BuildConfig.PACKAGES_TO_CHECK)
 
     override var installSilently: Boolean
         get() = appPreference.getBoolean(PreferenceProps.INSTALL_SILENTLY, BuildConfig.INSTALL_SILENTLY)

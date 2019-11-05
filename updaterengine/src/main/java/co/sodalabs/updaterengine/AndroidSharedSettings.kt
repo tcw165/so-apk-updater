@@ -9,6 +9,8 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.provider.Settings
 import androidx.multidex.BuildConfig
+import co.sodalabs.updaterengine.extension.toBoolean
+import co.sodalabs.updaterengine.extension.toInt
 import co.sodalabs.updaterengine.rx.InitialValueObservable
 import io.reactivex.Observable
 import timber.log.Timber
@@ -162,6 +164,30 @@ class AndroidSharedSettings @Inject constructor(
         return observeWithNamespaceAndType(SharedSettingsNamespace.Secure, key, default)
     }
 
+    override fun getSecureBoolean(key: String, default: Boolean): Boolean {
+        return try {
+            // Note: Settings doesn't have boolean type, so we use int.
+            Settings.Secure.getInt(contentResolver, key, default.toInt()).toBoolean()
+        } catch (error: Throwable) {
+            Timber.e(error)
+            default
+        }
+    }
+
+    override fun putSecureBoolean(key: String, value: Boolean): Boolean {
+        return try {
+            // Note: Settings doesn't have boolean type, so we use int.
+            Settings.Secure.putInt(contentResolver, key, value.toInt())
+        } catch (error: Throwable) {
+            Timber.e(error)
+            false
+        }
+    }
+
+    override fun observeSecureBoolean(key: String, default: Boolean): InitialValueObservable<Boolean> {
+        return observeWithNamespaceAndType(SharedSettingsNamespace.Secure, key, default)
+    }
+
     override fun getSecureString(
         key: String
     ): String? {
@@ -202,17 +228,16 @@ class AndroidSharedSettings @Inject constructor(
                     val handler = Handler(thread.looper)
                     val contentObserver = object : ContentObserver(handler) {
                         override fun onChange(selfChange: Boolean) {
-                            if (!selfChange) return
-
                             val value: Any = when (default) {
                                 is Int -> namespace.getIntFor(key, default)
+                                is Boolean -> namespace.getIntFor(key, default.toInt()).toBoolean()
                                 is String -> namespace.getStringFor(key) ?: default
                                 else -> throw IllegalArgumentException()
                             }
                             emitter.onNext(value as T)
                         }
                     }
-                    contentResolver.registerContentObserver(uri, false, contentObserver)
+                    contentResolver.registerContentObserver(uri, true, contentObserver)
 
                     // Cancellation
                     emitter.setCancellable {
@@ -223,6 +248,7 @@ class AndroidSharedSettings @Inject constructor(
                     // Initial value
                     val stickyValue: Any? = when (default) {
                         is Int -> namespace.getIntFor(key, default)
+                        is Boolean -> namespace.getIntFor(key, default.toInt()).toBoolean()
                         is String? -> namespace.getStringFor(key)
                         else -> throw IllegalArgumentException()
                     }

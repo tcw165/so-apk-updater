@@ -325,7 +325,7 @@ class DownloadJobIntentService : JobIntentService() {
             diskLruCache.delete()
         }
         // Open the cache
-        if (!diskLruCache.isOpened) {
+        if (!diskLruCache.isOpened()) {
             diskLruCache.open()
         }
 

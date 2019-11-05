@@ -1,5 +1,6 @@
 package co.sodalabs.updaterengine.utils
 
+import co.sodalabs.updaterengine.extension.toHex
 import timber.log.Timber
 import java.io.BufferedInputStream
 import java.io.Closeable

@@ -2,17 +2,20 @@ package co.sodalabs.apkupdater
 
 import android.annotation.SuppressLint
 import android.provider.Settings
+import android.util.Log
 import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
 import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.SharedSettingsProps
+import co.sodalabs.updaterengine.SharedSettingsProps.SERVER_ENVIRONMENT
 import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.UpdatesChecker
@@ -26,14 +29,13 @@ import dagger.android.AndroidInjector
 import dagger.android.DispatchingAndroidInjector
 import dagger.android.HasAndroidInjector
 import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.plugins.RxJavaPlugins
 import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 private const val DEBUG_DEVICE_ID = "999999"
-private const val DEBUG_FIRMWARE_VERSION = "1.0.0"
-private const val DEBUG_SPARKPOINT_VERSION = "0.2.6.1"
 
 class UpdaterApp :
     MultiDexApplication(),
@@ -42,6 +44,7 @@ class UpdaterApp :
     @Inject
     lateinit var actualInjector: DispatchingAndroidInjector<UpdaterApp>
 
+    @Suppress("UNCHECKED_CAST")
     override fun androidInjector(): AndroidInjector<Any> = actualInjector as AndroidInjector<Any>
 
     @Inject
@@ -52,25 +55,25 @@ class UpdaterApp :
     lateinit var updatesInstaller: UpdatesInstaller
     @Inject
     lateinit var heartBeater: UpdaterHeartBeater
+    @Inject
+    lateinit var sharedSettings: ISharedSettings
 
     private val globalDisposables = CompositeDisposable()
 
     override fun onCreate() {
         super.onCreate()
 
-        Timber.v("[Updater] App Version Name: ${BuildConfig.VERSION_NAME}")
-        Timber.v("[Updater] App Version Code: ${BuildConfig.VERSION_CODE}")
-
-        initLogging()
-        initCrashReporting()
-        initDatetime()
-
         // Note: Injection of default rawPreference must be prior than dependencies
         // injection! Because the modules like network depends on the default
         // preference to instantiate.
         injectDefaultPreferencesBeforeInjectingDep()
         injectDependencies()
+        initCrashReporting()
+        initLogging()
+        initDatetime()
         logSystemInfo()
+
+        safeguardsUndeliverableException()
 
         observeSystemConfigChange()
 
@@ -78,24 +81,64 @@ class UpdaterApp :
         UpdaterService.start(this)
     }
 
+    @SuppressLint("LogNotTimber")
     private fun initLogging() {
-        if (BuildUtils.isDebug() || BuildUtils.isStaging()) {
-            Timber.plant(Timber.DebugTree())
+        val logTree = Timber.DebugTree()
+
+        if (BuildUtils.isRelease()) {
+            // Note: There would be a short latency on planting the log tree on
+            // release build.
+            sharedSettings.observeSecureBoolean(SharedSettingsProps.ADMIN_FORCEFULLY_LOGGABLE, false)
+                .observeOn(schedulers.main())
+                .subscribe({ forcefullyLoggable ->
+                    val treeSnapshot = Timber.forest()
+                    if (forcefullyLoggable) {
+                        Log.w("[Updater]", "Enable the log :D")
+                        if (!treeSnapshot.contains(logTree)) {
+                            Timber.plant(logTree)
+                        }
+                    } else {
+                        Log.w("[Updater]", "Disable the log...")
+                        if (treeSnapshot.contains(logTree)) {
+                            Timber.uproot(logTree)
+                        }
+                    }
+                }, { err ->
+                    Log.e("[Updater]", err.toString())
+                })
+                .addTo(globalDisposables)
+        } else {
+            // Otherwise, always log.
+            Timber.plant(logTree)
         }
     }
 
     private fun initCrashReporting() {
         val config = Configuration(BuildConfig.BUGSNAG_API_KEY).apply {
             // Only send report for staging and release
-            notifyReleaseStages = arrayOf(BuildUtils.TYPE_STAGING, BuildUtils.TYPE_RELEASE)
+            notifyReleaseStages = arrayOf(BuildUtils.TYPE_PRE_RELEASE, BuildUtils.TYPE_RELEASE)
             releaseStage = BuildConfig.BUILD_TYPE
+
+            val deviceID = sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: "device ID not set yet!"
+            metaData.addToTab(MetadataProps.BUCKET_DEVICE, MetadataProps.KEY_DEVICE_ID, deviceID)
         }
-        Bugsnag.init(this, config)
-        Timber.plant(BugsnagTree())
+        val bugTracker = Bugsnag.init(this, config)
+
+        Timber.plant(BugsnagTree(bugTracker))
     }
 
     private fun initDatetime() {
         AndroidThreeTen.init(this)
+    }
+
+    private fun safeguardsUndeliverableException() {
+        // The global error funnel for RxJava
+        RxJavaPlugins.setErrorHandler { error ->
+            // Observable/Single/Maybe/Completable/Flowable's 'fromCallable'
+            // sends errors to here if the stream is disposed but some error
+            // needs to be taken care of.
+            Timber.e(error)
+        }
     }
 
     /**
@@ -104,7 +147,9 @@ class UpdaterApp :
     private fun logSystemInfo() {
         val firmwareVersion = rawPreference.getString(PreferenceProps.MOCK_FIRMWARE_VERSION, null)
             ?: systemProperties.getString(SystemProps.FIRMWARE_VERSION_INCREMENTAL, "")
-        Timber.v("[Updater] The firmware version is \"$firmwareVersion\"")
+        Timber.v("[Updater] App version name: ${BuildConfig.VERSION_NAME}")
+        Timber.v("[Updater] App version code: ${BuildConfig.VERSION_CODE}")
+        Timber.v("[Updater] Firmware version: \"$firmwareVersion\"")
     }
 
     // Application Singletons /////////////////////////////////////////////////
@@ -136,11 +181,13 @@ class UpdaterApp :
      * since the DI isn't setup yet.
      */
     @SuppressLint("ApplySharedPref")
+    @Deprecated("Remove all these injection when we retire settings.xml")
     private fun injectDefaultPreferencesBeforeInjectingDep() {
         // Debug device ID
         try {
             if (Settings.Secure.getString(contentResolver, SharedSettingsProps.DEVICE_ID) == null &&
-                (BuildUtils.isDebug())) {
+                (BuildUtils.isDebug())
+            ) {
                 Timber.v("[Updater] Inject the debug device ID as \"$DEBUG_DEVICE_ID\"")
                 Settings.Secure.putString(contentResolver, SharedSettingsProps.DEVICE_ID, DEBUG_DEVICE_ID)
             }
@@ -187,6 +234,9 @@ class UpdaterApp :
                 .apply()
         }
         val apiBaseURL = rawPreference.getString(PreferenceProps.API_BASE_URL, "")
+        val environment = ServerEnvironment.fromRawUrl(apiBaseURL)
+        sharedSettings.putGlobalString(SERVER_ENVIRONMENT, environment.name)
+        Timber.v("[Updater] API environment, \"$environment\"")
         Timber.v("[Updater] API base URL, \"$apiBaseURL\"")
 
         // Heartbeat
@@ -250,7 +300,13 @@ class UpdaterApp :
         appPreference.observeAnyChange()
             .debounce(Intervals.DEBOUNCE_VALUE_CHANGE, TimeUnit.MILLISECONDS)
             .observeOn(schedulers.main())
-            .subscribe({
+            .subscribe({ key ->
+                if (key == PreferenceProps.API_BASE_URL) {
+                    val rawApiUrl = rawPreference.getString(PreferenceProps.API_BASE_URL, "")
+                    val environment = ServerEnvironment.fromRawUrl(rawApiUrl)
+                    sharedSettings.putGlobalString(SERVER_ENVIRONMENT, environment.name)
+                }
+
                 Timber.v("[Updater] System configuration changes, so restart the process!")
                 // Forcefully flush
                 appPreference.forceFlush()

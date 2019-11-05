@@ -42,6 +42,23 @@ All the apps here are signed with the Android platform key. For successful signi
 
 *Place he files under project root folder.*
 
+# On-site Support
+
+### Toggle Logging for Production
+
+Enable logging.
+
+```
+# 1 to enable; 0 to disable
+adb shell settings put secure forcefully_loggable 1
+```
+
+Disable logging.
+
+```
+# 1 to enable; 0 to disable
+adb shell settings put secure forcefully_loggable 0
+```
 
 # Code Owners
 

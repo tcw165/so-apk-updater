@@ -76,7 +76,7 @@ android {
             signingConfig signingConfigs.platform
         }
 
-        staging {
+        preRelease {
             initWith release
             matchingFallbacks = ['release']
 

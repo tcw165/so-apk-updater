@@ -118,7 +118,7 @@ class SettingsFragment :
             // trigger.
             .merge<Unit>(
                 sharedSettings.observeDeviceId().map { Unit },
-                appPreference.observeAnyChange()
+                appPreference.observeAnyChange().map { Unit }
             )
             .startWith(Unit)
             .switchMapSingle { getVersionsSingle() }
@@ -136,7 +136,11 @@ class SettingsFragment :
                 sb.appendln("Device ID: ${sharedSettings.getDeviceId()}")
                 sb.appendln("Hardware ID: ${sharedSettings.getHardwareId()}")
                 sb.appendln("Firmware Version: ${systemProperties.getFirmwareVersion()}")
+
                 sb.appendln("Updater Version: ${packageVersionProvider.getPackageVersion(PACKAGE_APK_UPDATER)}")
+                sb.appendln("Updater Build Hash: ${BuildConfig.GIT_SHA}")
+                sb.appendln("Updater Build Type: ${BuildConfig.BUILD_TYPE}")
+
                 sb.appendln("Privileged Installer Version: ${packageVersionProvider.getPackageVersion(PACKAGE_PRIVILEGED_INSTALLER)}")
                 sb.appendln("Sparkpoint Player Version: ${packageVersionProvider.getPackageVersion(PACKAGE_SPARKPOINT)}")
                 sb.toString()

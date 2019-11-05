@@ -24,6 +24,10 @@ interface ISharedSettings {
     fun putSecureInt(key: String, value: Int): Boolean
     fun observeSecureInt(key: String, default: Int): InitialValueObservable<Int>
 
+    fun getSecureBoolean(key: String, default: Boolean): Boolean
+    fun putSecureBoolean(key: String, value: Boolean): Boolean
+    fun observeSecureBoolean(key: String, default: Boolean): InitialValueObservable<Boolean>
+
     fun getSecureString(key: String): String?
     fun putSecureString(key: String, value: String): Boolean
     fun observeSecureString(key: String, default: String): InitialValueObservable<String>

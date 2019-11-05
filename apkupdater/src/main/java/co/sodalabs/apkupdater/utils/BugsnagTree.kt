@@ -2,9 +2,12 @@ package co.sodalabs.apkupdater.utils
 
 import android.util.Log
 import com.bugsnag.android.Bugsnag
+import com.bugsnag.android.Client
 import timber.log.Timber
 
-class BugsnagTree : Timber.Tree() {
+class BugsnagTree(
+    private val bugTracker: Client
+) : Timber.Tree() {
 
     override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
         Bugsnag.leaveBreadcrumb(message)
@@ -16,9 +19,9 @@ class BugsnagTree : Timber.Tree() {
 
         // Any message or error here is either warning or error.
         t?.let {
-            Bugsnag.notify(it)
+            bugTracker.notify(it)
         } ?: kotlin.run {
-            Bugsnag.notify(RuntimeException(message))
+            bugTracker.notify(RuntimeException(message))
         }
     }
 }

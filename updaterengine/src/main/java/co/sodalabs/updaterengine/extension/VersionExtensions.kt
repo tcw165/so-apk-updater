@@ -50,8 +50,10 @@ fun String.isGreaterThan(
             // Then move on
             ++i
             ++j
+
             // Also, if one version string is already exhausted, exit the loop.
-            if (i >= this.length || j >= other.length) {
+            if (numI != 0 && numJ != 0 &&
+                (i >= this.length || j >= other.length)) {
                 break
             }
         } else {
