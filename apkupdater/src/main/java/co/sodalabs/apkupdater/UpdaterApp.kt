@@ -68,6 +68,7 @@ class UpdaterApp :
         // preference to instantiate.
         injectDefaultPreferencesBeforeInjectingDep()
         injectDependencies()
+        initNetworkEnvironment()
         initCrashReporting()
         initLogging()
         initDatetime()
@@ -233,11 +234,6 @@ class UpdaterApp :
                 .putString(PreferenceProps.API_BASE_URL, defaultURL)
                 .apply()
         }
-        val apiBaseURL = rawPreference.getString(PreferenceProps.API_BASE_URL, "")
-        val environment = ServerEnvironment.fromRawUrl(apiBaseURL)
-        sharedSettings.putGlobalString(SERVER_ENVIRONMENT, environment.name)
-        Timber.v("[Updater] API environment, \"$environment\"")
-        Timber.v("[Updater] API base URL, \"$apiBaseURL\"")
 
         // Heartbeat
         try {
@@ -292,6 +288,14 @@ class UpdaterApp :
                 .putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
                 .apply()
         }
+    }
+
+    private fun initNetworkEnvironment() {
+        val apiBaseURL = rawPreference.getString(PreferenceProps.API_BASE_URL, "")
+        val environment = ServerEnvironment.fromRawUrl(apiBaseURL)
+        sharedSettings.putGlobalString(SERVER_ENVIRONMENT, environment.name)
+        Timber.v("[Updater] API environment, \"$environment\"")
+        Timber.v("[Updater] API base URL, \"$apiBaseURL\"")
     }
 
     @SuppressLint("ApplySharedPref")
