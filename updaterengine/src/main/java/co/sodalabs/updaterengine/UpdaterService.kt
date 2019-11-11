@@ -553,7 +553,7 @@ class UpdaterService : Service() {
                         DebugIntentActions.ACTION_INSTALL_FIRMWARE_UPDATE -> debugTransitionToInstallStateForFirmwareUpdate(intent)
                     }
                 } catch (error: Throwable) {
-                    Timber.e(error)
+                    Timber.w(error)
                 }
             }, Timber::e)
             .addTo(disposablesOnCreateDestroy)
@@ -801,7 +801,7 @@ class UpdaterService : Service() {
             try {
                 editorFile.writeText(jsonText)
             } catch (error: Throwable) {
-                Timber.e(error)
+                Timber.w(error)
             } finally {
                 editor.commit()
             }
@@ -859,7 +859,7 @@ class UpdaterService : Service() {
     ) {
         val updatesError: Throwable? = intent.getSerializableExtra(IntentActions.PROP_ERROR) as Throwable?
         updatesError?.let {
-            Timber.e(it)
+            Timber.w(it)
 
             // TODO: Broadcast the error to the remote client.
 
@@ -899,8 +899,7 @@ class UpdaterService : Service() {
             val oldAttempts = downloadAttempts
             val newAttempts = ++downloadAttempts
             if (newAttempts < TOTAL_DOWNLOAD_ATTEMPTS_PER_SESSION) {
-                Timber.e("[Updater] Failed to download some of the found updates, will retry soon (there were $oldAttempts attempts)")
-                Timber.e(compositeError)
+                Timber.w(compositeError, "[Updater] Failed to download some of the found updates, will retry soon (there were $oldAttempts attempts)")
                 val triggerAtMillis = ScheduleUtils.findNextDownloadTimeMillis(newAttempts)
 
                 // Retry (and stays in the same state).
@@ -916,7 +915,7 @@ class UpdaterService : Service() {
                 try {
                     persistDownloadedAppUpdates(downloadedUpdates)
                 } catch (error: Throwable) {
-                    Timber.e(error)
+                    Timber.w(error)
                 }
                 // Move on to installing updates.
                 transitionToInstallStateForAppUpdate(downloadedUpdates)
@@ -939,7 +938,7 @@ class UpdaterService : Service() {
         try {
             cleanDownloadedAppUpdateCache()
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
         }
 
         val appliedUpdates = intent.getParcelableArrayListExtra<AppliedUpdate>(IntentActions.PROP_APPLIED_UPDATES)
@@ -1001,12 +1000,12 @@ class UpdaterService : Service() {
                 // FIXME: Implement the firmware update cache
                 // persistDownloadedFirmwareUpdates(downloadedUpdates)
             } catch (error: Throwable) {
-                Timber.e(error)
+                Timber.w(error)
             }
             // Move on to installing updates.
             transitionToInstallStateForFirmwareUpdate(downloadedUpdate)
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             // Fall back to idle when there's no downloaded update.
             transitionToIdleStateAndScheduleNextCheck()
         }
@@ -1023,8 +1022,7 @@ class UpdaterService : Service() {
             val oldAttempts = downloadAttempts
             val newAttempts = ++downloadAttempts
             if (newAttempts < TOTAL_DOWNLOAD_ATTEMPTS_PER_SESSION) {
-                Timber.e("[Updater] Failed to download some of the found updates, will retry soon (there were $oldAttempts attempts)")
-                Timber.e(error)
+                Timber.w(error, "[Updater] Failed to download some of the found updates, will retry soon (there were $oldAttempts attempts)")
                 val triggerAtMillis = ScheduleUtils.findNextDownloadTimeMillis(newAttempts)
 
                 // Retry (and stays in the same state).
@@ -1034,7 +1032,7 @@ class UpdaterService : Service() {
                 transitionToIdleStateAndScheduleNextCheck()
             }
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             // Fall back to idle when there's no downloaded update.
             transitionToIdleStateAndScheduleNextCheck()
         }
@@ -1048,7 +1046,7 @@ class UpdaterService : Service() {
             // FIXME: Implement the firmware update cache
             // cleanDownloadedFirmwareUpdateCache()
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
         }
 
         // TODO: Maybe we should transition to 'REBOOTING' state

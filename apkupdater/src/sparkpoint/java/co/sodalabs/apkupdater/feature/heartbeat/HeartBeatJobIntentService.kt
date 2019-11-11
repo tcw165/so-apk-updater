@@ -13,12 +13,12 @@ import android.os.PersistableBundle
 import android.os.SystemClock
 import androidx.core.app.JobIntentService
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
+import co.sodalabs.apkupdater.feature.heartbeat.data.HeartBeatBody
 import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.IPackageVersionProvider
 import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ISystemProperties
-import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
-import co.sodalabs.apkupdater.feature.heartbeat.data.HeartBeatBody
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.data.HTTPResponseCode
@@ -152,10 +152,9 @@ class HeartBeatJobIntentService : JobIntentService() {
             }
 
             if (timeMs >= 15000) {
-                Timber.e("Hey, heart-beat API call for device(ID: $deviceID) took $timeMs milliseconds!")
+                Timber.w("Hey, heart-beat API call for device(ID: $deviceID) took $timeMs milliseconds!")
             }
         } catch (error: Throwable) {
-            Timber.e(error)
             reportAPINoResponse(error)
         }
     }

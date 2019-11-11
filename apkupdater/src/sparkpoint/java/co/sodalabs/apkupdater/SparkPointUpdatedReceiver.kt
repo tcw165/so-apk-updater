@@ -58,7 +58,7 @@ class SparkPointUpdatedReceiver : BroadcastReceiver() {
             // See https://app.clubhouse.io/soda/story/869/updater-crashes-when-the-sparkpoint-player-updates
             context.startActivity(playerIntent)
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
         }
     }
 }
