@@ -23,6 +23,7 @@ import co.sodalabs.updaterengine.UpdaterJobs.JOB_ID_CHECK_UPDATES
 import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.FirmwareUpdate
+import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.extension.getIndicesToRemove
 import co.sodalabs.updaterengine.extension.isGreaterThan
 import dagger.android.AndroidInjection
@@ -118,7 +119,7 @@ class CheckJobIntentService : JobIntentService() {
     override fun onHandleWork(intent: Intent) {
         when (intent.action) {
             IntentActions.ACTION_CHECK_UPDATE -> checkUpdate()
-            else -> Timber.e("Hey develop, this $this is for checking version only!")
+            else -> throw IllegalArgumentException("Hey develop, this $this is for checking version only!")
         }
     }
 
@@ -129,7 +130,6 @@ class CheckJobIntentService : JobIntentService() {
         val firmwareUpdateOpt = try {
             checkFirmwareUpdate()
         } catch (error: Throwable) {
-            Timber.e(error)
             UpdaterService.notifyFirmwareUpdateError(this, error)
 
             // Move on cause we don't want this block the app update.
@@ -202,7 +202,7 @@ class CheckJobIntentService : JobIntentService() {
 
     private fun queryIncrementalFirmwareUpdate(
         currentFirmwareVersion: String
-    ): FirmwareUpdate {
+    ): FirmwareUpdate? {
         Timber.v("[Check] Check incremental firmware update for version '$currentFirmwareVersion'")
 
         val request = apiClient.getFirmwareIncrementalUpdate(currentFirmwareVersion)
@@ -220,7 +220,10 @@ class CheckJobIntentService : JobIntentService() {
 
             bodyClone
         } else {
-            throw HttpException(response)
+            when (response.code()) {
+                HTTPResponseCode.NotFound.code -> null
+                else -> throw HttpException(response)
+            }
         }
     }
 

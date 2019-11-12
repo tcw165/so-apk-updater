@@ -343,7 +343,7 @@ class DownloadJobIntentService : JobIntentService() {
             val totalSize = try {
                 requestFileSize(url)
             } catch (error: Throwable) {
-                Timber.e(error)
+                Timber.w(error)
                 // We'll collect the error and continue.
                 errors.add(error)
                 continue
@@ -357,7 +357,7 @@ class DownloadJobIntentService : JobIntentService() {
                 executeDownload(i, url, totalSize, cacheFile, downloadingCallback)
                 completedTasks.add(CompletedTask(i, cacheFile))
             } catch (error: Throwable) {
-                Timber.e(error)
+                Timber.w(error)
                 // We'll collect the error and continue.
                 errors.add(error)
             } finally {

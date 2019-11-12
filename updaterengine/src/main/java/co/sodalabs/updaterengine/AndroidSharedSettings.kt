@@ -29,7 +29,7 @@ class AndroidSharedSettings @Inject constructor(
         return try {
             getGlobalInt(SharedSettingsProps.DEVICE_PROVISIONED, 0) == 1
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             false
         }
     }
@@ -39,7 +39,7 @@ class AndroidSharedSettings @Inject constructor(
         val actualValue = try {
             getSecureInt(SharedSettingsProps.USER_SETUP_COMPLETE, 0) == 1
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             false
         }
         Timber.v("[SharedSettings] user-setup-complete: mock=$mockUserSetupNOTComplete, actual=$actualValue")
@@ -77,20 +77,21 @@ class AndroidSharedSettings @Inject constructor(
             debugID
         } else {
             // Actual value from system.
-            getSecureString(SharedSettingsProps.DEVICE_ID)
-                ?: throw NullPointerException("Can't find the device ID cause it's neither not set nor mocked")
+            getSecureString(SharedSettingsProps.DEVICE_ID) ?: EMPTY_STRING
         }
     }
 
     override fun observeDeviceId(): InitialValueObservable<String> {
         return observeWithNamespaceAndType(SharedSettingsNamespace.Secure, SharedSettingsProps.DEVICE_ID, EMPTY_STRING)
+            // Delegate to the getter function to allow the mock value.
+            .map { getDeviceId() }
     }
 
     override fun getGlobalInt(key: String, default: Int): Int {
         return try {
             Settings.Global.getInt(contentResolver, key, default)
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             default
         }
     }
@@ -99,7 +100,7 @@ class AndroidSharedSettings @Inject constructor(
         return try {
             Settings.Global.putInt(contentResolver, key, value)
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             false
         }
     }
@@ -115,7 +116,7 @@ class AndroidSharedSettings @Inject constructor(
         return try {
             Settings.Global.getString(contentResolver, key) ?: default
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             default
         }
     }
@@ -124,7 +125,7 @@ class AndroidSharedSettings @Inject constructor(
         return try {
             Settings.Global.putString(contentResolver, key, value)
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             false
         }
     }
@@ -143,7 +144,7 @@ class AndroidSharedSettings @Inject constructor(
         return try {
             Settings.Secure.getInt(contentResolver, key, default)
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             default
         }
     }
@@ -155,7 +156,7 @@ class AndroidSharedSettings @Inject constructor(
         return try {
             Settings.Secure.putInt(contentResolver, key, value)
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             false
         }
     }
@@ -169,7 +170,7 @@ class AndroidSharedSettings @Inject constructor(
             // Note: Settings doesn't have boolean type, so we use int.
             Settings.Secure.getInt(contentResolver, key, default.toInt()).toBoolean()
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             default
         }
     }
@@ -179,7 +180,7 @@ class AndroidSharedSettings @Inject constructor(
             // Note: Settings doesn't have boolean type, so we use int.
             Settings.Secure.putInt(contentResolver, key, value.toInt())
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             false
         }
     }
@@ -194,7 +195,7 @@ class AndroidSharedSettings @Inject constructor(
         return try {
             Settings.Secure.getString(contentResolver, key)
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             null
         }
     }
@@ -203,7 +204,7 @@ class AndroidSharedSettings @Inject constructor(
         return try {
             Settings.Secure.putString(contentResolver, key, value)
         } catch (error: Throwable) {
-            Timber.e(error)
+            Timber.w(error)
             false
         }
     }
@@ -249,13 +250,18 @@ class AndroidSharedSettings @Inject constructor(
                     val stickyValue: Any? = when (default) {
                         is Int -> namespace.getIntFor(key, default)
                         is Boolean -> namespace.getIntFor(key, default.toInt()).toBoolean()
-                        is String? -> namespace.getStringFor(key)
-                        else -> throw IllegalArgumentException()
+                        is String -> namespace.getStringFor(key) ?: default as T
+                        else -> throw IllegalArgumentException("Not support value type, $default")
                     }
                     stickyValue?.let {
                         emitter.onNext(it as T)
                     }
                 } catch (err: Throwable) {
+                    if (emitter.isDisposed ||
+                        // Some Android isn't signed with the same key as this
+                        // system app, and that will throw exception.
+                        err is SecurityException) return@create
+
                     emitter.onError(err)
                 }
             }

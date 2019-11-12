@@ -13,18 +13,19 @@ import android.os.PersistableBundle
 import android.os.SystemClock
 import androidx.core.app.JobIntentService
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
+import co.sodalabs.apkupdater.feature.heartbeat.data.HeartBeatBody
 import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.IPackageVersionProvider
 import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ISystemProperties
-import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
-import co.sodalabs.apkupdater.feature.heartbeat.data.HeartBeatBody
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterJobs
 import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.benchmark
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
+import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateMachine
 import dagger.android.AndroidInjection
 import timber.log.Timber
 import javax.inject.Inject
@@ -101,6 +102,8 @@ class HeartBeatJobIntentService : JobIntentService() {
     lateinit var sharedSettings: ISharedSettings
     @Inject
     lateinit var systemProperties: ISystemProperties
+    @Inject
+    lateinit var updaterStateMachine: IUpdaterStateMachine
 
     override fun onCreate() {
         AndroidInjection.inject(this)
@@ -127,6 +130,8 @@ class HeartBeatJobIntentService : JobIntentService() {
             val hardwareID = getHardwareID()
             val firmwareVersion = getFirmwareVersion()
             val sparkpointPlayerVersion = getSparkpointPlayerVersion()
+            val state = updaterStateMachine.state
+            val metadata = updaterStateMachine.metadata
 
             val provisioned = sharedSettings.isDeviceProvisioned()
             val userSetupComplete = sharedSettings.isUserSetupComplete()
@@ -141,7 +146,9 @@ class HeartBeatJobIntentService : JobIntentService() {
                     deviceID,
                     hardwareID,
                     firmwareVersion,
-                    sparkpointPlayerVersion
+                    sparkpointPlayerVersion,
+                    state.name,
+                    metadata
                 )
                 val now = getPrettyDateNow()
                 Timber.v("[HeartBeat] Health check at $now for device, API body:\n$apiBody")
@@ -152,10 +159,9 @@ class HeartBeatJobIntentService : JobIntentService() {
             }
 
             if (timeMs >= 15000) {
-                Timber.e("Hey, heart-beat API call for device(ID: $deviceID) took $timeMs milliseconds!")
+                Timber.w("Hey, heart-beat API call for device(ID: $deviceID) took $timeMs milliseconds!")
             }
         } catch (error: Throwable) {
-            Timber.e(error)
             reportAPINoResponse(error)
         }
     }

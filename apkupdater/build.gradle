@@ -16,7 +16,7 @@ def keystoreProperties = new Properties()
 keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 
 // Version
-def versionPropertiesFile = project.file("version.properties")
+def versionPropertiesFile = rootProject.file("version.properties") // The repo (global) properties
 def versionProperties = new Properties()
 versionProperties.load(new FileInputStream(versionPropertiesFile))
 
@@ -52,6 +52,7 @@ android {
 
         buildConfigField "String", "GIT_SHA", "\"${getGitHash()}\""
         buildConfigField "String[]", "BASE_URLS", "{\"Hey developer, make sure update this!\"}"
+        buildConfigField "String[]", "PACKAGES_TO_CHECK", "{\"Hey developer, make sure update this!\"}"
         buildConfigField "String", "ADMIN_PASSCODE", "\"000000\"" // Must be 0..9
 
         buildConfigField "long", "HEARTBEAT_INTERVAL_SECONDS", "15"

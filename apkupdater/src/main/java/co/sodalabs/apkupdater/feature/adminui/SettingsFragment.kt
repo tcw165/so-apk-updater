@@ -113,13 +113,7 @@ class SettingsFragment :
     }
 
     private fun observeVersions() {
-        Observable
-            // Upstream is the combination of initial trigger and the later change
-            // trigger.
-            .merge<Unit>(
-                sharedSettings.observeDeviceId().map { Unit },
-                appPreference.observeAnyChange().map { Unit }
-            )
+        observeVersionsRelatedInformation()
             .startWith(Unit)
             .switchMapSingle { getVersionsSingle() }
             .observeOn(schedulers.main())
@@ -129,20 +123,36 @@ class SettingsFragment :
             .addTo(disposables)
     }
 
+    private fun observeVersionsRelatedInformation(): Observable<Unit> {
+        // Upstream is the combination of initial trigger and the later change
+        // trigger.
+        return Observable
+            .merge<Unit>(
+                sharedSettings.observeDeviceId().map { Unit },
+                appPreference.observeAnyChange().map { Unit }
+            )
+    }
+
     private fun getVersionsSingle(): Single<String> {
         return Single
             .fromCallable {
                 val sb = StringBuilder()
-                sb.appendln("Device ID: ${sharedSettings.getDeviceId()}")
-                sb.appendln("Hardware ID: ${sharedSettings.getHardwareId()}")
-                sb.appendln("Firmware Version: ${systemProperties.getFirmwareVersion()}")
 
-                sb.appendln("Updater Version: ${packageVersionProvider.getPackageVersion(PACKAGE_APK_UPDATER)}")
-                sb.appendln("Updater Build Hash: ${BuildConfig.GIT_SHA}")
-                sb.appendln("Updater Build Type: ${BuildConfig.BUILD_TYPE}")
+                val deviceID = try {
+                    sharedSettings.getDeviceId()
+                } catch (securityError: SecurityException) {
+                    "don't have permission"
+                }
+                sb.appendln("Device ID: '$deviceID'")
+                sb.appendln("Hardware ID: '${sharedSettings.getHardwareId()}'")
+                sb.appendln("Firmware Version: '${systemProperties.getFirmwareVersion()}'")
 
-                sb.appendln("Privileged Installer Version: ${packageVersionProvider.getPackageVersion(PACKAGE_PRIVILEGED_INSTALLER)}")
-                sb.appendln("Sparkpoint Player Version: ${packageVersionProvider.getPackageVersion(PACKAGE_SPARKPOINT)}")
+                sb.appendln("Updater Version: '${packageVersionProvider.getPackageVersion(PACKAGE_APK_UPDATER)}'")
+                sb.appendln("Updater Build Hash: '${BuildConfig.GIT_SHA}'")
+                sb.appendln("Updater Build Type: '${BuildConfig.BUILD_TYPE}'")
+
+                sb.appendln("Privileged Installer Version: '${packageVersionProvider.getPackageVersion(PACKAGE_PRIVILEGED_INSTALLER)}'")
+                sb.appendln("Sparkpoint Player Version: '${packageVersionProvider.getPackageVersion(PACKAGE_SPARKPOINT)}'")
                 sb.toString()
             }
             .subscribeOn(schedulers.io())
