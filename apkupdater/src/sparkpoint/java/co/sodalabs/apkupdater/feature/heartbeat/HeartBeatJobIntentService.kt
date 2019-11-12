@@ -25,6 +25,7 @@ import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.benchmark
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
+import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateMachine
 import dagger.android.AndroidInjection
 import timber.log.Timber
 import javax.inject.Inject
@@ -101,6 +102,8 @@ class HeartBeatJobIntentService : JobIntentService() {
     lateinit var sharedSettings: ISharedSettings
     @Inject
     lateinit var systemProperties: ISystemProperties
+    @Inject
+    lateinit var updaterStateMachine: IUpdaterStateMachine
 
     override fun onCreate() {
         AndroidInjection.inject(this)
@@ -127,6 +130,8 @@ class HeartBeatJobIntentService : JobIntentService() {
             val hardwareID = getHardwareID()
             val firmwareVersion = getFirmwareVersion()
             val sparkpointPlayerVersion = getSparkpointPlayerVersion()
+            val state = updaterStateMachine.state
+            val metadata = updaterStateMachine.metadata
 
             val provisioned = sharedSettings.isDeviceProvisioned()
             val userSetupComplete = sharedSettings.isUserSetupComplete()
@@ -141,7 +146,9 @@ class HeartBeatJobIntentService : JobIntentService() {
                     deviceID,
                     hardwareID,
                     firmwareVersion,
-                    sparkpointPlayerVersion
+                    sparkpointPlayerVersion,
+                    state.name,
+                    metadata
                 )
                 val now = getPrettyDateNow()
                 Timber.v("[HeartBeat] Health check at $now for device, API body:\n$apiBody")

@@ -15,6 +15,8 @@ import co.sodalabs.updaterengine.UpdatesDownloader
 import co.sodalabs.updaterengine.UpdatesInstaller
 import co.sodalabs.updaterengine.feature.downloader.DefaultUpdatesDownloader
 import co.sodalabs.updaterengine.feature.installer.DefaultUpdatesInstaller
+import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateMachine
+import co.sodalabs.updaterengine.feature.statemachine.UpdaterStateMachine
 import dagger.Binds
 import dagger.Module
 
@@ -56,4 +58,10 @@ abstract class UpdaterModule {
     abstract fun provideUpdaterConfig(
         config: AndroidUpdaterConfig
     ): UpdaterConfig
+
+    @Binds
+    @ApplicationScope
+    abstract fun provideUpdaterStateMachine(
+        stateMachine: UpdaterStateMachine
+    ): IUpdaterStateMachine
 }
