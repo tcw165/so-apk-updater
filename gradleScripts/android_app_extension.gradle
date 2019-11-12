@@ -1,13 +1,13 @@
 apply from: rootProject.file("gradleScripts/version_extension.gradle")
 
-// Version
-def versionPropertiesFile = project.file("version.properties")
-def versionProperties = new Properties()
-versionProperties.load(new FileInputStream(versionPropertiesFile))
+// Artifact name
+def artifactPropertiesFile = project.file("artifact.properties") // The module local properties
+def artifactProperties = new Properties()
+artifactProperties.load(new FileInputStream(artifactPropertiesFile))
 
 android.applicationVariants.all { variant ->
     def isDebuggable = variant.getBuildType().isDebuggable()
-    def appName = versionProperties.artifact_name
+    def appName = artifactProperties.artifact_name
 
     variant.outputs.all { output ->
         if (isDebuggable) {
@@ -27,7 +27,7 @@ android.applicationVariants.all { variant ->
 //                def mappingFileName = "$archivesBaseName-$variant.baseName-mapping.txt"
 //                (new File(variant.mappingFile.parent, mappingFileName)).delete()
 //
-//                def appName = versionProperties.artifact_name
+//                def appName = artifactProperties.artifact_name
 //
 //                if (isDebuggable) {
 //                    variant.mappingFile.renameTo(variant.mappingFile.parent +

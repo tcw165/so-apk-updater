@@ -16,7 +16,7 @@ def keystoreProperties = new Properties()
 keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 
 // Version
-def versionPropertiesFile = project.file("version.properties")
+def versionPropertiesFile = rootProject.file("version.properties") // The repo (global) properties
 def versionProperties = new Properties()
 versionProperties.load(new FileInputStream(versionPropertiesFile))
 
