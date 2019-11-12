@@ -1,19 +1,24 @@
 apply from: rootProject.file("gradleScripts/version_extension.gradle")
 
 // Version
-def versionPropertiesFile = project.file("version.properties")
+def versionPropertiesFile = rootProject.file("version.properties") // The repo (global) properties
 def versionProperties = new Properties()
 versionProperties.load(new FileInputStream(versionPropertiesFile))
+// Artifact name
+def artifactPropertiesFile = project.file("artifact.properties") // The module local properties
+def artifactProperties = new Properties()
+artifactProperties.load(new FileInputStream(artifactPropertiesFile))
 
 android.libraryVariants.all { variant ->
     def isDebug = variant.getBuildType().isDebuggable()
-    def appName = versionProperties.artifact_name
+    def moduleName = artifactProperties.artifact_name
+    def moduleVersion = versionProperties.artifact_version
 
     variant.outputs.all { output ->
         if (isDebug) {
-            outputFileName = "${appName}-${output.baseName}-${versionProperties.artifact_version}-${getGitHash()}.aar"
+            outputFileName = "${moduleName}-${output.baseName}-${moduleVersion}-${getGitHash()}.aar"
         } else {
-            outputFileName = "${appName}-${output.baseName}-${versionProperties.artifact_version}.aar"
+            outputFileName = "${moduleName}-${output.baseName}-${moduleVersion}.aar"
         }
     }
 }
@@ -27,14 +32,15 @@ android.libraryVariants.all { variant ->
 //                def mappingFileName = "$archivesBaseName-$variant.baseName-mapping.txt"
 //                (new File(variant.mappingFile.parent, mappingFileName)).delete()
 //
-//                def appName = versionProperties.artifact_name
+//                def moduleName = artifactProperties.artifact_name
+//                def moduleVersion = versionProperties.artifact_version
 //
 //                if (isDebug) {
 //                    variant.mappingFile.renameTo(variant.mappingFile.parent +
-//                        "/$appName-$variant.baseName-${variant.versionName}-${getGitHash()}-mapping.txt")
+//                        "/$moduleName-$variant.baseName-${moduleVersion}-${getGitHash()}-mapping.txt")
 //                } else {
 //                    variant.mappingFile.renameTo(variant.mappingFile.parent +
-//                        "/$appName-$variant.baseName-${variant.versionName}-mapping.txt")
+//                        "/$moduleName-$variant.baseName-${moduleVersion}-mapping.txt")
 //                }
 //            }
 //        }
