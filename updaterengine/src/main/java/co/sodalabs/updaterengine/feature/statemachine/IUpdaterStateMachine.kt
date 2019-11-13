@@ -7,6 +7,5 @@ interface IUpdaterStateMachine {
     val metadata: Map<String, Any>
 
     fun putState(state: UpdaterState)
-    fun updateMetadata(keyValue: Pair<String, Any>)
-    fun updateMetadata(metadata: Map<String, Any>)
+    fun addMetadata(metadata: Map<String, Any>)
 }
