@@ -46,6 +46,7 @@ private const val KEY_HEART_BEAT_NOW = "send_heartbeat_now"
 private const val KEY_CHECK_UPDATE_NOW = "check_test_app_now"
 private const val KEY_CHECK_STATUS = "check_status"
 private const val KEY_SHOW_ANDROID_SETTINGS = "androidSettings"
+private const val KEY_HOME_INTENT = "home_intent"
 private const val KEY_SHOW_INTERNET_SPEED_TEST = "speedTestApp"
 
 private const val PACKAGE_APK_UPDATER = BuildConfig.APPLICATION_ID
@@ -440,6 +441,10 @@ class SettingsFragment :
         findPreference<Preference>(KEY_SHOW_ANDROID_SETTINGS)
             ?: throw IllegalStateException("Can't find preference!")
     }
+    private val homeIntentPref by lazy {
+        findPreference<Preference>(KEY_HOME_INTENT)
+            ?: throw IllegalStateException("Can't find preference!")
+    }
     private val showInternetSpeedTestPref by lazy {
         findPreference<Preference>(KEY_SHOW_INTERNET_SPEED_TEST)
             ?: throw IllegalStateException("Can't find preference!")
@@ -452,6 +457,18 @@ class SettingsFragment :
                 startActivity(Intent(android.provider.Settings.ACTION_SETTINGS).apply {
                     addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
+            }, Timber::e)
+            .addTo(disposables)
+
+        homeIntentPref.clicks()
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe({
+                startActivity(Intent(Intent.ACTION_MAIN).apply {
+                    addCategory(Intent.CATEGORY_HOME)
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 })
             }, Timber::e)
             .addTo(disposables)
