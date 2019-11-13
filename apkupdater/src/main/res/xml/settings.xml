@@ -148,8 +148,8 @@
 
         <Preference
             app:key="home_intent"
-            app:summary="Show the Android settings UI"
-            app:title="Android Settings" />
+            app:summary="Send HOME Intent to start the default launcher"
+            app:title="Send HOME Intent" />
 
         <!-- TODO: Use underscore as delimiter-->
         <Preference
