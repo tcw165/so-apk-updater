@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Parcelable
 import android.os.PersistableBundle
 import androidx.core.app.JobIntentService
+import co.sodalabs.updaterengine.DOWNLOAD_HTTP_CLIENT
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterJobs
@@ -41,6 +42,7 @@ import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+import javax.inject.Named
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -185,6 +187,7 @@ class DownloadJobIntentService : JobIntentService() {
     @Inject
     lateinit var updaterConfig: UpdaterConfig
     @Inject
+    @field:Named(DOWNLOAD_HTTP_CLIENT)
     lateinit var okHttpClient: OkHttpClient
 
     private val disposables = CompositeDisposable()
@@ -251,10 +254,12 @@ class DownloadJobIntentService : JobIntentService() {
     ): List<DownloadedAppUpdate> {
         val downloadedUpdates = mutableListOf<DownloadedAppUpdate>()
         for (task in this) {
-            downloadedUpdates.add(DownloadedAppUpdate(
-                file = task.downloadedFile,
-                fromUpdate = updates[task.updateIndex]
-            ))
+            downloadedUpdates.add(
+                DownloadedAppUpdate(
+                    file = task.downloadedFile,
+                    fromUpdate = updates[task.updateIndex]
+                )
+            )
         }
         return downloadedUpdates
     }
