@@ -16,6 +16,7 @@ import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.SharedSettingsProps
 import co.sodalabs.updaterengine.SharedSettingsProps.SERVER_ENVIRONMENT
+import co.sodalabs.updaterengine.SharedSettingsProps.SPARKPOINT_REST_API_BASE_URL
 import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.UpdatesChecker
@@ -36,6 +37,7 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 private const val DEBUG_DEVICE_ID = "999999"
+private const val EMPTY_STRING = ""
 
 class UpdaterApp :
     MultiDexApplication(),
@@ -291,11 +293,15 @@ class UpdaterApp :
     }
 
     private fun initNetworkEnvironment() {
-        val apiBaseURL = rawPreference.getString(PreferenceProps.API_BASE_URL, "")
+        val defaultBaseUrl = BuildConfig.BASE_URLS.last()
+        val apiBaseURL = rawPreference.getString(PreferenceProps.API_BASE_URL, defaultBaseUrl) ?: defaultBaseUrl
+
+        sharedSettings.putGlobalString(SPARKPOINT_REST_API_BASE_URL, apiBaseURL)
+        Timber.v("[Updater] Set Default API base URL, \"$apiBaseURL\"")
+
         val environment = ServerEnvironment.fromRawUrl(apiBaseURL)
         sharedSettings.putGlobalString(SERVER_ENVIRONMENT, environment.name)
-        Timber.v("[Updater] API environment, \"$environment\"")
-        Timber.v("[Updater] API base URL, \"$apiBaseURL\"")
+        Timber.v("[Updater] Set Default API environment, \"$environment\"")
     }
 
     @SuppressLint("ApplySharedPref")
@@ -306,9 +312,10 @@ class UpdaterApp :
             .observeOn(schedulers.main())
             .subscribe({ key ->
                 if (key == PreferenceProps.API_BASE_URL) {
-                    val rawApiUrl = rawPreference.getString(PreferenceProps.API_BASE_URL, "")
+                    val rawApiUrl = rawPreference.getString(PreferenceProps.API_BASE_URL, EMPTY_STRING) ?: EMPTY_STRING
                     val environment = ServerEnvironment.fromRawUrl(rawApiUrl)
                     sharedSettings.putGlobalString(SERVER_ENVIRONMENT, environment.name)
+                    sharedSettings.putGlobalString(SPARKPOINT_REST_API_BASE_URL, rawApiUrl)
                 }
 
                 Timber.v("[Updater] System configuration changes, so restart the process!")

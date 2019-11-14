@@ -15,5 +15,9 @@ object SharedSettingsProps {
 
     const val ADMIN_PASSCODE = "admin_passcode"
     const val ADMIN_FORCEFULLY_LOGGABLE = "forcefully_loggable"
+
+    @Deprecated("Use [SPARKPOINT_REST_API_BASE_URL] instead")
     const val SERVER_ENVIRONMENT = "server_environment"
+
+    const val SPARKPOINT_REST_API_BASE_URL = "sparkpoint_rest_api_base_url"
 }
