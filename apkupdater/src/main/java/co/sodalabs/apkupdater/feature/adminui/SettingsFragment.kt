@@ -26,6 +26,7 @@ import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.data.HTTPResponseCode
+import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import co.sodalabs.updaterengine.extension.smartRetryWhen
@@ -412,6 +413,11 @@ class SettingsFragment :
             .subscribe({ error ->
                 context?.let { c ->
                     Toast.makeText(c, "Capture $error", Toast.LENGTH_LONG).show()
+                }
+                if (error is DeviceNotSetupException) {
+                    Timber.w(error)
+                } else {
+                    Timber.e(error)
                 }
             }, Timber::e)
             .addTo(disposables)

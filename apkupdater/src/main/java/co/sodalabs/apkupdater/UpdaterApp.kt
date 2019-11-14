@@ -22,6 +22,7 @@ import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.UpdatesChecker
 import co.sodalabs.updaterengine.UpdatesDownloader
 import co.sodalabs.updaterengine.UpdatesInstaller
+import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import com.bugsnag.android.Bugsnag
 import com.bugsnag.android.Configuration
 import com.jakewharton.processphoenix.ProcessPhoenix
@@ -59,6 +60,8 @@ class UpdaterApp :
     lateinit var heartBeater: UpdaterHeartBeater
     @Inject
     lateinit var sharedSettings: ISharedSettings
+    @Inject
+    lateinit var updaterStateTracker: IUpdaterStateTracker
 
     private val globalDisposables = CompositeDisposable()
 
@@ -117,15 +120,35 @@ class UpdaterApp :
     }
 
     private fun initCrashReporting() {
+        val deviceID = sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: "device ID not set yet!"
         val config = Configuration(BuildConfig.BUGSNAG_API_KEY).apply {
             // Only send report for staging and release
             notifyReleaseStages = arrayOf(BuildUtils.TYPE_PRE_RELEASE, BuildUtils.TYPE_RELEASE)
             releaseStage = BuildConfig.BUILD_TYPE
 
-            val deviceID = sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: "device ID not set yet!"
             metaData.addToTab(MetadataProps.BUCKET_DEVICE, MetadataProps.KEY_DEVICE_ID, deviceID)
+            metaData.addToTab(MetadataProps.TAB_BUILD_INFO, MetadataProps.KEY_DEVICE_ID, deviceID)
+            metaData.addToTab(MetadataProps.TAB_BUILD_INFO, MetadataProps.KEY_HARDWARE_ID, sharedSettings.getHardwareId())
+            metaData.addToTab(MetadataProps.TAB_BUILD_INFO, MetadataProps.KEY_FIRMWARE_VERSION, systemProperties.getFirmwareVersion())
         }
+
         val bugTracker = Bugsnag.init(this, config)
+        bugTracker.setUserId(deviceID)
+        bugTracker.beforeNotify {
+            // Add the state machine state just after an error is captured
+            it.addToTab(MetadataProps.TAB_UPDATER_STATE, MetadataProps.KEY_STATE, updaterStateTracker.state.name)
+
+            // Add all the little bits of metadata as well
+            updaterStateTracker
+                .metadata
+                .entries
+                .forEach { entry ->
+                    val (key, value) = entry
+                    it.addToTab(MetadataProps.TAB_UPDATER_STATE, key, value)
+                }
+
+            true
+        }
 
         Timber.plant(BugsnagTree(bugTracker))
     }

@@ -2,10 +2,10 @@ package co.sodalabs.updaterengine.feature.statemachine
 
 import co.sodalabs.updaterengine.UpdaterState
 
-interface IUpdaterStateMachine {
+interface IUpdaterStateTracker {
     val state: UpdaterState
-    val metadata: Map<String, Any>
+    val metadata: Map<String, String>
 
     fun putState(state: UpdaterState)
-    fun addMetadata(metadata: Map<String, Any>)
+    fun addMetadata(metadata: Map<String, String>)
 }

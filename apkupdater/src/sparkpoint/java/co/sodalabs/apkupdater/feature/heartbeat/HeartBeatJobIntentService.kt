@@ -25,7 +25,7 @@ import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.benchmark
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
-import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateMachine
+import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import dagger.android.AndroidInjection
 import timber.log.Timber
 import javax.inject.Inject
@@ -103,7 +103,7 @@ class HeartBeatJobIntentService : JobIntentService() {
     @Inject
     lateinit var systemProperties: ISystemProperties
     @Inject
-    lateinit var updaterStateMachine: IUpdaterStateMachine
+    lateinit var updaterStateTracker: IUpdaterStateTracker
 
     override fun onCreate() {
         AndroidInjection.inject(this)
@@ -130,8 +130,9 @@ class HeartBeatJobIntentService : JobIntentService() {
             val hardwareID = getHardwareID()
             val firmwareVersion = getFirmwareVersion()
             val sparkpointPlayerVersion = getSparkpointPlayerVersion()
-            val state = updaterStateMachine.state
-            val metadata = updaterStateMachine.metadata
+            val apkUpdaterVersion = getApkUpdaterVersion()
+            val state = updaterStateTracker.state
+            val metadata = updaterStateTracker.metadata
 
             val provisioned = sharedSettings.isDeviceProvisioned()
             val userSetupComplete = sharedSettings.isUserSetupComplete()
@@ -147,6 +148,7 @@ class HeartBeatJobIntentService : JobIntentService() {
                     hardwareID,
                     firmwareVersion,
                     sparkpointPlayerVersion,
+                    apkUpdaterVersion,
                     state.name,
                     metadata
                 )
@@ -180,6 +182,10 @@ class HeartBeatJobIntentService : JobIntentService() {
 
     private fun getSparkpointPlayerVersion(): String {
         return packageVersionProvider.getPackageVersion(Packages.SPARKPOINT_PACKAGE_NAME)
+    }
+
+    private fun getApkUpdaterVersion(): String {
+        return packageVersionProvider.getPackageVersion(this.packageName)
     }
 
     // Broadcast //////////////////////////////////////////////////////////////
