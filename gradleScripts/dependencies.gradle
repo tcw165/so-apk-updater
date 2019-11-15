@@ -47,6 +47,9 @@ def androidx = [
     vectorDrawable   : "androidx.vectordrawable:vectordrawable-animated:1.0.0",
     customTabs       : 'androidx.browser:browser:1.0.0',
     design           : 'com.google.android.material:material:1.0.0-rc01',
+    workManager      : "androidx.work:work-runtime:2.2.0",
+    workManagerRx    : "androidx.work:work-rxjava2:2.2.0",
+    workManagerTest  : "androidx.work:work-testing:2.2.0",
     preference       : "androidx.preference:preference:1.1.0-rc01"
 ]
 
@@ -160,6 +163,7 @@ def test = [
     junit       : "junit:junit:4.12",
     mockito     : "org.mockito:mockito-core:2.13.0",
     mockk       : 'io.mockk:mockk:1.9.3.kotlin12',
+    kotlinTest  : 'io.kotlintest:kotlintest-runner-junit5:3.1.7',
     robolectric : "org.robolectric:robolectric:3.8",
     unmock      : "org.robolectric:android-all:4.3_r2-robolectric-0",
     uiautomator : "com.android.support.test.uiautomator:uiautomator-v18:2.1.3",

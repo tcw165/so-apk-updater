@@ -15,10 +15,15 @@ object Intervals {
     const val TIMEOUT_SERVICE_BINDING = 5000L
     const val TIMEOUT_DOWNLOAD_HR = 5L
     const val TIMEOUT_INSTALL_MIN = 3L
+    const val TIMEOUT_UPLOAD_MIN = 10L
 
     const val AUTO_EXIT = 60 * 1000L
 
     const val RETRY_CHECK = 3000L
     const val RETRY_DOWNLOAD = 3000L
     const val RETRY_INSTALL = 3000L
+
+    // The ADB commands run in a separate process and take a couple of milliseconds (~2-5) to
+    // complete, this delay of 500ms ensures that we react after the ADB command is executed
+    const val DELAY_ADB = 500L
 }

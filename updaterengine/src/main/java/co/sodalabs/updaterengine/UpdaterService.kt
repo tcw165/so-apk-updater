@@ -36,6 +36,7 @@ import co.sodalabs.updaterengine.extension.prepareUpdateFound
 import co.sodalabs.updaterengine.extension.prepareUpdateInstalled
 import co.sodalabs.updaterengine.extension.toBoolean
 import co.sodalabs.updaterengine.extension.toInt
+import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceScheduler
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import co.sodalabs.updaterengine.feature.statemachine.KEY_CHECK_ERROR
@@ -519,6 +520,8 @@ class UpdaterService : Service() {
     lateinit var stateTracker: IUpdaterStateTracker
     @Inject
     lateinit var schedulers: IThreadSchedulers
+    @Inject
+    lateinit var logPersistenceScheduler: LogsPersistenceScheduler
 
     private val disposablesOnCreateDestroy = CompositeDisposable()
 
@@ -527,12 +530,16 @@ class UpdaterService : Service() {
         AndroidInjection.inject(this)
         super.onCreate()
 
+        // Persist logs locally to be used later
+        logPersistenceScheduler.start()
+
         observeUpdateIntentOnEngineThread()
         observeDeviceTimeChanges()
     }
 
     override fun onDestroy() {
         Timber.v("[Updater] Updater Service is offline")
+        logPersistenceScheduler.stop()
         disposablesOnCreateDestroy.clear()
         super.onDestroy()
     }

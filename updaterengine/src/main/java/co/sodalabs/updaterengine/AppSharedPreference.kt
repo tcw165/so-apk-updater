@@ -2,12 +2,17 @@ package co.sodalabs.updaterengine
 
 import android.annotation.SuppressLint
 import android.content.SharedPreferences
+import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceConstants
 import io.reactivex.Observable
 import javax.inject.Inject
 
 class AppSharedPreference @Inject constructor(
     private val preferences: SharedPreferences
 ) : IAppPreference {
+
+    override var logFileCreatedTimestamp: Long
+        get() = getLong(PreferenceProps.LOG_FILE_CREATED_TIMESTAMP, LogsPersistenceConstants.INVALID_CREATION_DATE)
+        set(value) = putLong(PreferenceProps.LOG_FILE_CREATED_TIMESTAMP, value)
 
     override fun getInt(prop: String, default: Int): Int {
         return preferences.getInt(prop, default)

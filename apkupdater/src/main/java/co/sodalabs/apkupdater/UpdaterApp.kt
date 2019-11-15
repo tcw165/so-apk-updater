@@ -331,6 +331,7 @@ class UpdaterApp :
     private fun observeSystemConfigChange() {
         // Restart the process for all kinds of rawPreference change!
         appPreference.observeAnyChange()
+            .filter(this::ignoredProperties)
             .debounce(Intervals.DEBOUNCE_VALUE_CHANGE, TimeUnit.MILLISECONDS)
             .observeOn(schedulers.main())
             .subscribe({ key ->
@@ -349,4 +350,9 @@ class UpdaterApp :
             }, Timber::e)
             .addTo(globalDisposables)
     }
+
+    // TODO: There should be more sophisticated mechanism to ignore properties
+    //  that we don't want to use for triggering restart engine event
+    private fun ignoredProperties(key: String) =
+        key != PreferenceProps.LOG_FILE_CREATED_TIMESTAMP
 }
