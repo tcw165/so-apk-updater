@@ -1,6 +1,8 @@
 package co.sodalabs.apkupdater
 
 import android.annotation.SuppressLint
+import android.os.StrictMode
+import android.os.StrictMode.VmPolicy
 import android.provider.Settings
 import android.util.Log
 import androidx.multidex.MultiDexApplication
@@ -77,6 +79,7 @@ class UpdaterApp :
         initCrashReporting()
         initLogging()
         initDatetime()
+        initStrictMode()
         logSystemInfo()
 
         safeguardsUndeliverableException()
@@ -85,6 +88,31 @@ class UpdaterApp :
 
         // Install the updater engine after everything else is ready.
         UpdaterService.start(this)
+    }
+
+    private fun initStrictMode() {
+        if (BuildUtils.isDebug() || BuildUtils.isPreRelease()) {
+            StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.Builder()
+                // Note: You'll see a lot of warning by enabling disk reads cause
+                // the shared preference and system settings all cache the database
+                // in MAIN thread in their initialization.
+                // Basically, all the system components related to ContentProvider
+                // share this common issue.
+                // .detectDiskReads()
+                .detectDiskWrites()
+                .detectNetwork() // or .detectAll() for all detectable problems
+                // Note: The log uses LogCat directly and we have no control such as
+                // logging to the crashlytics service.
+                .penaltyLog()
+                .penaltyFlashScreen()
+                .build())
+            StrictMode.setVmPolicy(VmPolicy.Builder()
+                .detectLeakedSqlLiteObjects()
+                .detectLeakedClosableObjects()
+                .penaltyLog()
+                .penaltyDeath()
+                .build())
+        }
     }
 
     @SuppressLint("LogNotTimber")

@@ -129,13 +129,7 @@ def fileio = [
 ]
 
 def leakcanary = [
-    android    : 'com.squareup.leakcanary:leakcanary-android:1.5.4',
-    androidNoOp: 'com.squareup.leakcanary:leakcanary-android-no-op:1.5.4'
-]
-
-def blockcanary = [
-    android    : 'com.github.markzhai:blockcanary-android:1.5.0',
-    androidNoOp: 'com.github.markzhai:blockcanary-no-op:1.5.0'
+    android: 'com.squareup.leakcanary:leakcanary-android:2.0-beta-3'
 ]
 
 def firebase = [
@@ -208,7 +202,6 @@ ext.deps = [
     moshi      : moshi,
     retrofit   : retrofit,
     leakcanary : leakcanary,
-    blockcanary: blockcanary,
     firebase   : firebase,
     test       : test,
     tracking   : tracking,

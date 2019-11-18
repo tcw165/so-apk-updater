@@ -187,6 +187,10 @@ dependencies {
     implementation deps.rx.binding.lib
     implementation deps.rx.binding.appcompat
 
+    // Leak Canary
+    debugImplementation deps.leakcanary.android
+    preReleaseImplementation deps.leakcanary.android
+
     // Tracking
     implementation deps.tracking.timber
     implementation 'com.bugsnag:bugsnag-android:4.17.2'
