@@ -233,7 +233,8 @@ class UpdaterService : Service() {
             updates: List<AppUpdate>,
             errors: List<Throwable>
         ) {
-            Timber.v("[Check] Check job just completes")
+            val resultMessage = if (errors.isEmpty()) " with ${updates.size} updates" else " with errors: $errors"
+            Timber.v("[Updater] Check app job completed $resultMessage")
             uiHandler.post {
                 val action = IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE
                 val broadcastIntent = Intent()
@@ -256,7 +257,7 @@ class UpdaterService : Service() {
             context: Context,
             update: FirmwareUpdate
         ) {
-            Timber.v("[Check] Check job just completes")
+            Timber.v("[Updater] Check firmware job completed with update")
             uiHandler.post {
                 val action = IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE
                 val broadcastIntent = Intent()
@@ -279,7 +280,7 @@ class UpdaterService : Service() {
             context: Context,
             error: Throwable
         ) {
-            Timber.v("[Check] Check job just completes")
+            Timber.v("[Updater] Check firmware job completed with error: $error")
             uiHandler.post {
                 val action = IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_ERROR
                 val broadcastIntent = Intent()
@@ -1133,8 +1134,10 @@ class UpdaterService : Service() {
                 KEY_CHECK_ERROR to (error.message ?: error.javaClass.name)
             )
         )
-        // Fall back to idle.
-        // transitionToState(UpdaterState.Idle)
+
+        // ////////////////////////////////////////////////////////////////////////////
+        // Do not fall back to idle, the checker will proceed with app update checks.
+        // ////////////////////////////////////////////////////////////////////////////
 
         // TODO: Broadcast the error
     }
