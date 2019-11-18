@@ -7,6 +7,8 @@ import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.SharedSettingsProps
 import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterState
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 
 // General
@@ -62,25 +64,31 @@ class UpdaterStateTracker @Inject constructor(
     private val packageVersionProvider: IPackageVersionProvider
 ) : IUpdaterStateTracker {
 
-    override val state: UpdaterState
-        get() = internalState
-
-    override val metadata: Map<String, String>
-        get() = synchronized(lock) {
-            mutableMetadata.toMap()
-        }
-
-    @Volatile
-    private var internalState = UpdaterState.Idle
-
-    private val mutableMetadata = HashMap<String, String>()
+    private val internalState = AtomicReference<UpdaterState>(UpdaterState.Idle)
+    private val internalStateMetadata: MutableMap<String, String> = ConcurrentHashMap()
     private val lock = Any()
 
-    override fun putState(state: UpdaterState) {
+    override fun snapshotState(): UpdaterState {
+        return synchronized(lock) {
+            internalState.get()
+        }
+    }
+
+    override fun snapshotStateWithMetadata(): Pair<UpdaterState, Map<String, String>> {
+        return synchronized(lock) {
+            Pair(internalState.get(), internalStateMetadata.toMap())
+        }
+    }
+
+    override fun putState(
+        state: UpdaterState,
+        metadata: Map<String, String>
+    ) {
         synchronized(lock) {
-            internalState = state
-            mutableMetadata.clear()
-            addMetadata(
+            internalState.set(state)
+
+            internalStateMetadata.clear()
+            internalStateMetadata.putAll(
                 mapOf(
                     KEY_TRANSITION to state.name,
                     PROP_INSTALL_WINDOW to config.installWindow.toString(),
@@ -93,9 +101,11 @@ class UpdaterStateTracker @Inject constructor(
         }
     }
 
-    override fun addMetadata(metadata: Map<String, String>) {
+    override fun addStateMetadata(
+        metadata: Map<String, String>
+    ) {
         synchronized(lock) {
-            mutableMetadata.putAll(metadata)
+            internalStateMetadata.putAll(metadata)
         }
     }
 

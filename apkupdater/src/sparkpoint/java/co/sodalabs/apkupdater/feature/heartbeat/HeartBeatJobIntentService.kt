@@ -131,8 +131,11 @@ class HeartBeatJobIntentService : JobIntentService() {
             val firmwareVersion = getFirmwareVersion()
             val sparkpointPlayerVersion = getSparkpointPlayerVersion()
             val apkUpdaterVersion = getApkUpdaterVersion()
-            val state = updaterStateTracker.state
-            val metadata = updaterStateTracker.metadata
+
+            // Pull the updater state.
+            // Note: There was a race condition in between getting updater state
+            // and the metadata.
+            val (state, stateMetadata) = updaterStateTracker.snapshotStateWithMetadata()
 
             val provisioned = sharedSettings.isDeviceProvisioned()
             val userSetupComplete = sharedSettings.isUserSetupComplete()
@@ -150,7 +153,7 @@ class HeartBeatJobIntentService : JobIntentService() {
                     sparkpointPlayerVersion,
                     apkUpdaterVersion,
                     state.name,
-                    metadata
+                    stateMetadata
                 )
                 val now = getPrettyDateNow()
                 Timber.v("[HeartBeat] Health check at $now for device, API body:\n$apiBody")

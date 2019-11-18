@@ -163,13 +163,13 @@ class UpdaterApp :
         val bugTracker = Bugsnag.init(this, config)
         bugTracker.setUserId(deviceID)
         bugTracker.beforeNotify {
+            val (state, stateMetadata) = updaterStateTracker.snapshotStateWithMetadata()
+
             // Add the state machine state just after an error is captured
-            it.addToTab(MetadataProps.TAB_UPDATER_STATE, MetadataProps.KEY_STATE, updaterStateTracker.state.name)
+            it.addToTab(MetadataProps.TAB_UPDATER_STATE, MetadataProps.KEY_STATE, state.name)
 
             // Add all the little bits of metadata as well
-            updaterStateTracker
-                .metadata
-                .entries
+            stateMetadata.entries
                 .forEach { entry ->
                     val (key, value) = entry
                     it.addToTab(MetadataProps.TAB_UPDATER_STATE, key, value)
