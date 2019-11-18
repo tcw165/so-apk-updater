@@ -72,7 +72,6 @@ import dagger.android.AndroidInjection
 import io.reactivex.Single
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.internal.schedulers.SingleScheduler
-import io.reactivex.rxkotlin.Observables
 import io.reactivex.rxkotlin.addTo
 import org.threeten.bp.Duration
 import org.threeten.bp.Instant
@@ -519,6 +518,8 @@ class UpdaterService : Service() {
     @Inject
     lateinit var stateTracker: IUpdaterStateTracker
     @Inject
+    lateinit var scheduleUtils: ScheduleUtils
+    @Inject
     lateinit var schedulers: IThreadSchedulers
     @Inject
     lateinit var logPersistenceScheduler: LogsPersistenceScheduler
@@ -535,6 +536,7 @@ class UpdaterService : Service() {
 
         observeUpdateIntentOnEngineThread()
         observeDeviceTimeChanges()
+        observeUserSetupComplete()
     }
 
     override fun onDestroy() {
@@ -602,16 +604,21 @@ class UpdaterService : Service() {
         // If it is in the INSTALL state, then install the updates from the disk cache.
         continueInstallsOrScheduleCheckOnStart()
 
-        val heartbeatInterval = updaterConfig.heartbeatIntervalMillis
-        heartBeater.scheduleRecurringHeartBeat(heartbeatInterval)
+        if (sharedSettings.isUserSetupComplete()) {
+            val heartbeatInterval = updaterConfig.heartbeatIntervalMillis
+            heartBeater.scheduleRecurringHeartBeat(heartbeatInterval)
+        }
     }
 
     /**
      * Transitioning to idle state can happen anytime at any state. This
      * transitioning also cancels all the pending works and resets the internal
      * properties.
+     *
+     * IF the user setup is complete,
+     * this one schedules a delayed check after the cleanup.
      */
-    private fun transitionToIdleState() {
+    private fun transitionToIdleStateAndScheduleNextCheck() {
         transitionToState(UpdaterState.Idle)
 
         // Reset attempts
@@ -622,16 +629,6 @@ class UpdaterService : Service() {
         cancelPendingCheck(this)
         downloader.cancelPendingAndWipDownloads()
         installer.cancelPendingInstalls()
-    }
-
-    /**
-     * Transitioning to idle state can happen anytime at any state. This
-     * transitioning also cancels all the pending works and resets the internal
-     * properties.
-     * But this one schedules a delayed check after the cleanup.
-     */
-    private fun transitionToIdleStateAndScheduleNextCheck() {
-        transitionToIdleState()
 
         // Schedule a next check after the interval given from the config.
         if (sharedSettings.isUserSetupComplete()) {
@@ -725,7 +722,7 @@ class UpdaterService : Service() {
             transitionToState(UpdaterState.Install)
 
             val installWindow = updaterConfig.installWindow
-            val time = ScheduleUtils.findNextInstallTimeMillis(installWindow)
+            val time = scheduleUtils.findNextInstallTimeMillis(installWindow)
 
             stateTracker.addMetadata(
                 mapOf(
@@ -753,7 +750,7 @@ class UpdaterService : Service() {
             transitionToState(UpdaterState.Install)
 
             val installWindow = updaterConfig.installWindow
-            val time = ScheduleUtils.findNextInstallTimeMillis(installWindow)
+            val time = scheduleUtils.findNextInstallTimeMillis(installWindow)
 
             stateTracker.addMetadata(
                 mapOf(
@@ -814,24 +811,16 @@ class UpdaterService : Service() {
     }
 
     private fun continueInstallsOrScheduleCheckOnStart() {
-        Observables.combineLatest(
-            inflateUpdatesFromCache().toObservable(),
-            sharedSettings.observeUserSetupComplete()
-        )
+        inflateUpdatesFromCache()
             .observeOn(updaterScheduler)
-            .subscribe({ (foundInstallCache, userSetupComplete) ->
+            .subscribe({ foundInstallCache ->
                 // TODO: Should check the timestamp of the install cache to see if it's due.
                 if (foundInstallCache.isNotEmpty()) {
                     Timber.v("[Updater] Found a fully downloaded update cache on start!")
                     transitionToInstallStateForAppUpdate(foundInstallCache)
                 } else {
-                    if (userSetupComplete) {
-                        Timber.v("[Updater] Not found any fully downloaded update cache on start, with user-setup complete.")
-                        transitionToIdleStateAndScheduleNextCheck()
-                    } else {
-                        Timber.v("[Updater] Not found any fully downloaded update cache on start, with user-setup INCOMPLETE.")
-                        transitionToIdleState()
-                    }
+                    Timber.v("[Updater] Not found any fully downloaded update cache on start.")
+                    transitionToIdleStateAndScheduleNextCheck()
                 }
             }, Timber::e)
             .addTo(disposablesOnCreateDestroy)
@@ -1024,7 +1013,7 @@ class UpdaterService : Service() {
             val newAttempts = ++downloadAttempts
             if (newAttempts < TOTAL_DOWNLOAD_ATTEMPTS_PER_SESSION) {
                 Timber.w(compositeError, "[Updater] Failed to download some of the found updates, will retry soon (there were $oldAttempts attempts)")
-                val triggerAtMillis = ScheduleUtils.findNextDownloadTimeMillis(newAttempts)
+                val triggerAtMillis = scheduleUtils.findNextDownloadTimeMillis(newAttempts)
 
                 stateTracker.addMetadata(
                     mapOf(
@@ -1248,7 +1237,7 @@ class UpdaterService : Service() {
             val newAttempts = ++downloadAttempts
             if (newAttempts < TOTAL_DOWNLOAD_ATTEMPTS_PER_SESSION) {
                 Timber.w(error, "[Updater] Failed to download some of the found updates, will retry soon (there were $oldAttempts attempts)")
-                val triggerAtMillis = ScheduleUtils.findNextDownloadTimeMillis(newAttempts)
+                val triggerAtMillis = scheduleUtils.findNextDownloadTimeMillis(newAttempts)
 
                 stateTracker.addMetadata(
                     mapOf(
@@ -1340,7 +1329,7 @@ class UpdaterService : Service() {
         }
 
         // Transition to idle on fail.
-        transitionToIdleState()
+        transitionToIdleStateAndScheduleNextCheck()
     }
 
     // Time ///////////////////////////////////////////////////////////////////
@@ -1355,19 +1344,33 @@ class UpdaterService : Service() {
             // Wait for the date time settled.
             .debounce(Intervals.DEBOUNCE_DATETIME_CHANGE, TimeUnit.MILLISECONDS, schedulers.computation())
 
-        // Wait for the user-setup-COMPLETE to reflect the date time change.
-        Observables.combineLatest(
-            timeChangedObservable,
-            sharedSettings.observeUserSetupComplete()
-        )
+        timeChangedObservable
             .observeOn(updaterScheduler)
-            .subscribe({ (_, userSetupComplete) ->
+            .subscribe({
+                Timber.v("[Updater] Detect the date time change!\n\t${it.action}\n\t${it.extras}")
+                transitionToIdleStateAndScheduleNextCheck()
+            }, Timber::e)
+            .addTo(disposablesOnCreateDestroy)
+    }
+
+    // User Setup Complete ////////////////////////////////////////////////////
+
+    private fun observeUserSetupComplete() {
+        sharedSettings.observeUserSetupComplete()
+            .distinctUntilChanged()
+            // Skip initial value, only monitor changes
+            .skip(1)
+            .observeOn(updaterScheduler)
+            .subscribe({ userSetupComplete ->
+                Timber.d("[Updater] User Setup Complete flag changed to $userSetupComplete.")
+                // If the user-setup-complete flag changes, we should restart the session
+                // This is because we only download FULL updates in OOBE and
+                // SEQUENTIAL updates after OOBE
+                transitionToIdleStateAndScheduleNextCheck()
+
                 if (userSetupComplete) {
-                    Timber.v("[Updater] Detect the date time change with user-setup complete!")
-                    transitionToIdleStateAndScheduleNextCheck()
-                } else {
-                    Timber.v("[Updater] Detect the date time change with user-setup INCOMPLETE!")
-                    transitionToIdleState()
+                    val heartbeatInterval = updaterConfig.heartbeatIntervalMillis
+                    heartBeater.scheduleRecurringHeartBeat(heartbeatInterval)
                 }
             }, Timber::e)
             .addTo(disposablesOnCreateDestroy)

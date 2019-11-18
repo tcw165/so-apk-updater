@@ -2,7 +2,9 @@ package co.sodalabs.updaterengine.utils
 
 import co.sodalabs.updaterengine.ITimeUtil
 import org.threeten.bp.Instant
+import org.threeten.bp.ZoneId
 import org.threeten.bp.ZoneOffset
+import org.threeten.bp.ZonedDateTime
 import org.threeten.bp.format.DateTimeFormatter
 import org.threeten.bp.format.FormatStyle
 import javax.inject.Inject
@@ -14,9 +16,13 @@ class AndroidTimeUtil @Inject constructor() : ITimeUtil {
             .withZone(ZoneOffset.UTC)
     }
 
-    override fun nowEpoch() = Instant.now().toEpochMilli()
+    override fun now(): Instant = Instant.now()
 
-    override fun nowEpochFormatted(): String = formatter.format(Instant.now())
+    override fun nowEpochMillis() = now().toEpochMilli()
+
+    override fun nowEpochFormatted(): String = formatter.format(now())
+
+    override fun systemZonedNow(): ZonedDateTime = now().atZone(ZoneId.systemDefault())
 
     override fun toDuration(durationInMillis: Long): String {
         val millis = durationInMillis % 1000

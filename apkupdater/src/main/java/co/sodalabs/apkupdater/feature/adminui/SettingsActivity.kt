@@ -16,13 +16,13 @@ import co.sodalabs.apkupdater.IPasscodeDialogFactory
 import co.sodalabs.apkupdater.ITouchTracker
 import co.sodalabs.apkupdater.R
 import co.sodalabs.apkupdater.utils.BuildUtils
+import co.sodalabs.updaterengine.IThreadSchedulers
 import co.sodalabs.updaterengine.Intervals
 import com.jakewharton.rxbinding3.view.clicks
 import dagger.android.AndroidInjection
 import dagger.android.AndroidInjector
 import dagger.android.DispatchingAndroidInjector
 import dagger.android.HasAndroidInjector
-import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import kotlinx.android.synthetic.main.activity_settings.btBack
@@ -43,6 +43,8 @@ class SettingsActivity :
     lateinit var touchTracker: ITouchTracker
     @Inject
     lateinit var autoExitHelper: IAutoExitHelper
+    @Inject
+    lateinit var schedulers: IThreadSchedulers
     @Inject
     lateinit var actualInjector: DispatchingAndroidInjector<Any>
 
@@ -113,7 +115,7 @@ class SettingsActivity :
 
     private fun observeCloseClicks() {
         btBack.clicks()
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({
                 finish()
             }, Timber::e)

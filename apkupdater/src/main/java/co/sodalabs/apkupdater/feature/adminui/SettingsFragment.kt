@@ -34,7 +34,6 @@ import com.jakewharton.rxrelay2.PublishRelay
 import dagger.android.support.AndroidSupportInjection
 import io.reactivex.Observable
 import io.reactivex.Single
-import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
@@ -191,6 +190,7 @@ class SettingsFragment :
         val safeContext = context ?: throw NullPointerException("Context is null")
 
         sendHeartBeatNowPref.clicks()
+            .observeOn(schedulers.main())
             .flatMap {
                 heartbeater.sendHeartBeatNow()
 
@@ -202,12 +202,17 @@ class SettingsFragment :
                     }
                     .startWith(UiState.InProgress())
                     .take(2)
+                    .subscribeOn(schedulers.main())
             }
-            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
-                caughtErrorRelay.accept(error)
-                true
+            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.computation()) { error ->
+                if (error is DeviceNotSetupException) {
+                    false
+                } else {
+                    caughtErrorRelay.accept(error)
+                    true
+                }
             }
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({ uiState ->
                 when (uiState) {
                     is UiState.InProgress<Int> -> {
@@ -236,13 +241,16 @@ class SettingsFragment :
     private fun observeRecurringHeartBeat() {
         var last = "???"
         heartbeater.observeRecurringHeartBeat()
-            .observeOn(AndroidSchedulers.mainThread())
-            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
-                markHeartBeatDone()
-                caughtErrorRelay.accept(error)
-                true
+            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.computation()) { error ->
+                if (error is DeviceNotSetupException) {
+                    false
+                } else {
+                    markHeartBeatDone()
+                    caughtErrorRelay.accept(error)
+                    true
+                }
             }
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({ code ->
                 val now = getPrettyDateNow()
                 heartBeatWatcherPref.title = "$heartbeatWatcherTitle at $last (HTTP status code: $code)"
@@ -280,6 +288,7 @@ class SettingsFragment :
         val safeContext = context ?: throw NullPointerException("Context is null")
 
         checkUpdateNowPref.clicks()
+            .observeOn(schedulers.main())
             .flatMap {
                 UpdaterService.checkUpdateNow(safeContext, resetSession = true)
 
@@ -291,14 +300,14 @@ class SettingsFragment :
                     }
                     .startWith(UiState.InProgress())
                     .take(2)
+                    .subscribeOn(schedulers.main())
             }
-            .observeOn(AndroidSchedulers.mainThread())
-            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
+            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.computation()) { error ->
                 markCheckUpdateDone()
                 caughtErrorRelay.accept(error)
                 true
             }
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({ uiState ->
                 when (uiState) {
                     is UiState.InProgress<Boolean> -> {
@@ -409,7 +418,7 @@ class SettingsFragment :
 
     private fun observeCaughtErrors() {
         caughtErrorRelay
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({ error ->
                 context?.let { c ->
                     Toast.makeText(c, "Capture $error", Toast.LENGTH_LONG).show()
@@ -437,6 +446,7 @@ class SettingsFragment :
     private fun Preference.clicks(): Observable<Unit> {
         val thisPreference = this
         return preferenceClicks
+            .observeOn(schedulers.main())
             .filter { thisPreference.isEnabled && it == thisPreference }
             .map { Unit }
     }
@@ -458,7 +468,7 @@ class SettingsFragment :
 
     private fun observeOtherButtonClicks() {
         showAndroidSettingsPref.clicks()
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({
                 startActivity(Intent(android.provider.Settings.ACTION_SETTINGS).apply {
                     addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -468,7 +478,7 @@ class SettingsFragment :
             .addTo(disposables)
 
         homeIntentPref.clicks()
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({
                 startActivity(Intent(Intent.ACTION_MAIN).apply {
                     addCategory(Intent.CATEGORY_HOME)
@@ -480,7 +490,7 @@ class SettingsFragment :
             .addTo(disposables)
 
         showInternetSpeedTestPref.clicks()
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({
                 val safeContext = context ?: return@subscribe
                 val pm = safeContext.packageManager
