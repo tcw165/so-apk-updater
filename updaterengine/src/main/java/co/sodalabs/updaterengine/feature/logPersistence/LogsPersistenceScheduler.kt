@@ -7,12 +7,13 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
 import androidx.work.PeriodicWorkRequest
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import co.sodalabs.updaterengine.di.utils.WorkerFactory
 import co.sodalabs.updaterengine.utils.BuildUtils
-import co.sodalabs.updaterengine.utils.StorageUtils
+import co.sodalabs.updaterengine.utils.getWorkInfoByIdObservable
+import io.reactivex.Observable
 import timber.log.Timber
-import java.io.File
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -24,16 +25,12 @@ import javax.inject.Inject
 class LogsPersistenceScheduler @Inject constructor(
     private val context: Context,
     private val workerFactory: WorkerFactory,
-    private val persistenceConfig: ILogPersistenceConfig
+    private val persistenceConfig: ILogPersistenceConfig,
+    private val logFileProvider: ILogFileProvider
 ) : ILogsPersistenceScheduler {
 
     private val workManager by lazy {
         WorkManager.getInstance(context)
-    }
-
-    private val logFile: File by lazy {
-        val dir = File(StorageUtils.getCacheDirectory(context, false), LogsPersistenceConstants.LOG_DIR)
-        File(dir, LogsPersistenceConstants.LOG_FILE)
     }
 
     override fun start() {
@@ -42,7 +39,7 @@ class LogsPersistenceScheduler @Inject constructor(
             .build()
         WorkManager.initialize(context, config)
         val filePath = try {
-            logFile.absolutePath
+            logFileProvider.logFile.absolutePath
         } catch (e: Exception) {
             // We want to log this to Bugsnag because this is a very unlikely yet an unrecoverable
             // situation which we want to be notified about.
@@ -50,13 +47,10 @@ class LogsPersistenceScheduler @Inject constructor(
             stop()
             return
         }
-        val data = Data.Builder()
-            .putString(LogsPersistenceConstants.PARAM_LOG_FILE, filePath)
-            .build()
+        Timber.i("Log file found at $filePath")
         if (BuildUtils.isDebug()) {
             val request = OneTimeWorkRequest
                 .Builder(LogPersistenceWorker::class.java)
-                .setInputData(data)
                 .addTag(LogsPersistenceConstants.WORK_TAG)
                 .build()
             workManager.enqueueUniqueWork(
@@ -66,7 +60,6 @@ class LogsPersistenceScheduler @Inject constructor(
         } else {
             val request = PeriodicWorkRequest
                 .Builder(LogPersistenceWorker::class.java, persistenceConfig.repeatInterval, TimeUnit.HOURS)
-                .setInputData(data)
                 .addTag(LogsPersistenceConstants.WORK_TAG)
                 .build()
             workManager.enqueueUniquePeriodicWork(
@@ -78,5 +71,23 @@ class LogsPersistenceScheduler @Inject constructor(
 
     override fun stop() {
         workManager.cancelAllWorkByTag(LogsPersistenceConstants.WORK_TAG)
+    }
+
+    override fun triggerImmediate(filePath: String): Observable<Boolean> {
+        val data = Data.Builder()
+            .putBoolean(LogsPersistenceConstants.PARAM_TRIGGERED_BY_USER, true)
+            .build()
+        val request = OneTimeWorkRequest
+            .Builder(LogPersistenceWorker::class.java)
+            .setInputData(data)
+            .build()
+        val requestId = request.id
+        workManager.enqueue(request)
+        return workManager.getWorkInfoByIdObservable(requestId)
+            .map { it.state }
+            .filter { state ->
+                state == WorkInfo.State.SUCCEEDED || state == WorkInfo.State.FAILED
+            }
+            .map { state -> state == WorkInfo.State.SUCCEEDED }
     }
 }

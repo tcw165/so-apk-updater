@@ -30,6 +30,8 @@ import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import co.sodalabs.updaterengine.extension.smartRetryWhen
+import co.sodalabs.updaterengine.feature.logPersistence.ILogFileProvider
+import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceScheduler
 import com.jakewharton.rxrelay2.PublishRelay
 import dagger.android.support.AndroidSupportInjection
 import io.reactivex.Observable
@@ -48,6 +50,7 @@ private const val KEY_CHECK_STATUS = "check_status"
 private const val KEY_SHOW_ANDROID_SETTINGS = "androidSettings"
 private const val KEY_HOME_INTENT = "home_intent"
 private const val KEY_SHOW_INTERNET_SPEED_TEST = "speedTestApp"
+private const val KEY_SEND_LOGS = "sendLogs"
 
 private const val PACKAGE_APK_UPDATER = BuildConfig.APPLICATION_ID
 private const val PACKAGE_PRIVILEGED_INSTALLER = co.sodalabs.updaterengine.Packages.PRIVILEGED_EXTENSION_PACKAGE_NAME
@@ -71,6 +74,10 @@ class SettingsFragment :
     lateinit var sharedSettings: ISharedSettings
     @Inject
     lateinit var systemProperties: ISystemProperties
+    @Inject
+    lateinit var logsPersistenceScheduler: LogsPersistenceScheduler
+    @Inject
+    lateinit var logFileProvider: ILogFileProvider
 
     private val disposables = CompositeDisposable()
 
@@ -465,6 +472,10 @@ class SettingsFragment :
         findPreference<Preference>(KEY_SHOW_INTERNET_SPEED_TEST)
             ?: throw IllegalStateException("Can't find preference!")
     }
+    private val sendLogsPref by lazy {
+        findPreference<Preference>(KEY_SEND_LOGS)
+            ?: throw IllegalStateException("Can't find preference!")
+    }
 
     private fun observeOtherButtonClicks() {
         showAndroidSettingsPref.clicks()
@@ -508,6 +519,19 @@ class SettingsFragment :
                 } ?: kotlin.run {
                     Toast.makeText(safeContext, "Cannot find the launch Intent for '${Packages.NET_SPEED_TEST_PACKAGE_NAME}'", Toast.LENGTH_LONG).show()
                 }
+            }, Timber::e)
+            .addTo(disposables)
+
+        sendLogsPref.clicks()
+            .flatMap { logsPersistenceScheduler.triggerImmediate(logFileProvider.logFile.absolutePath) }
+            .observeOn(schedulers.main())
+            .subscribe({ success ->
+                val message = if (success) {
+                    R.string.send_logs_success_msg
+                } else {
+                    R.string.send_logs_failure_msg
+                }
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
             }, Timber::e)
             .addTo(disposables)
     }

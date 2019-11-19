@@ -8,7 +8,6 @@ import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.di.utils.ChildWorkerFactory
 import co.sodalabs.updaterengine.utils.AdbUtils
 import co.sodalabs.updaterengine.utils.FileUtils
-import co.sodalabs.updaterengine.utils.StorageUtils
 import io.reactivex.Completable
 import io.reactivex.Single
 import org.threeten.bp.ZoneId
@@ -35,31 +34,55 @@ class LogPersistenceWorker(
     private val adbUtils: AdbUtils,
     private val fileUtils: FileUtils,
     private val logSender: ILogSender,
-    private val config: ILogPersistenceConfig
+    private val config: ILogPersistenceConfig,
+    private val logFileProvider: ILogFileProvider
 ) : RxWorker(context, params) {
 
-    private val tempLogFile by lazy {
-        File(StorageUtils.getCacheDirectory(context, false), LogsPersistenceConstants.TEMP_LOG_BUFFER_FILE)
-    }
+    private val logFile: File = logFileProvider.logFile
+    private val tempLogFile: File = logFileProvider.tempLogFile
 
     override fun createWork(): Single<Result> {
+        // Flag indicating whether the user triggered this action via Admin UI
+        val isUserTriggered =
+            params.inputData.getBoolean(LogsPersistenceConstants.PARAM_TRIGGERED_BY_USER, false)
+        val workSource = if (isUserTriggered) {
+            // If the current operation is due to user triggered event and the log file already
+            // exists, then just send the logs to the server. Otherwise, first run the persistence
+            // sequence before attempting to send the logs.
+            Single
+                .fromCallable { logFile.exists() }
+                .flatMapCompletable { isExists ->
+                    if (isExists) {
+                        logSender.sendLogsToServer(logFile)
+                    } else {
+                        persistLogsLocally()
+                            .andThen(logSender.sendLogsToServer(logFile))
+                    }
+                }
+        } else {
+            persistLogsLocally()
+        }
+
+        return workSource
+            .andThen(Single.just(Result.success()))
+            .onErrorReturnItem(Result.failure())
+    }
+
+    private fun persistLogsLocally(): Completable {
         return checkShouldDeleteFile()
             .flatMap { (file, shouldDelete) -> backupAndDeleteLogsIfRequired(file, shouldDelete) }
             .flatMap { file -> prepareFile(file) }
             .flatMapCompletable { file -> readLogsToFile(file) }
-            .andThen(Single.just(Result.success()))
-            .onErrorReturnItem(Result.failure())
     }
 
     private fun checkShouldDeleteFile(): Single<Pair<File, Boolean>> {
         return Single
             .fromCallable {
                 val createdOn = prefs.logFileCreatedTimestamp
-                // TODO: Might also want to check if we have sufficient storage available on the deivce
+                // TODO: Might also want to check if we have sufficient storage available on the device
                 // Not urgent because we only target one device over which we have complete control
-                val file = File(params.inputData.getString(LogsPersistenceConstants.PARAM_LOG_FILE))
                 // Delete file if size or duration limit is crossed
-                val isSizeLimitExceeded = fileUtils.isExceedSize(file, config.maxLogFileSize)
+                val isSizeLimitExceeded = fileUtils.isExceedSize(logFile, config.maxLogFileSize)
                 val isExpired = if (createdOn != LogsPersistenceConstants.INVALID_CREATION_DATE) {
                     fileUtils.isOlderThanDuration(createdOn, config.maxLogFieDuration)
                 } else {
@@ -67,7 +90,7 @@ class LogPersistenceWorker(
                 }
                 val shouldDeleteFile = isSizeLimitExceeded || isExpired
                 Timber.i("[LogPersist] Should Delete File? $shouldDeleteFile \nSize Limit Exceeded: $isSizeLimitExceeded, Expired: $isExpired")
-                file to shouldDeleteFile
+                logFile to shouldDeleteFile
             }
     }
 
@@ -100,7 +123,7 @@ class LogPersistenceWorker(
                 try {
                     // Create file and directory if does not exist
                     if (!file.parentFile.exists()) {
-                        Timber.i("[LogPersist] Creating parent directory for logs at ${file.parentFile.path}")
+                        Timber.i("[LogPersist] Creating logs directory at ${file.parentFile.path}")
                         file.parentFile.mkdirs()
                     }
                     if (!file.exists()) {
@@ -138,18 +161,29 @@ class LogPersistenceWorker(
     private fun copyToFile(temp: File, file: File): Completable {
         return Completable
             .create { emitter ->
-                temp.inputStream().use { input ->
-                    FileOutputStream(file, true).use { output ->
-                        var bytesCopied: Long = 0
-                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                        var bytes = input.read(buffer)
-                        while (bytes >= 0 && !emitter.isDisposed) { // Notice we only continue if the emitter isn't disposed!
-                            output.write(buffer, 0, bytes)
-                            bytesCopied += bytes
-                            bytes = input.read(buffer)
+                try {
+                    temp.inputStream().use { input ->
+                        FileOutputStream(file, true).use { output ->
+                            var bytesCopied: Long = 0
+                            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                            var bytes = input.read(buffer)
+                            // Notice we only continue if the emitter isn't disposed!
+                            while (bytes >= 0 && !emitter.isDisposed) {
+                                output.write(buffer, 0, bytes)
+                                bytesCopied += bytes
+                                bytes = input.read(buffer)
+                            }
+                        }
+                        temp.delete()
+                        emitter.onComplete()
+
+                        emitter.setCancellable {
+                            temp.delete()
                         }
                     }
-                    temp.delete()
+                } catch (e: IOException) {
+                    if (emitter.isDisposed) return@create
+                    emitter.onError(e)
                 }
             }
     }
@@ -159,7 +193,8 @@ class LogPersistenceWorker(
         private val adbUtils: Provider<AdbUtils>,
         private val fileUtils: Provider<FileUtils>,
         private val logSender: Provider<ILogSender>,
-        private val config: Provider<ILogPersistenceConfig>
+        private val config: Provider<ILogPersistenceConfig>,
+        private val logFileProvider: Provider<ILogFileProvider>
     ) : ChildWorkerFactory {
         override fun create(appContext: Context, params: WorkerParameters): RxWorker {
             return LogPersistenceWorker(
@@ -169,7 +204,8 @@ class LogPersistenceWorker(
                 adbUtils.get(),
                 fileUtils.get(),
                 logSender.get(),
-                config.get()
+                config.get(),
+                logFileProvider.get()
             )
         }
     }

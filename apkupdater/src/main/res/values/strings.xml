@@ -39,4 +39,6 @@
     <string name="install_allow_downgrade">Install Allow Downgrade</string>
 
     <string name="other_category">Other</string>
+    <string name="send_logs_success_msg">Logs sent to the server!</string>
+    <string name="send_logs_failure_msg">Problem while sending logs to the server!</string>
 </resources>

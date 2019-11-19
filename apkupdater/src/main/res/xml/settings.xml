@@ -159,8 +159,8 @@
 
         <!-- TODO: Use underscore as delimiter-->
         <Preference
-            app:key="feedback"
-            app:summary="Report technical issues or suggest new features"
-            app:title="Send feedback" />
+            app:key="sendLogs"
+            app:summary="Send logs to the server"
+            app:title="Send logs" />
     </PreferenceCategory>
 </PreferenceScreen>
