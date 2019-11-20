@@ -89,6 +89,14 @@ class AndroidUpdaterConfig @Inject constructor(
             appPreference.putBoolean(PreferenceProps.DOWNLOAD_USE_CACHE, value)
         }
 
+    override val isBetaAllowed: Boolean
+        get() {
+            val channelBeta = BuildConfig.UPDATE_CHANNELS[0]
+            val channelStable = BuildConfig.UPDATE_CHANNELS[1]
+            val channel = appPreference.getString(PreferenceProps.API_UPDATE_CHANNEL, channelStable)
+            return channel == channelBeta
+        }
+
     override val apkDiskCache: DiskLruCache by lazy {
         // The cache dir would be "/storage/emulated/legacy/co.sodalabs.apkupdater/${CACHE_APK_DIR}/"
         DiskLruCache(

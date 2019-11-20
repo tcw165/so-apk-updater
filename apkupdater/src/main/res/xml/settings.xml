@@ -69,6 +69,12 @@
 
     <PreferenceCategory app:title="@string/check_category">
 
+        <ListPreference
+            app:defaultValue="Stable"
+            app:key="co.sodalabs.update_channel"
+            app:summary="Choose between Pre-Approved and Stable releases"
+            app:title="@string/update_channel" />
+
         <!--suppress AndroidElementNotAllowed -->
         <co.sodalabs.apkupdater.feature.adminui.LongEditTextPreference
             app:key="co.sodalabs.check_interval"

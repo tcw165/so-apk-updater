@@ -14,6 +14,7 @@ object PreferenceProps {
     // API ////////////////////////////////////////////////////////////////////
 
     const val API_BASE_URL = "$PREFIX.api_base_url"
+    const val API_UPDATE_CHANNEL = "$PREFIX.update_channel"
 
     // Mocking Info ///////////////////////////////////////////////////////////
 

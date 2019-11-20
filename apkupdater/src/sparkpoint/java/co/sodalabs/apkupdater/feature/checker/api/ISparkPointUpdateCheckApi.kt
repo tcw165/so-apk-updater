@@ -17,11 +17,14 @@ interface ISparkPointUpdateCheckApi {
 
     @GET("firmware")
     fun getFirmwareIncrementalUpdate(
-        @Query("base_version") baseVersion: String
+        @Query("base_version") baseVersion: String,
+        @Query("beta") beta: Boolean
     ): Call<FirmwareUpdate>
 
     @GET("firmware/latest")
-    fun getFirmwareFullUpdate(): Call<FirmwareUpdate>
+    fun getFirmwareFullUpdate(
+        @Query("beta") beta: Boolean
+    ): Call<FirmwareUpdate>
 
     @GET("firmware")
     fun getFirmwareAllFullUpdate(): Call<List<FirmwareUpdate>>

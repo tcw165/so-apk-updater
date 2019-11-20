@@ -42,6 +42,7 @@ import timber.log.Timber
 import javax.inject.Inject
 
 private const val KEY_API_BASE_URL = PreferenceProps.API_BASE_URL
+private const val KEY_API_UPDATE_CHANNEL = PreferenceProps.API_UPDATE_CHANNEL
 private const val KEY_VERSIONS = "versions"
 private const val KEY_HEART_BEAT_WATCHER = "heartbeat_watcher"
 private const val KEY_HEART_BEAT_NOW = "send_heartbeat_now"
@@ -97,7 +98,7 @@ class SettingsFragment :
         super.onResume()
 
         setupBaseURLPreference()
-
+        setupUpdateChannelPreference()
         observeVersions()
         observeHeartBeatNowClicks()
         observeRecurringHeartBeat()
@@ -173,9 +174,19 @@ class SettingsFragment :
             ?: throw IllegalStateException("Can't find preference!")
     }
 
+    private val apiUpdateChannelPref by lazy {
+        findPreference<ListPreference>(KEY_API_UPDATE_CHANNEL)
+            ?: throw IllegalStateException("Can't find preference!")
+    }
+
     private fun setupBaseURLPreference() {
         apiBaseURLPref.entries = BuildConfig.BASE_URLS
         apiBaseURLPref.entryValues = BuildConfig.BASE_URLS
+    }
+
+    private fun setupUpdateChannelPreference() {
+        apiUpdateChannelPref.entries = BuildConfig.UPDATE_CHANNELS
+        apiUpdateChannelPref.entryValues = BuildConfig.UPDATE_CHANNELS
     }
 
     // Heart Beat /////////////////////////////////////////////////////////////

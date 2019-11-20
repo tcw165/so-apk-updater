@@ -167,6 +167,10 @@ android {
             buildConfigField "String[]", "PACKAGES_TO_CHECK", "{" +
                 "\"co.sodalabs.sparkpoint\"" +
                 "}"
+            buildConfigField "String[]", "UPDATE_CHANNELS", "{" +
+                "\"Beta\"," +
+                "\"Stable\"" +
+                "}"
         }
     }
 
