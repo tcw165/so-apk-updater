@@ -23,6 +23,7 @@ import co.sodalabs.updaterengine.data.DownloadedAppUpdate
 import co.sodalabs.updaterengine.data.DownloadedFirmwareUpdate
 import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
+import co.sodalabs.updaterengine.exception.NoUpdateFoundException
 import co.sodalabs.updaterengine.extension.ensureBackgroundThread
 import co.sodalabs.updaterengine.extension.getIndicesToRemove
 import co.sodalabs.updaterengine.extension.prepareError
@@ -957,7 +958,19 @@ class UpdaterService : Service() {
             // TODO: Broadcast the error to the remote client.
         } ?: kotlin.run {
             val updates = intent.getParcelableArrayListExtra<AppUpdate>(IntentActions.PROP_FOUND_UPDATES)
-            transitionToDownloadStateForAppUpdate(updates)
+
+            if (updates.isEmpty()) {
+                val error = NoUpdateFoundException()
+                transitionToState(
+                    UpdaterState.Idle,
+                    mapOf(
+                        KEY_CHECK_TYPE to PROP_TYPE_APP,
+                        KEY_CHECK_RUNNING to FALSE_STRING,
+                        KEY_CHECK_ERROR to (error.message ?: error.javaClass.name)
+                    ))
+            } else {
+                transitionToDownloadStateForAppUpdate(updates)
+            }
         }
     }
 

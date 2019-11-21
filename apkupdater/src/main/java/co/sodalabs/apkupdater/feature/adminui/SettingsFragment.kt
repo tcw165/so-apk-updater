@@ -362,7 +362,15 @@ class SettingsFragment :
             .subscribe({ intent ->
                 when (intent.action) {
                     IntentActions.ACTION_CHECK_UPDATE -> checkStatusPref.summary = "Check"
-                    IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE -> checkStatusPref.summary = "Check... found available app updates"
+                    IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE -> {
+                        val updates = intent.getParcelableArrayListExtra<AppUpdate>(IntentActions.PROP_FOUND_UPDATES)
+                        val message = if (updates.isEmpty()) {
+                            "Check... No updates found"
+                        } else {
+                            "Check... found available app updates"
+                        }
+                        checkStatusPref.summary = message
+                    }
                     IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE -> {
                         val foundUpdate = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATE)
                         checkStatusPref.summary = "Check... found available firmware update, '${foundUpdate.fileURL}'"
