@@ -43,11 +43,11 @@ class LogsPersistenceScheduler @Inject constructor(
         } catch (e: Exception) {
             // We want to log this to Bugsnag because this is a very unlikely yet an unrecoverable
             // situation which we want to be notified about.
-            Timber.e("Invalid log file provided, disabling log persistence. $e")
+            Timber.e("[LogsPersistenceScheduler] Invalid log file provided, disabling log persistence. $e")
             stop()
             return
         }
-        Timber.i("Log file found at $filePath")
+        Timber.i("[LogsPersistenceScheduler] Log file found at $filePath")
         if (BuildUtils.isDebug()) {
             val request = OneTimeWorkRequest
                 .Builder(LogPersistenceWorker::class.java)
@@ -58,9 +58,13 @@ class LogsPersistenceScheduler @Inject constructor(
                 ExistingWorkPolicy.REPLACE,
                 request)
         } else {
+            val data = Data.Builder()
+                .putBoolean(LogsPersistenceConstants.PARAM_REPEAT_TASK, true)
+                .build()
             val request = PeriodicWorkRequest
-                .Builder(LogPersistenceWorker::class.java, persistenceConfig.repeatInterval, TimeUnit.HOURS)
+                .Builder(LogPersistenceWorker::class.java, persistenceConfig.repeatIntervalInMillis, TimeUnit.MILLISECONDS)
                 .addTag(LogsPersistenceConstants.WORK_TAG)
+                .setInputData(data)
                 .build()
             workManager.enqueueUniquePeriodicWork(
                 LogsPersistenceConstants.WORK_NAME,

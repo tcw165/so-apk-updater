@@ -4,6 +4,7 @@ object LogsPersistenceConstants {
     const val WORK_NAME = "persist_log_request"
     const val WORK_TAG = "log_persistence"
     const val PARAM_TRIGGERED_BY_USER = "log_force_send"
+    const val PARAM_REPEAT_TASK = "is_repeat_task"
     const val INVALID_CREATION_DATE = -1L
 
     const val LOG_DIR = "logs"

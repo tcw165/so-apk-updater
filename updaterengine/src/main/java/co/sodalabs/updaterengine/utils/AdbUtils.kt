@@ -23,9 +23,8 @@ class AdbUtils @Inject constructor(
                 try {
                     val cmd = arrayOf("logcat", "-f", file.absolutePath, "$applicationTag:I")
                     Runtime.getRuntime().exec(cmd)
-                    Timber.i("Wrote ${file.length()} bytes to temp file")
                 } catch (e: Exception) {
-                    Timber.e("Error while fetching logs from logcat: \n $e")
+                    Timber.e("[AdbUtils] Error while fetching logs from logcat: \n $e")
                 }
             }
             .subscribeOn(schedulers.io())
