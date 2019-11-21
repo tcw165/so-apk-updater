@@ -46,7 +46,7 @@ platform :android do
       artifacts = artifacts.concat(Dir.glob("**/*.aar"))
       # The artifacts for application module
       artifacts = artifacts.concat(Dir.glob("**/*.apk"))
-      # artifacts = artifacts.concat(Dir.glob("**/*mapping.txt"))
+      artifacts = artifacts.concat(Dir.glob("**/*-mapping.txt"))
       artifacts = artifacts.map { |file| "#{pwd}/#{file}" }
 
       github_release = set_github_release(
