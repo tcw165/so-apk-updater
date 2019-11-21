@@ -76,7 +76,7 @@ android {
         // Anything lower will be replaced on runtime with 15 minutes by the [WorkManager]
         buildConfigField "long", "REPEAT_INTERVAL", "3L"            // 3 Hours
         buildConfigField "long", "MAX_FILE_DURATION", "7L"          // 7 Days
-        buildConfigField "int", "MAX_LOG_FILE_SIZE", "10"           // 10 MBs
+        buildConfigField "int", "MAX_LOG_FILE_SIZE", "2"            // 2 MBs
     }
 
     signingConfigs {
