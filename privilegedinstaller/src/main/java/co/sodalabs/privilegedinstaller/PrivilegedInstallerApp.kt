@@ -8,6 +8,8 @@ import co.sodalabs.privilegedinstaller.utils.BugsnagTree
 import co.sodalabs.privilegedinstaller.utils.BuildUtils
 import com.bugsnag.android.Bugsnag
 import com.bugsnag.android.Configuration
+import leakcanary.AppWatcher
+import leakcanary.LeakCanary
 import timber.log.Timber
 
 class PrivilegedInstallerApp : MultiDexApplication() {
@@ -17,6 +19,7 @@ class PrivilegedInstallerApp : MultiDexApplication() {
 
         initLogging()
         initCrashReporting()
+        initLeakCanary()
         initStrictMode()
     }
 
@@ -34,6 +37,19 @@ class PrivilegedInstallerApp : MultiDexApplication() {
         }
         Bugsnag.init(this, config)
         Timber.plant(BugsnagTree())
+    }
+
+    private fun initLeakCanary() {
+        // Note: LeakCanary initializes in ContentProvider.
+        // Setting retained visibility to 0 to always dump the leak report.
+        LeakCanary.config = LeakCanary.config.copy(
+            retainedVisibleThreshold = 0
+        )
+
+        if (BuildUtils.isRelease()) {
+            // We don't want this guy running in the background on DEBUG build.
+            AppWatcher.config = AppWatcher.config.copy(enabled = false)
+        }
     }
 
     private fun initStrictMode() {

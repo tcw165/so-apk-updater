@@ -35,6 +35,8 @@ import dagger.android.HasAndroidInjector
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.plugins.RxJavaPlugins
 import io.reactivex.rxkotlin.addTo
+import leakcanary.AppWatcher
+import leakcanary.LeakCanary
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -79,6 +81,7 @@ class UpdaterApp :
         initCrashReporting()
         initLogging()
         initDatetime()
+        initLeakCanary()
         initStrictMode()
         logSystemInfo()
 
@@ -88,6 +91,19 @@ class UpdaterApp :
 
         // Install the updater engine after everything else is ready.
         UpdaterService.start(this)
+    }
+
+    private fun initLeakCanary() {
+        // Note: LeakCanary initializes in ContentProvider.
+        // Setting retained visibility to 0 to always dump the leak report.
+        LeakCanary.config = LeakCanary.config.copy(
+            retainedVisibleThreshold = 0
+        )
+
+        if (BuildUtils.isRelease()) {
+            // We don't want this guy running in the background on DEBUG build.
+            AppWatcher.config = AppWatcher.config.copy(enabled = false)
+        }
     }
 
     private fun initStrictMode() {

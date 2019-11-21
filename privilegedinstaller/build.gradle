@@ -188,8 +188,7 @@ dependencies {
     implementation deps.rx.binding.appcompat
 
     // Leak Canary
-    debugImplementation deps.leakcanary.android
-    preReleaseImplementation deps.leakcanary.android
+    implementation deps.leakcanary.android
 
     // Tracking
     implementation deps.tracking.timber
