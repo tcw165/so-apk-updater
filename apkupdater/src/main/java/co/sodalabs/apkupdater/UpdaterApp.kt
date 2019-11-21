@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.os.StrictMode
 import android.os.StrictMode.VmPolicy
 import android.provider.Settings
-import android.util.Log
 import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
@@ -134,7 +133,9 @@ class UpdaterApp :
     @SuppressLint("LogNotTimber")
     private fun initLogging() {
         val logTree = Timber.DebugTree()
+        Timber.plant(logTree)
 
+        /* Do not remove, will need this again.
         if (BuildUtils.isRelease()) {
             // Note: There would be a short latency on planting the log tree on
             // release build.
@@ -161,6 +162,7 @@ class UpdaterApp :
             // Otherwise, always log.
             Timber.plant(logTree)
         }
+        */
     }
 
     private fun initCrashReporting() {
