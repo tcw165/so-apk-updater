@@ -203,7 +203,7 @@ class UpdaterService : Service() {
             context: Context
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("[Updater] (< 21) Cancel a pending check, using AlarmManager")
+                Timber.v("[Updater] (< 21) Cancel any pending check, using AlarmManager")
 
                 val intent = Intent(context, UpdaterService::class.java)
                 intent.apply {
@@ -555,6 +555,7 @@ class UpdaterService : Service() {
     ): Int {
         startForeground(NOTIFICATION_ID, UpdaterNotificationFactory.create(this, NOTIFICATION_CHANNEL_ID))
 
+        // Process the Intent in the engine thread.
         intent?.let { updaterIntentForwarder.accept(it) }
 
         // Note: It's a long running foreground Service.
@@ -1029,7 +1030,6 @@ class UpdaterService : Service() {
                 // Retry (and stays in the same state).
                 downloader.scheduleDownloadAppUpdate(foundUpdates, triggerAtMillis)
             } else {
-
                 stateTracker.addStateMetadata(
                     mapOf(
                         KEY_DOWNLOAD_TYPE to PROP_TYPE_APP,

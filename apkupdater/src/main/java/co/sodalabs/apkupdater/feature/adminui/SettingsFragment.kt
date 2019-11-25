@@ -390,8 +390,10 @@ class SettingsFragment :
                         checkStatusPref.summary = "Download... '${update.packageName}' at $progressPercentage%"
                     }
                     IntentActions.ACTION_DOWNLOAD_APP_UPDATE_COMPLETE -> {
-                        val update = intent.getParcelableExtra<AppUpdate>(IntentActions.PROP_FOUND_UPDATE)
-                        checkStatusPref.summary = "Download... '${update.packageName}' finished"
+                        val update = intent.getParcelableExtra<AppUpdate?>(IntentActions.PROP_FOUND_UPDATE)
+                        update?.let {
+                            checkStatusPref.summary = "Download... '${it.packageName}' finished"
+                        }
                     }
                     IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE -> {
                         checkStatusPref.summary = "Download... firmware"
@@ -402,8 +404,10 @@ class SettingsFragment :
                         checkStatusPref.summary = "Download... '${update.fileURL}' at $progressPercentage%"
                     }
                     IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE -> {
-                        val update = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATE)
-                        checkStatusPref.summary = "Download... '${update.fileURL}' finished"
+                        val update = intent.getParcelableExtra<FirmwareUpdate?>(IntentActions.PROP_FOUND_UPDATE)
+                        update?.let {
+                            checkStatusPref.summary = "Download... '${it.fileURL}' finished"
+                        }
                     }
 
                     // Install section

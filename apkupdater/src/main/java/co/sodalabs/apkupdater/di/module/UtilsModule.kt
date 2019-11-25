@@ -2,7 +2,9 @@
 
 package co.sodalabs.apkupdater.di.module
 
+import co.sodalabs.apkupdater.ILeakUtil
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
+import co.sodalabs.apkupdater.utils.AndroidLeakUtil
 import co.sodalabs.updaterengine.ITimeUtil
 import co.sodalabs.updaterengine.IZipUtil
 import co.sodalabs.updaterengine.utils.AndroidTimeUtil
@@ -24,4 +26,10 @@ abstract class UtilsModule {
     abstract fun provideZipUtil(
         util: AndroidZipUtil
     ): IZipUtil
+
+    @Binds
+    @ApplicationScope
+    abstract fun provideLeakUtil(
+        util: AndroidLeakUtil
+    ): ILeakUtil
 }

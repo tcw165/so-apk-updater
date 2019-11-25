@@ -107,7 +107,7 @@ class DownloadJobIntentService : JobIntentService() {
             intentAction: String
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("[Install] (< 21) Schedule a download, using AlarmManager, at $triggerAtMillis milliseconds")
+                Timber.v("[Download] (< 21) Schedule a download, using AlarmManager, at $triggerAtMillis milliseconds")
 
                 val intent = Intent(context, DownloadJobIntentService::class.java)
                 intent.action = intentAction
@@ -123,7 +123,7 @@ class DownloadJobIntentService : JobIntentService() {
                     pendingIntent
                 )
             } else {
-                Timber.v("[Install] (>= 21) Schedule a download, using android-21 JobScheduler")
+                Timber.v("[Download] (>= 21) Schedule a download, using android-21 JobScheduler")
 
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
                 val componentName = ComponentName(context, InstallerJobService::class.java)
@@ -159,7 +159,7 @@ class DownloadJobIntentService : JobIntentService() {
 
             // Kill the pending task.
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("[Install] (< 21) Cancel any pending download, using AlarmManager")
+                Timber.v("[Download] (< 21) Cancel any pending download, using AlarmManager")
 
                 val intent = Intent(context, DownloadJobIntentService::class.java)
                 intent.action = IntentActions.ACTION_DOWNLOAD_APP_UPDATE
@@ -169,7 +169,7 @@ class DownloadJobIntentService : JobIntentService() {
 
                 // TODO: Cancel firmware update too
             } else {
-                Timber.v("[Install] (>= 21) Cancel any pending download, using android-21 JobScheduler")
+                Timber.v("[Download] (>= 21) Cancel any pending download, using android-21 JobScheduler")
 
                 val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
                 // Note: The job would be consumed by InstallerJobService and translated
@@ -225,7 +225,7 @@ class DownloadJobIntentService : JobIntentService() {
         updates: List<AppUpdate>
     ) {
         // Execute batch download
-        val (completedTasks, errors) = downloadBatchUpdate(
+        val (completedTasks, errors) = downloadBatchAppUpdate(
             urls = updates.map { it.downloadUrl },
             diskLruCache = updaterConfig.apkDiskCache,
             downloadingCallback = { urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long ->
@@ -273,7 +273,7 @@ class DownloadJobIntentService : JobIntentService() {
         val theSoleUpdate = updates.first()
 
         // Execute batch download
-        val (completedTasks, errors) = downloadBatchUpdate(
+        val (completedTasks, errors) = downloadBatchAppUpdate(
             urls = updates.map { it.fileURL },
             diskLruCache = updaterConfig.firmwareDiskCache,
             downloadingCallback = { urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long ->
@@ -315,7 +315,7 @@ class DownloadJobIntentService : JobIntentService() {
 
     // Common /////////////////////////////////////////////////////////////////
 
-    private fun downloadBatchUpdate(
+    private fun downloadBatchAppUpdate(
         urls: List<String>,
         diskLruCache: DiskLruCache,
         downloadingCallback: (urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long) -> Unit
@@ -362,9 +362,17 @@ class DownloadJobIntentService : JobIntentService() {
                 executeDownload(i, url, totalSize, cacheFile, downloadingCallback)
                 completedTasks.add(CompletedTask(i, cacheFile))
             } catch (error: Throwable) {
-                Timber.w(error)
-                // We'll collect the error and continue.
-                errors.add(error)
+                // Conditionally collect the error and continue.
+                when (error) {
+                    is DownloadCancelledException -> {
+                        // Don't report cause we don't want to retry this after canceling.
+                        Timber.v(error)
+                    }
+                    else -> {
+                        Timber.w(error)
+                        errors.add(error)
+                    }
+                }
             } finally {
                 Timber.v("[Download] Close the cache \"$cacheFile\"")
                 cacheEditor.commit()
