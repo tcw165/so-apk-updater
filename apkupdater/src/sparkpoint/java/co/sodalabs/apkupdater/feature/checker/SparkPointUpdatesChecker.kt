@@ -12,12 +12,7 @@ class SparkPointUpdatesChecker @Inject constructor(
         CheckJobIntentService.checkUpdatesNow(context)
     }
 
-    override fun scheduleCheck(
-        triggerAtMillis: Long
-    ) {
-        CheckJobIntentService.scheduleCheck(
-            context,
-            triggerAtMillis
-        )
+    override fun cancelPendingAndWipCheck() {
+        CheckJobIntentService.cancelCheck(context)
     }
 }
