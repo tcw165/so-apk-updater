@@ -6,6 +6,7 @@ import co.sodalabs.apkupdater.BuildConfig
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.apkupdater.feature.checker.api.ISparkPointUpdateCheckApi
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
+import co.sodalabs.apkupdater.feature.logpersistence.api.ILogSenderApi
 import co.sodalabs.apkupdater.net.HostResolutionInterceptor
 import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.apkupdater.utils.HttpTimberLogger
@@ -154,5 +155,13 @@ class NetworkModule {
     ): ISparkPointHeartBeatApi {
         Timber.v("[Updater] Init heartbeat API")
         return retrofit.create(ISparkPointHeartBeatApi::class.java)
+    }
+
+    @Provides
+    @ApplicationScope
+    fun provideLogSenderAPI(
+        retrofit: Retrofit
+    ): ILogSenderApi {
+        return retrofit.create(ILogSenderApi::class.java)
     }
 }

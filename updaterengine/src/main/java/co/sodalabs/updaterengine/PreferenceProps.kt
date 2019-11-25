@@ -14,6 +14,7 @@ object PreferenceProps {
     // API ////////////////////////////////////////////////////////////////////
 
     const val API_BASE_URL = "$PREFIX.api_base_url"
+    const val API_UPDATE_CHANNEL = "$PREFIX.update_channel"
 
     // Mocking Info ///////////////////////////////////////////////////////////
 
@@ -37,4 +38,8 @@ object PreferenceProps {
     const val INSTALL_HOUR_END = "$PREFIX.install_hour_end"
     const val INSTALL_SILENTLY = "$PREFIX.install_silently"
     const val INSTALL_ALLOW_DOWNGRADE = "$PREFIX.install_allow_downgrade"
+
+    // Log Persistence ////////////////////////////////////////////////////////
+
+    const val LOG_FILE_CREATED_TIMESTAMP = "$PREFIX.log_file_created_on"
 }

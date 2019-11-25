@@ -181,7 +181,7 @@ class CheckJobIntentService : JobIntentService() {
     ): FirmwareUpdate {
         Timber.v("[Check] Check full firmware update for version '$currentFirmwareVersion'")
 
-        val request = apiClient.getFirmwareFullUpdate()
+        val request = apiClient.getFirmwareFullUpdate(updaterConfig.isBetaAllowed)
         val response = request.execute()
 
         return if (response.isSuccessful) {
@@ -205,7 +205,7 @@ class CheckJobIntentService : JobIntentService() {
     ): FirmwareUpdate? {
         Timber.v("[Check] Check incremental firmware update for version '$currentFirmwareVersion'")
 
-        val request = apiClient.getFirmwareIncrementalUpdate(currentFirmwareVersion)
+        val request = apiClient.getFirmwareIncrementalUpdate(currentFirmwareVersion, updaterConfig.isBetaAllowed)
         val response = request.execute()
 
         return if (response.isSuccessful) {

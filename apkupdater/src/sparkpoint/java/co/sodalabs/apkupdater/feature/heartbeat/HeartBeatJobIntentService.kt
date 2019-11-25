@@ -25,7 +25,7 @@ import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.benchmark
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
-import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateMachine
+import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import dagger.android.AndroidInjection
 import timber.log.Timber
 import javax.inject.Inject
@@ -103,7 +103,7 @@ class HeartBeatJobIntentService : JobIntentService() {
     @Inject
     lateinit var systemProperties: ISystemProperties
     @Inject
-    lateinit var updaterStateMachine: IUpdaterStateMachine
+    lateinit var updaterStateTracker: IUpdaterStateTracker
 
     override fun onCreate() {
         AndroidInjection.inject(this)
@@ -130,8 +130,12 @@ class HeartBeatJobIntentService : JobIntentService() {
             val hardwareID = getHardwareID()
             val firmwareVersion = getFirmwareVersion()
             val sparkpointPlayerVersion = getSparkpointPlayerVersion()
-            val state = updaterStateMachine.state
-            val metadata = updaterStateMachine.metadata
+            val apkUpdaterVersion = getApkUpdaterVersion()
+
+            // Pull the updater state.
+            // Note: There was a race condition in between getting updater state
+            // and the metadata.
+            val (state, stateMetadata) = updaterStateTracker.snapshotStateWithMetadata()
 
             val provisioned = sharedSettings.isDeviceProvisioned()
             val userSetupComplete = sharedSettings.isUserSetupComplete()
@@ -147,8 +151,9 @@ class HeartBeatJobIntentService : JobIntentService() {
                     hardwareID,
                     firmwareVersion,
                     sparkpointPlayerVersion,
+                    apkUpdaterVersion,
                     state.name,
-                    metadata
+                    stateMetadata
                 )
                 val now = getPrettyDateNow()
                 Timber.v("[HeartBeat] Health check at $now for device, API body:\n$apiBody")
@@ -180,6 +185,10 @@ class HeartBeatJobIntentService : JobIntentService() {
 
     private fun getSparkpointPlayerVersion(): String {
         return packageVersionProvider.getPackageVersion(Packages.SPARKPOINT_PACKAGE_NAME)
+    }
+
+    private fun getApkUpdaterVersion(): String {
+        return packageVersionProvider.getPackageVersion(this.packageName)
     }
 
     // Broadcast //////////////////////////////////////////////////////////////

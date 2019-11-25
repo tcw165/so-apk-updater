@@ -4,8 +4,11 @@ import android.content.Context
 import co.sodalabs.updaterengine.IPackageVersionProvider
 import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ISystemProperties
+import co.sodalabs.updaterengine.SharedSettingsProps
 import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterState
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 
 // General
@@ -17,6 +20,7 @@ const val PROP_DEVICE_ID = "device_id"
 const val PROP_FIRMWARE_VERSION = "firmware_version"
 const val PROP_UPDATER_VERSION = "updater_version"
 const val PROP_INSTALL_WINDOW = "install_window"
+const val PROP_BASE_URL = "base_url"
 
 // Check
 
@@ -52,47 +56,56 @@ const val KEY_INSTALL_ERROR = "install_error"
 const val KEY_INSTALL_DELAY = "install_delay"
 const val KEY_INSTALL_AT = "install_at"
 
-class UpdaterStateMachine @Inject constructor(
+class UpdaterStateTracker @Inject constructor(
     private val context: Context,
     private val config: UpdaterConfig,
     private val sharedSettings: ISharedSettings,
     private val systemProperties: ISystemProperties,
     private val packageVersionProvider: IPackageVersionProvider
-) : IUpdaterStateMachine {
+) : IUpdaterStateTracker {
 
-    override val state: UpdaterState
-        get() = internalState
-
-    override val metadata: Map<String, Any>
-        get() = synchronized(lock) {
-            mutableMetadata.toMap()
-        }
-
-    @Volatile
-    private var internalState = UpdaterState.Idle
-
-    private val mutableMetadata = HashMap<String, Any>()
+    private val internalState = AtomicReference<UpdaterState>(UpdaterState.Idle)
+    private val internalStateMetadata: MutableMap<String, String> = ConcurrentHashMap()
     private val lock = Any()
 
-    override fun putState(state: UpdaterState) {
+    override fun snapshotState(): UpdaterState {
+        return synchronized(lock) {
+            internalState.get()
+        }
+    }
+
+    override fun snapshotStateWithMetadata(): Pair<UpdaterState, Map<String, String>> {
+        return synchronized(lock) {
+            Pair(internalState.get(), internalStateMetadata.toMap())
+        }
+    }
+
+    override fun putState(
+        state: UpdaterState,
+        metadata: Map<String, String>
+    ) {
         synchronized(lock) {
-            internalState = state
-            mutableMetadata.clear()
-            addMetadata(
+            internalState.set(state)
+
+            internalStateMetadata.clear()
+            internalStateMetadata.putAll(
                 mapOf(
                     KEY_TRANSITION to state.name,
                     PROP_INSTALL_WINDOW to config.installWindow.toString(),
                     PROP_DEVICE_ID to getDeviceID(),
                     PROP_FIRMWARE_VERSION to getFirmwareVersion(),
-                    PROP_UPDATER_VERSION to getPackageVersion()
+                    PROP_UPDATER_VERSION to getPackageVersion(),
+                    PROP_BASE_URL to getBaseUrl()
                 )
             )
         }
     }
 
-    override fun addMetadata(metadata: Map<String, Any>) {
+    override fun addStateMetadata(
+        metadata: Map<String, String>
+    ) {
         synchronized(lock) {
-            mutableMetadata.putAll(metadata)
+            internalStateMetadata.putAll(metadata)
         }
     }
 
@@ -106,5 +119,9 @@ class UpdaterStateMachine @Inject constructor(
 
     private fun getPackageVersion(): String {
         return packageVersionProvider.getPackageVersion(context.packageName)
+    }
+
+    private fun getBaseUrl(): String {
+        return sharedSettings.getGlobalString(SharedSettingsProps.SPARKPOINT_REST_API_BASE_URL, "No base url set!")
     }
 }

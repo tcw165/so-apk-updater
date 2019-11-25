@@ -1,8 +1,9 @@
 package co.sodalabs.apkupdater
 
 import android.annotation.SuppressLint
+import android.os.StrictMode
+import android.os.StrictMode.VmPolicy
 import android.provider.Settings
-import android.util.Log
 import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
@@ -16,11 +17,13 @@ import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.SharedSettingsProps
 import co.sodalabs.updaterengine.SharedSettingsProps.SERVER_ENVIRONMENT
+import co.sodalabs.updaterengine.SharedSettingsProps.SPARKPOINT_REST_API_BASE_URL
 import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.UpdatesChecker
 import co.sodalabs.updaterengine.UpdatesDownloader
 import co.sodalabs.updaterengine.UpdatesInstaller
+import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import com.bugsnag.android.Bugsnag
 import com.bugsnag.android.Configuration
 import com.jakewharton.processphoenix.ProcessPhoenix
@@ -31,11 +34,14 @@ import dagger.android.HasAndroidInjector
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.plugins.RxJavaPlugins
 import io.reactivex.rxkotlin.addTo
+import leakcanary.AppWatcher
+import leakcanary.LeakCanary
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 private const val DEBUG_DEVICE_ID = "999999"
+private const val EMPTY_STRING = ""
 
 class UpdaterApp :
     MultiDexApplication(),
@@ -57,6 +63,8 @@ class UpdaterApp :
     lateinit var heartBeater: UpdaterHeartBeater
     @Inject
     lateinit var sharedSettings: ISharedSettings
+    @Inject
+    lateinit var updaterStateTracker: IUpdaterStateTracker
 
     private val globalDisposables = CompositeDisposable()
 
@@ -72,6 +80,8 @@ class UpdaterApp :
         initCrashReporting()
         initLogging()
         initDatetime()
+        initLeakCanary()
+        initStrictMode()
         logSystemInfo()
 
         safeguardsUndeliverableException()
@@ -82,10 +92,50 @@ class UpdaterApp :
         UpdaterService.start(this)
     }
 
+    private fun initLeakCanary() {
+        // Note: LeakCanary initializes in ContentProvider.
+        // Setting retained visibility to 0 to always dump the leak report.
+        LeakCanary.config = LeakCanary.config.copy(
+            retainedVisibleThreshold = 0
+        )
+
+        if (BuildUtils.isRelease()) {
+            // We don't want this guy running in the background on DEBUG build.
+            AppWatcher.config = AppWatcher.config.copy(enabled = false)
+        }
+    }
+
+    private fun initStrictMode() {
+        if (BuildUtils.isDebug() || BuildUtils.isPreRelease()) {
+            StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.Builder()
+                // Note: You'll see a lot of warning by enabling disk reads cause
+                // the shared preference and system settings all cache the database
+                // in MAIN thread in their initialization.
+                // Basically, all the system components related to ContentProvider
+                // share this common issue.
+                // .detectDiskReads()
+                .detectDiskWrites()
+                .detectNetwork() // or .detectAll() for all detectable problems
+                // Note: The log uses LogCat directly and we have no control such as
+                // logging to the crashlytics service.
+                .penaltyLog()
+                .penaltyFlashScreen()
+                .build())
+            StrictMode.setVmPolicy(VmPolicy.Builder()
+                .detectLeakedSqlLiteObjects()
+                .detectLeakedClosableObjects()
+                .penaltyLog()
+                .penaltyDeath()
+                .build())
+        }
+    }
+
     @SuppressLint("LogNotTimber")
     private fun initLogging() {
         val logTree = Timber.DebugTree()
+        Timber.plant(logTree)
 
+        /* Do not remove, will need this again.
         if (BuildUtils.isRelease()) {
             // Note: There would be a short latency on planting the log tree on
             // release build.
@@ -112,18 +162,39 @@ class UpdaterApp :
             // Otherwise, always log.
             Timber.plant(logTree)
         }
+        */
     }
 
     private fun initCrashReporting() {
+        val deviceID = sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: "device ID not set yet!"
         val config = Configuration(BuildConfig.BUGSNAG_API_KEY).apply {
             // Only send report for staging and release
             notifyReleaseStages = arrayOf(BuildUtils.TYPE_PRE_RELEASE, BuildUtils.TYPE_RELEASE)
             releaseStage = BuildConfig.BUILD_TYPE
 
-            val deviceID = sharedSettings.getSecureString(SharedSettingsProps.DEVICE_ID) ?: "device ID not set yet!"
             metaData.addToTab(MetadataProps.BUCKET_DEVICE, MetadataProps.KEY_DEVICE_ID, deviceID)
+            metaData.addToTab(MetadataProps.TAB_BUILD_INFO, MetadataProps.KEY_DEVICE_ID, deviceID)
+            metaData.addToTab(MetadataProps.TAB_BUILD_INFO, MetadataProps.KEY_HARDWARE_ID, sharedSettings.getHardwareId())
+            metaData.addToTab(MetadataProps.TAB_BUILD_INFO, MetadataProps.KEY_FIRMWARE_VERSION, systemProperties.getFirmwareVersion())
         }
+
         val bugTracker = Bugsnag.init(this, config)
+        bugTracker.setUserId(deviceID)
+        bugTracker.beforeNotify {
+            val (state, stateMetadata) = updaterStateTracker.snapshotStateWithMetadata()
+
+            // Add the state machine state just after an error is captured
+            it.addToTab(MetadataProps.TAB_UPDATER_STATE, MetadataProps.KEY_STATE, state.name)
+
+            // Add all the little bits of metadata as well
+            stateMetadata.entries
+                .forEach { entry ->
+                    val (key, value) = entry
+                    it.addToTab(MetadataProps.TAB_UPDATER_STATE, key, value)
+                }
+
+            true
+        }
 
         Timber.plant(BugsnagTree(bugTracker))
     }
@@ -291,24 +362,30 @@ class UpdaterApp :
     }
 
     private fun initNetworkEnvironment() {
-        val apiBaseURL = rawPreference.getString(PreferenceProps.API_BASE_URL, "")
+        val defaultBaseUrl = BuildConfig.BASE_URLS.last()
+        val apiBaseURL = rawPreference.getString(PreferenceProps.API_BASE_URL, defaultBaseUrl) ?: defaultBaseUrl
+
+        sharedSettings.putGlobalString(SPARKPOINT_REST_API_BASE_URL, apiBaseURL)
+        Timber.v("[Updater] Set Default API base URL, \"$apiBaseURL\"")
+
         val environment = ServerEnvironment.fromRawUrl(apiBaseURL)
         sharedSettings.putGlobalString(SERVER_ENVIRONMENT, environment.name)
-        Timber.v("[Updater] API environment, \"$environment\"")
-        Timber.v("[Updater] API base URL, \"$apiBaseURL\"")
+        Timber.v("[Updater] Set Default API environment, \"$environment\"")
     }
 
     @SuppressLint("ApplySharedPref")
     private fun observeSystemConfigChange() {
         // Restart the process for all kinds of rawPreference change!
         appPreference.observeAnyChange()
+            .filter(this::ignoredProperties)
             .debounce(Intervals.DEBOUNCE_VALUE_CHANGE, TimeUnit.MILLISECONDS)
             .observeOn(schedulers.main())
             .subscribe({ key ->
                 if (key == PreferenceProps.API_BASE_URL) {
-                    val rawApiUrl = rawPreference.getString(PreferenceProps.API_BASE_URL, "")
+                    val rawApiUrl = rawPreference.getString(PreferenceProps.API_BASE_URL, EMPTY_STRING) ?: EMPTY_STRING
                     val environment = ServerEnvironment.fromRawUrl(rawApiUrl)
                     sharedSettings.putGlobalString(SERVER_ENVIRONMENT, environment.name)
+                    sharedSettings.putGlobalString(SPARKPOINT_REST_API_BASE_URL, rawApiUrl)
                 }
 
                 Timber.v("[Updater] System configuration changes, so restart the process!")
@@ -319,4 +396,9 @@ class UpdaterApp :
             }, Timber::e)
             .addTo(globalDisposables)
     }
+
+    // TODO: There should be more sophisticated mechanism to ignore properties
+    //  that we don't want to use for triggering restart engine event
+    private fun ignoredProperties(key: String) =
+        key != PreferenceProps.LOG_FILE_CREATED_TIMESTAMP
 }

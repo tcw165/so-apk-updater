@@ -49,4 +49,5 @@ interface UpdaterConfig {
      * Used for caching the journal of downloaded updates in disk.
      */
     val downloadedUpdateDiskCache: DiskLruCache
+    val isBetaAllowed: Boolean
 }

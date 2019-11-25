@@ -42,6 +42,7 @@ import javax.inject.Inject
 
 class AndroidPasscodeDialogFactory @Inject constructor(
     private val activity: AppCompatActivity,
+    private val leakUtil: ILeakUtil,
     private val sharedSettings: ISharedSettings,
     private val touchTracker: ITouchTracker,
     private val schedulers: IThreadSchedulers
@@ -51,7 +52,14 @@ class AndroidPasscodeDialogFactory @Inject constructor(
         return Single
             .create<Boolean> { emitter ->
                 val dialog = createDialog(emitter)
-                emitter.setCancellable { dialog.dismiss() }
+                emitter.setCancellable {
+                    if (dialog.isShowing) {
+                        dialog.dismiss()
+                    }
+
+                    // The system TextLine has a memory leak issue under 23.
+                    leakUtil.clearTextLineCache()
+                }
                 Timber.v("[Passcode] Show dialog")
                 dialog.show()
             }

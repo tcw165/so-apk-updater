@@ -15,6 +15,8 @@ data class HeartBeatBody(
     val firmwareVersion: String,
     @Json(name = "apk_version")
     val sparkpointPlayerVersion: String,
+    @Json(name = "updater_version")
+    val updaterVersion: String,
     @Json(name = "updater_state")
     val updaterState: String,
     @Json(name = "updater_metadata")

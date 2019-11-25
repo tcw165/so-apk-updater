@@ -4,11 +4,9 @@ import android.annotation.SuppressLint
 import android.content.ContentResolver
 import android.database.ContentObserver
 import android.net.Uri
-import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.provider.Settings
-import androidx.multidex.BuildConfig
 import co.sodalabs.updaterengine.extension.toBoolean
 import co.sodalabs.updaterengine.extension.toInt
 import co.sodalabs.updaterengine.rx.InitialValueObservable
@@ -68,7 +66,7 @@ class AndroidSharedSettings @Inject constructor(
     @SuppressLint("HardwareIds")
     override fun getHardwareId(): String {
         val androidId = getSecureString(Settings.Secure.ANDROID_ID)
-        return "${Build.MANUFACTURER}:${BuildConfig.DEBUG}:$androidId"
+        return "$androidId"
     }
 
     override fun getDeviceId(): String {
@@ -260,7 +258,8 @@ class AndroidSharedSettings @Inject constructor(
                     if (emitter.isDisposed ||
                         // Some Android isn't signed with the same key as this
                         // system app, and that will throw exception.
-                        err is SecurityException) return@create
+                        err is SecurityException
+                    ) return@create
 
                     emitter.onError(err)
                 }

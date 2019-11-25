@@ -1,5 +1,6 @@
 package co.sodalabs.apkupdater
 
+@Deprecated("Use [SPARKPOINT_REST_API_BASE_URL] instead")
 enum class ServerEnvironment {
     LOCALHOST,
     STAGING,

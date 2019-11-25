@@ -48,6 +48,8 @@ android {
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
 
+        multiDexEnabled true
+
         buildConfigField "String", "BUGSNAG_API_KEY", "\"$bugsnagAPIKey\""
 
         buildConfigField "String", "GIT_SHA", "\"${getGitHash()}\""
@@ -68,6 +70,13 @@ android {
         buildConfigField "int", "WRITE_TIMEOUT_SECONDS", "45"
         buildConfigField "int", "MAX_CONNECTIONS_PER_HOST", "10"
         buildConfigField "int", "MAX_TOTAL_CONNECTIONS", "10"
+
+        // Log Persistence Configs /////////////////////////////////////////////
+        // IMPORTANT: The least interval value can be 15 minutes for [PeriodicWorkRequest]
+        // Anything lower will be replaced on runtime with 15 minutes by the [WorkManager]
+        buildConfigField "long", "REPEAT_INTERVAL_IN_MILLIS", "3 * 60 * 60 * 1000L"         // 3 Hours
+        buildConfigField "long", "MAX_FILE_DURATION_IN_MILLIS", "7 * 24 * 60 * 60 * 1000L"  // 7 Days
+        buildConfigField "long", "MAX_LOG_FILE_SIZE_IN_BYTES", "2 * 1024 * 1024L"           // 2 MBs
     }
 
     signingConfigs {
@@ -157,6 +166,10 @@ android {
                 "}"
             buildConfigField "String[]", "PACKAGES_TO_CHECK", "{" +
                 "\"co.sodalabs.sparkpoint\"" +
+                "}"
+            buildConfigField "String[]", "UPDATE_CHANNELS", "{" +
+                "\"Beta\"," +
+                "\"Stable\"" +
                 "}"
         }
     }
@@ -273,16 +286,7 @@ dependencies {
     implementation 'com.bugsnag:bugsnag-android:4.17.2'
 
     // Leak Canary
-    debugImplementation deps.leakcanary.android
-    preReleaseImplementation deps.leakcanary.androidNoOp
-    releaseImplementation deps.leakcanary.androidNoOp
-    testImplementation deps.leakcanary.androidNoOp
-
-    // Block Canary
-    debugImplementation deps.blockcanary.android
-    preReleaseImplementation deps.blockcanary.androidNoOp
-    releaseImplementation deps.blockcanary.androidNoOp
-    testImplementation deps.blockcanary.androidNoOp
+    implementation deps.leakcanary.android
 
     // Better dimens
     // FIXME: Figure out the right resolution in design assets!

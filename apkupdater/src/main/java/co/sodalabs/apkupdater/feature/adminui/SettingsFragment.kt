@@ -26,20 +26,23 @@ import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.data.HTTPResponseCode
+import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import co.sodalabs.updaterengine.extension.smartRetryWhen
+import co.sodalabs.updaterengine.feature.logPersistence.ILogFileProvider
+import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceScheduler
 import com.jakewharton.rxrelay2.PublishRelay
 import dagger.android.support.AndroidSupportInjection
 import io.reactivex.Observable
 import io.reactivex.Single
-import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
 import javax.inject.Inject
 
 private const val KEY_API_BASE_URL = PreferenceProps.API_BASE_URL
+private const val KEY_API_UPDATE_CHANNEL = PreferenceProps.API_UPDATE_CHANNEL
 private const val KEY_VERSIONS = "versions"
 private const val KEY_HEART_BEAT_WATCHER = "heartbeat_watcher"
 private const val KEY_HEART_BEAT_NOW = "send_heartbeat_now"
@@ -48,6 +51,7 @@ private const val KEY_CHECK_STATUS = "check_status"
 private const val KEY_SHOW_ANDROID_SETTINGS = "androidSettings"
 private const val KEY_HOME_INTENT = "home_intent"
 private const val KEY_SHOW_INTERNET_SPEED_TEST = "speedTestApp"
+private const val KEY_SEND_LOGS = "sendLogs"
 
 private const val PACKAGE_APK_UPDATER = BuildConfig.APPLICATION_ID
 private const val PACKAGE_PRIVILEGED_INSTALLER = co.sodalabs.updaterengine.Packages.PRIVILEGED_EXTENSION_PACKAGE_NAME
@@ -71,6 +75,10 @@ class SettingsFragment :
     lateinit var sharedSettings: ISharedSettings
     @Inject
     lateinit var systemProperties: ISystemProperties
+    @Inject
+    lateinit var logsPersistenceScheduler: LogsPersistenceScheduler
+    @Inject
+    lateinit var logFileProvider: ILogFileProvider
 
     private val disposables = CompositeDisposable()
 
@@ -90,7 +98,7 @@ class SettingsFragment :
         super.onResume()
 
         setupBaseURLPreference()
-
+        setupUpdateChannelPreference()
         observeVersions()
         observeHeartBeatNowClicks()
         observeRecurringHeartBeat()
@@ -166,9 +174,19 @@ class SettingsFragment :
             ?: throw IllegalStateException("Can't find preference!")
     }
 
+    private val apiUpdateChannelPref by lazy {
+        findPreference<ListPreference>(KEY_API_UPDATE_CHANNEL)
+            ?: throw IllegalStateException("Can't find preference!")
+    }
+
     private fun setupBaseURLPreference() {
         apiBaseURLPref.entries = BuildConfig.BASE_URLS
         apiBaseURLPref.entryValues = BuildConfig.BASE_URLS
+    }
+
+    private fun setupUpdateChannelPreference() {
+        apiUpdateChannelPref.entries = BuildConfig.UPDATE_CHANNELS
+        apiUpdateChannelPref.entryValues = BuildConfig.UPDATE_CHANNELS
     }
 
     // Heart Beat /////////////////////////////////////////////////////////////
@@ -190,6 +208,7 @@ class SettingsFragment :
         val safeContext = context ?: throw NullPointerException("Context is null")
 
         sendHeartBeatNowPref.clicks()
+            .observeOn(schedulers.main())
             .flatMap {
                 heartbeater.sendHeartBeatNow()
 
@@ -201,12 +220,17 @@ class SettingsFragment :
                     }
                     .startWith(UiState.InProgress())
                     .take(2)
+                    .subscribeOn(schedulers.main())
             }
-            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
-                caughtErrorRelay.accept(error)
-                true
+            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.computation()) { error ->
+                if (error is DeviceNotSetupException) {
+                    false
+                } else {
+                    caughtErrorRelay.accept(error)
+                    true
+                }
             }
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({ uiState ->
                 when (uiState) {
                     is UiState.InProgress<Int> -> {
@@ -235,13 +259,16 @@ class SettingsFragment :
     private fun observeRecurringHeartBeat() {
         var last = "???"
         heartbeater.observeRecurringHeartBeat()
-            .observeOn(AndroidSchedulers.mainThread())
-            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
-                markHeartBeatDone()
-                caughtErrorRelay.accept(error)
-                true
+            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.computation()) { error ->
+                if (error is DeviceNotSetupException) {
+                    false
+                } else {
+                    markHeartBeatDone()
+                    caughtErrorRelay.accept(error)
+                    true
+                }
             }
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({ code ->
                 val now = getPrettyDateNow()
                 heartBeatWatcherPref.title = "$heartbeatWatcherTitle at $last (HTTP status code: $code)"
@@ -279,6 +306,7 @@ class SettingsFragment :
         val safeContext = context ?: throw NullPointerException("Context is null")
 
         checkUpdateNowPref.clicks()
+            .observeOn(schedulers.main())
             .flatMap {
                 UpdaterService.checkUpdateNow(safeContext, resetSession = true)
 
@@ -290,14 +318,14 @@ class SettingsFragment :
                     }
                     .startWith(UiState.InProgress())
                     .take(2)
+                    .subscribeOn(schedulers.main())
             }
-            .observeOn(AndroidSchedulers.mainThread())
-            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, AndroidSchedulers.mainThread()) { error ->
+            .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.computation()) { error ->
                 markCheckUpdateDone()
                 caughtErrorRelay.accept(error)
                 true
             }
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({ uiState ->
                 when (uiState) {
                     is UiState.InProgress<Boolean> -> {
@@ -334,7 +362,15 @@ class SettingsFragment :
             .subscribe({ intent ->
                 when (intent.action) {
                     IntentActions.ACTION_CHECK_UPDATE -> checkStatusPref.summary = "Check"
-                    IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE -> checkStatusPref.summary = "Check... found available app updates"
+                    IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE -> {
+                        val updates = intent.getParcelableArrayListExtra<AppUpdate>(IntentActions.PROP_FOUND_UPDATES)
+                        val message = if (updates.isEmpty()) {
+                            "Check... No updates found"
+                        } else {
+                            "Check... found available app updates"
+                        }
+                        checkStatusPref.summary = message
+                    }
                     IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE -> {
                         val foundUpdate = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATE)
                         checkStatusPref.summary = "Check... found available firmware update, '${foundUpdate.fileURL}'"
@@ -354,8 +390,10 @@ class SettingsFragment :
                         checkStatusPref.summary = "Download... '${update.packageName}' at $progressPercentage%"
                     }
                     IntentActions.ACTION_DOWNLOAD_APP_UPDATE_COMPLETE -> {
-                        val update = intent.getParcelableExtra<AppUpdate>(IntentActions.PROP_FOUND_UPDATE)
-                        checkStatusPref.summary = "Download... '${update.packageName}' finished"
+                        val update = intent.getParcelableExtra<AppUpdate?>(IntentActions.PROP_FOUND_UPDATE)
+                        update?.let {
+                            checkStatusPref.summary = "Download... '${it.packageName}' finished"
+                        }
                     }
                     IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE -> {
                         checkStatusPref.summary = "Download... firmware"
@@ -366,8 +404,10 @@ class SettingsFragment :
                         checkStatusPref.summary = "Download... '${update.fileURL}' at $progressPercentage%"
                     }
                     IntentActions.ACTION_DOWNLOAD_FIRMWARE_UPDATE_COMPLETE -> {
-                        val update = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATE)
-                        checkStatusPref.summary = "Download... '${update.fileURL}' finished"
+                        val update = intent.getParcelableExtra<FirmwareUpdate?>(IntentActions.PROP_FOUND_UPDATE)
+                        update?.let {
+                            checkStatusPref.summary = "Download... '${it.fileURL}' finished"
+                        }
                     }
 
                     // Install section
@@ -408,10 +448,15 @@ class SettingsFragment :
 
     private fun observeCaughtErrors() {
         caughtErrorRelay
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({ error ->
                 context?.let { c ->
                     Toast.makeText(c, "Capture $error", Toast.LENGTH_LONG).show()
+                }
+                if (error is DeviceNotSetupException) {
+                    Timber.w(error)
+                } else {
+                    Timber.e(error)
                 }
             }, Timber::e)
             .addTo(disposables)
@@ -431,6 +476,7 @@ class SettingsFragment :
     private fun Preference.clicks(): Observable<Unit> {
         val thisPreference = this
         return preferenceClicks
+            .observeOn(schedulers.main())
             .filter { thisPreference.isEnabled && it == thisPreference }
             .map { Unit }
     }
@@ -449,10 +495,14 @@ class SettingsFragment :
         findPreference<Preference>(KEY_SHOW_INTERNET_SPEED_TEST)
             ?: throw IllegalStateException("Can't find preference!")
     }
+    private val sendLogsPref by lazy {
+        findPreference<Preference>(KEY_SEND_LOGS)
+            ?: throw IllegalStateException("Can't find preference!")
+    }
 
     private fun observeOtherButtonClicks() {
         showAndroidSettingsPref.clicks()
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({
                 startActivity(Intent(android.provider.Settings.ACTION_SETTINGS).apply {
                     addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -462,7 +512,7 @@ class SettingsFragment :
             .addTo(disposables)
 
         homeIntentPref.clicks()
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({
                 startActivity(Intent(Intent.ACTION_MAIN).apply {
                     addCategory(Intent.CATEGORY_HOME)
@@ -474,7 +524,7 @@ class SettingsFragment :
             .addTo(disposables)
 
         showInternetSpeedTestPref.clicks()
-            .observeOn(AndroidSchedulers.mainThread())
+            .observeOn(schedulers.main())
             .subscribe({
                 val safeContext = context ?: return@subscribe
                 val pm = safeContext.packageManager
@@ -492,6 +542,19 @@ class SettingsFragment :
                 } ?: kotlin.run {
                     Toast.makeText(safeContext, "Cannot find the launch Intent for '${Packages.NET_SPEED_TEST_PACKAGE_NAME}'", Toast.LENGTH_LONG).show()
                 }
+            }, Timber::e)
+            .addTo(disposables)
+
+        sendLogsPref.clicks()
+            .flatMap { logsPersistenceScheduler.triggerImmediate(logFileProvider.logFile.absolutePath) }
+            .observeOn(schedulers.main())
+            .subscribe({ success ->
+                val message = if (success) {
+                    R.string.send_logs_success_msg
+                } else {
+                    R.string.send_logs_failure_msg
+                }
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
             }, Timber::e)
             .addTo(disposables)
     }

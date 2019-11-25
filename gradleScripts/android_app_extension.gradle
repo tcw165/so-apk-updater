@@ -19,24 +19,32 @@ android.applicationVariants.all { variant ->
 }
 
 // Don't rename the mapping file otherwise the bug tracking plugin won't work very likely.
-//android.applicationVariants.all { variant ->
-//    variant.assembleProvider.configure {
-//        it.doLast {
-//            if (variant.mappingFile != null && variant.mappingFile.exists()) {
-//                def isDebuggable = variant.getBuildType().isDebuggable()
-//                def mappingFileName = "$archivesBaseName-$variant.baseName-mapping.txt"
-//                (new File(variant.mappingFile.parent, mappingFileName)).delete()
-//
-//                def appName = artifactProperties.artifact_name
-//
-//                if (isDebuggable) {
-//                    variant.mappingFile.renameTo(variant.mappingFile.parent +
-//                        "/$appName-$variant.baseName-${variant.versionName}-${getGitHash()}-mapping.txt")
-//                } else {
-//                    variant.mappingFile.renameTo(variant.mappingFile.parent +
-//                        "/$appName-$variant.baseName-${variant.versionName}-mapping.txt")
-//                }
-//            }
-//        }
-//    }
-//}
+// Instead, copy it so that CI can still add it to the Github artifacts
+android.applicationVariants.all { variant ->
+    variant.assembleProvider.configure {
+        it.doLast {
+            if (variant.mappingFile != null && variant.mappingFile.exists()) {
+                def isDebuggable = variant.getBuildType().isDebuggable()
+                def mappingFileName = "$archivesBaseName-$variant.baseName-mapping.txt"
+
+                // Delete old renamed mapping file if it exists
+                (new File(variant.mappingFile.parent, mappingFileName)).delete()
+
+                def appName = artifactProperties.artifact_name
+
+                // Copy the file to a new name without deleting the original file
+                copy {
+                    from variant.mappingFile
+                    into variant.mappingFile.parent
+                    rename {
+                        if (isDebuggable) {
+                            variant.mappingFile.parent + "/$appName-$variant.baseName-${variant.versionName}-${getGitHash()}-mapping.txt"
+                        } else {
+                            variant.mappingFile.parent + "/$appName-$variant.baseName-${variant.versionName}-mapping.txt"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

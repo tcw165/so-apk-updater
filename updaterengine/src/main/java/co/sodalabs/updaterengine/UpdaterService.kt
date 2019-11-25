@@ -23,6 +23,7 @@ import co.sodalabs.updaterengine.data.DownloadedAppUpdate
 import co.sodalabs.updaterengine.data.DownloadedFirmwareUpdate
 import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
+import co.sodalabs.updaterengine.exception.NoUpdateFoundException
 import co.sodalabs.updaterengine.extension.ensureBackgroundThread
 import co.sodalabs.updaterengine.extension.getIndicesToRemove
 import co.sodalabs.updaterengine.extension.prepareError
@@ -36,8 +37,9 @@ import co.sodalabs.updaterengine.extension.prepareUpdateFound
 import co.sodalabs.updaterengine.extension.prepareUpdateInstalled
 import co.sodalabs.updaterengine.extension.toBoolean
 import co.sodalabs.updaterengine.extension.toInt
+import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceScheduler
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
-import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateMachine
+import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import co.sodalabs.updaterengine.feature.statemachine.KEY_CHECK_ERROR
 import co.sodalabs.updaterengine.feature.statemachine.KEY_CHECK_INTERVAL
 import co.sodalabs.updaterengine.feature.statemachine.KEY_CHECK_RESULT
@@ -71,7 +73,6 @@ import dagger.android.AndroidInjection
 import io.reactivex.Single
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.internal.schedulers.SingleScheduler
-import io.reactivex.rxkotlin.Observables
 import io.reactivex.rxkotlin.addTo
 import org.threeten.bp.Duration
 import org.threeten.bp.Instant
@@ -91,6 +92,9 @@ private const val CACHE_KEY_DOWNLOADED_UPDATES = "downloaded_updates"
 private const val TOTAL_CHECK_ATTEMPTS_PER_SESSION = 200
 private const val TOTAL_DOWNLOAD_ATTEMPTS_PER_SESSION = 200
 private const val INVALID_PROGRESS_VALUE = -1
+
+private const val TRUE_STRING = "TRUE"
+private const val FALSE_STRING = "FALSE"
 
 class UpdaterService : Service() {
 
@@ -199,7 +203,7 @@ class UpdaterService : Service() {
             context: Context
         ) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("[Updater] (< 21) Cancel a pending check, using AlarmManager")
+                Timber.v("[Updater] (< 21) Cancel any pending check, using AlarmManager")
 
                 val intent = Intent(context, UpdaterService::class.java)
                 intent.apply {
@@ -230,7 +234,8 @@ class UpdaterService : Service() {
             updates: List<AppUpdate>,
             errors: List<Throwable>
         ) {
-            Timber.v("[Check] Check job just completes")
+            val resultMessage = if (errors.isEmpty()) " with ${updates.size} updates" else " with errors: $errors"
+            Timber.v("[Updater] Check app job completed $resultMessage")
             uiHandler.post {
                 val action = IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE
                 val broadcastIntent = Intent()
@@ -253,7 +258,7 @@ class UpdaterService : Service() {
             context: Context,
             update: FirmwareUpdate
         ) {
-            Timber.v("[Check] Check job just completes")
+            Timber.v("[Updater] Check firmware job completed with update")
             uiHandler.post {
                 val action = IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_COMPLETE
                 val broadcastIntent = Intent()
@@ -276,7 +281,7 @@ class UpdaterService : Service() {
             context: Context,
             error: Throwable
         ) {
-            Timber.v("[Check] Check job just completes")
+            Timber.v("[Updater] Check firmware job completed with error: $error")
             uiHandler.post {
                 val action = IntentActions.ACTION_CHECK_FIRMWARE_UPDATE_ERROR
                 val broadcastIntent = Intent()
@@ -513,9 +518,13 @@ class UpdaterService : Service() {
     @Inject
     lateinit var sharedSettings: ISharedSettings
     @Inject
-    lateinit var stateMachine: IUpdaterStateMachine
+    lateinit var stateTracker: IUpdaterStateTracker
+    @Inject
+    lateinit var scheduleUtils: ScheduleUtils
     @Inject
     lateinit var schedulers: IThreadSchedulers
+    @Inject
+    lateinit var logPersistenceScheduler: LogsPersistenceScheduler
 
     private val disposablesOnCreateDestroy = CompositeDisposable()
 
@@ -524,12 +533,17 @@ class UpdaterService : Service() {
         AndroidInjection.inject(this)
         super.onCreate()
 
+        // Persist logs locally to be used later
+        logPersistenceScheduler.start()
+
         observeUpdateIntentOnEngineThread()
         observeDeviceTimeChanges()
+        observeUserSetupComplete()
     }
 
     override fun onDestroy() {
         Timber.v("[Updater] Updater Service is offline")
+        logPersistenceScheduler.stop()
         disposablesOnCreateDestroy.clear()
         super.onDestroy()
     }
@@ -541,6 +555,7 @@ class UpdaterService : Service() {
     ): Int {
         startForeground(NOTIFICATION_ID, UpdaterNotificationFactory.create(this, NOTIFICATION_CHANNEL_ID))
 
+        // Process the Intent in the engine thread.
         intent?.let { updaterIntentForwarder.accept(it) }
 
         // Note: It's a long running foreground Service.
@@ -551,9 +566,6 @@ class UpdaterService : Service() {
 
     private val updaterIntentForwarder = PublishRelay.create<Intent>().toSerialized()
     private val updaterScheduler = SingleScheduler()
-
-    @Volatile
-    private var lastUpdaterState: UpdaterState = UpdaterState.Idle
 
     private fun observeUpdateIntentOnEngineThread() {
         updaterIntentForwarder
@@ -592,17 +604,22 @@ class UpdaterService : Service() {
         // If it is in the INSTALL state, then install the updates from the disk cache.
         continueInstallsOrScheduleCheckOnStart()
 
-        val heartbeatInterval = updaterConfig.heartbeatIntervalMillis
-        heartBeater.scheduleRecurringHeartBeat(heartbeatInterval)
+        if (sharedSettings.isUserSetupComplete()) {
+            val heartbeatInterval = updaterConfig.heartbeatIntervalMillis
+            heartBeater.scheduleRecurringHeartBeat(heartbeatInterval)
+        }
     }
 
     /**
      * Transitioning to idle state can happen anytime at any state. This
      * transitioning also cancels all the pending works and resets the internal
      * properties.
+     *
+     * IF the user setup is complete,
+     * this one schedules a delayed check after the cleanup.
      */
     private fun transitionToIdleState() {
-        transitionToState(UpdaterState.Idle)
+        transitionToState(UpdaterState.Idle, emptyMap())
 
         // Reset attempts
         checkAttempts = 0
@@ -612,22 +629,12 @@ class UpdaterService : Service() {
         cancelPendingCheck(this)
         downloader.cancelPendingAndWipDownloads()
         installer.cancelPendingInstalls()
-    }
-
-    /**
-     * Transitioning to idle state can happen anytime at any state. This
-     * transitioning also cancels all the pending works and resets the internal
-     * properties.
-     * But this one schedules a delayed check after the cleanup.
-     */
-    private fun transitionToIdleStateAndScheduleNextCheck() {
-        transitionToIdleState()
 
         // Schedule a next check after the interval given from the config.
         if (sharedSettings.isUserSetupComplete()) {
             val interval = updaterConfig.checkIntervalMillis
 
-            stateMachine.addMetadata(
+            stateTracker.addStateMetadata(
                 mapOf(
                     KEY_CHECK_INTERVAL to Duration.ofMillis(interval).toString(),
                     KEY_NEXT_CHECK_TIME to Instant.now().plusMillis(interval).atZone(ZoneId.systemDefault()).toString(),
@@ -641,25 +648,24 @@ class UpdaterService : Service() {
     private fun transitionToCheckState(
         resetSession: Boolean
     ) {
-        val updaterState = stateMachine.state
+        val updaterState = stateTracker.snapshotState()
         if (updaterState == UpdaterState.Idle ||
             // For admin user to reset the session.
             resetSession
         ) {
-            transitionToState(UpdaterState.Check)
-
             // Cancel pending downloads and installs.
             downloader.cancelPendingAndWipDownloads()
             installer.cancelPendingInstalls()
 
-            // Then check.
-            checker.checkNow()
-
-            stateMachine.addMetadata(
+            transitionToState(
+                UpdaterState.Check,
                 mapOf(
-                    KEY_CHECK_RUNNING to true
+                    KEY_CHECK_RUNNING to TRUE_STRING
                 )
             )
+
+            // Then check.
+            checker.checkNow()
         } else {
             throw IllegalStateException("Can't transition from $updaterState to ${UpdaterState.Check}")
         }
@@ -668,14 +674,17 @@ class UpdaterService : Service() {
     private fun transitionToDownloadStateForAppUpdate(
         foundUpdates: List<AppUpdate>
     ) {
-        val updaterState = stateMachine.state
+        val updaterState = stateTracker.snapshotState()
         if (updaterState == UpdaterState.Check) {
-            transitionToState(UpdaterState.Download)
-
-            stateMachine.addMetadata(
+            val updateString = foundUpdates.joinToString { "${it.packageName} - ${it.versionName}" }
+            transitionToState(
+                UpdaterState.Download,
                 mapOf(
+                    KEY_CHECK_TYPE to PROP_TYPE_APP,
+                    KEY_CHECK_RUNNING to FALSE_STRING,
+                    KEY_CHECK_RESULT to updateString,
                     KEY_DOWNLOAD_TYPE to PROP_TYPE_APP,
-                    KEY_DOWNLOAD_RUNNING to true
+                    KEY_DOWNLOAD_RUNNING to TRUE_STRING
                 )
             )
 
@@ -688,14 +697,13 @@ class UpdaterService : Service() {
     private fun transitionToDownloadStateForFirmwareUpdate(
         foundUpdate: FirmwareUpdate
     ) {
-        val updaterState = stateMachine.state
+        val updaterState = stateTracker.snapshotState()
         if (updaterState == UpdaterState.Check) {
-            transitionToState(UpdaterState.Download)
-
-            stateMachine.addMetadata(
+            transitionToState(
+                UpdaterState.Download,
                 mapOf(
                     KEY_DOWNLOAD_TYPE to PROP_TYPE_FIRMWARE,
-                    KEY_DOWNLOAD_RUNNING to true
+                    KEY_DOWNLOAD_RUNNING to TRUE_STRING
                 )
             )
 
@@ -708,19 +716,18 @@ class UpdaterService : Service() {
     private fun transitionToInstallStateForAppUpdate(
         downloadedUpdates: List<DownloadedAppUpdate>
     ) {
-        val updaterState = stateMachine.state
+        val updaterState = stateTracker.snapshotState()
         if (updaterState == UpdaterState.Idle ||
             updaterState == UpdaterState.Download
         ) {
-            transitionToState(UpdaterState.Install)
-
             val installWindow = updaterConfig.installWindow
-            val time = ScheduleUtils.findNextInstallTimeMillis(installWindow)
+            val time = scheduleUtils.findNextInstallTimeMillis(installWindow)
 
-            stateMachine.addMetadata(
+            transitionToState(
+                UpdaterState.Install,
                 mapOf(
                     KEY_INSTALL_TYPE to PROP_TYPE_APP,
-                    KEY_INSTALL_RUNNING to true,
+                    KEY_INSTALL_RUNNING to TRUE_STRING,
                     KEY_INSTALL_DELAY to Duration.ofMillis(time).toString(),
                     KEY_INSTALL_AT to Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault()).toString(),
                     PROP_CURRENT_TIME to Instant.now().atZone(ZoneId.systemDefault()).toString()
@@ -736,19 +743,18 @@ class UpdaterService : Service() {
     private fun transitionToInstallStateForFirmwareUpdate(
         downloadedUpdate: DownloadedFirmwareUpdate
     ) {
-        val updaterState = stateMachine.state
+        val updaterState = stateTracker.snapshotState()
         if (updaterState == UpdaterState.Idle ||
             updaterState == UpdaterState.Download
         ) {
-            transitionToState(UpdaterState.Install)
-
             val installWindow = updaterConfig.installWindow
-            val time = ScheduleUtils.findNextInstallTimeMillis(installWindow)
+            val time = scheduleUtils.findNextInstallTimeMillis(installWindow)
 
-            stateMachine.addMetadata(
+            transitionToState(
+                UpdaterState.Install,
                 mapOf(
                     KEY_INSTALL_TYPE to PROP_TYPE_FIRMWARE,
-                    KEY_INSTALL_RUNNING to true,
+                    KEY_INSTALL_RUNNING to TRUE_STRING,
                     KEY_INSTALL_DELAY to Duration.ofMillis(time).toString(),
                     KEY_INSTALL_AT to Instant.ofEpochMilli(time).atZone(
                         ZoneId.systemDefault()
@@ -778,7 +784,7 @@ class UpdaterService : Service() {
         downloader.cancelPendingAndWipDownloads()
         installer.cancelPendingInstalls()
 
-        transitionToState(UpdaterState.Install)
+        transitionToState(UpdaterState.Install, emptyMap())
 
         val update = intent.getParcelableExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATE)
         val currentMillis = Instant.now()
@@ -793,35 +799,27 @@ class UpdaterService : Service() {
      * Note: Only state transition function can call this method.
      */
     private fun transitionToState(
-        nextState: UpdaterState
+        nextState: UpdaterState,
+        metadata: Map<String, String>
     ) {
         // For visuals of state transition, check out the link here,
         // https://www.notion.so/sodalabs/APK-Updater-Overview-a3033e1f51604668a9dae02bdb1d7d09
-        Timber.v("[Updater] Transition updater state from ${stateMachine.state} to $nextState")
-        lastUpdaterState = stateMachine.state
-        stateMachine.putState(nextState)
-        stateMachine.addMetadata(emptyMap())
+        val state = stateTracker.snapshotState()
+        Timber.v("[Updater] Transition updater state from $state to $nextState")
+        stateTracker.putState(nextState, metadata)
     }
 
     private fun continueInstallsOrScheduleCheckOnStart() {
-        Observables.combineLatest(
-            inflateUpdatesFromCache().toObservable(),
-            sharedSettings.observeUserSetupComplete()
-        )
+        inflateUpdatesFromCache()
             .observeOn(updaterScheduler)
-            .subscribe({ (foundInstallCache, userSetupComplete) ->
+            .subscribe({ foundInstallCache ->
                 // TODO: Should check the timestamp of the install cache to see if it's due.
                 if (foundInstallCache.isNotEmpty()) {
                     Timber.v("[Updater] Found a fully downloaded update cache on start!")
                     transitionToInstallStateForAppUpdate(foundInstallCache)
                 } else {
-                    if (userSetupComplete) {
-                        Timber.v("[Updater] Not found any fully downloaded update cache on start, with user-setup complete.")
-                        transitionToIdleStateAndScheduleNextCheck()
-                    } else {
-                        Timber.v("[Updater] Not found any fully downloaded update cache on start, with user-setup INCOMPLETE.")
-                        transitionToIdleState()
-                    }
+                    Timber.v("[Updater] Not found any fully downloaded update cache on start.")
+                    transitionToIdleState()
                 }
             }, Timber::e)
             .addTo(disposablesOnCreateDestroy)
@@ -948,30 +946,32 @@ class UpdaterService : Service() {
         updatesError?.let {
             Timber.w(it)
 
-            // TODO: Broadcast the error to the remote client.
-            stateMachine.addMetadata(
+            // Fall back to idle.
+            transitionToState(
+                UpdaterState.Idle,
                 mapOf(
                     KEY_CHECK_TYPE to PROP_TYPE_APP,
-                    KEY_CHECK_RUNNING to false,
+                    KEY_CHECK_RUNNING to FALSE_STRING,
                     KEY_CHECK_ERROR to (it.message ?: it.javaClass.name)
                 )
             )
 
-            // Fall back to idle.
-            transitionToState(UpdaterState.Idle)
+            // TODO: Broadcast the error to the remote client.
         } ?: kotlin.run {
             val updates = intent.getParcelableArrayListExtra<AppUpdate>(IntentActions.PROP_FOUND_UPDATES)
 
-            val updateString = updates.joinToString { "${it.packageName} - ${it.versionName}" }
-            stateMachine.addMetadata(
-                mapOf(
-                    KEY_CHECK_TYPE to PROP_TYPE_APP,
-                    KEY_CHECK_RUNNING to false,
-                    KEY_CHECK_RESULT to updateString
-                )
-            )
-
-            transitionToDownloadStateForAppUpdate(updates)
+            if (updates.isEmpty()) {
+                val error = NoUpdateFoundException()
+                transitionToState(
+                    UpdaterState.Idle,
+                    mapOf(
+                        KEY_CHECK_TYPE to PROP_TYPE_APP,
+                        KEY_CHECK_RUNNING to FALSE_STRING,
+                        KEY_CHECK_ERROR to (error.message ?: error.javaClass.name)
+                    ))
+            } else {
+                transitionToDownloadStateForAppUpdate(updates)
+            }
         }
     }
 
@@ -987,17 +987,17 @@ class UpdaterService : Service() {
             // TODO: Send progress to remote
             val currentBytes = formatShortFileSize(this, downloadProgressCurrentBytes)
             val totalBytes = formatShortFileSize(this, downloadProgressTotalBytes)
-            stateMachine.addMetadata(
+            stateTracker.addStateMetadata(
                 mapOf(
                     KEY_DOWNLOAD_TYPE to PROP_TYPE_APP,
-                    KEY_PROGRESS_PERCENTAGE to downloadProgressPercentage,
+                    KEY_PROGRESS_PERCENTAGE to "$downloadProgressPercentage%",
                     KEY_PROGRESS_CURRENT_BYTES to currentBytes,
                     KEY_PROGRESS_TOTAL_BYTES to totalBytes
                 )
             )
         } else {
             // Fall back to idle when there's no downloaded update.
-            transitionToIdleStateAndScheduleNextCheck()
+            transitionToIdleState()
         }
     }
 
@@ -1014,12 +1014,12 @@ class UpdaterService : Service() {
             val newAttempts = ++downloadAttempts
             if (newAttempts < TOTAL_DOWNLOAD_ATTEMPTS_PER_SESSION) {
                 Timber.w(compositeError, "[Updater] Failed to download some of the found updates, will retry soon (there were $oldAttempts attempts)")
-                val triggerAtMillis = ScheduleUtils.findNextDownloadTimeMillis(newAttempts)
+                val triggerAtMillis = scheduleUtils.findNextDownloadTimeMillis(newAttempts)
 
-                stateMachine.addMetadata(
+                stateTracker.addStateMetadata(
                     mapOf(
                         KEY_DOWNLOAD_TYPE to PROP_TYPE_APP,
-                        KEY_DOWNLOAD_RETRY_ATTEMPT to newAttempts,
+                        KEY_DOWNLOAD_RETRY_ATTEMPT to newAttempts.toString(),
                         KEY_DOWNLOAD_ERROR to compositeError.errors.joinToString { "${it.javaClass.name} - ${it.message}" },
                         KEY_DOWNLOAD_DELAY to Duration.ofMillis(triggerAtMillis).toString(),
                         KEY_DOWNLOAD_RETRY_AT to Instant.ofEpochMilli(triggerAtMillis).atZone(ZoneId.systemDefault()).toString(),
@@ -1030,17 +1030,16 @@ class UpdaterService : Service() {
                 // Retry (and stays in the same state).
                 downloader.scheduleDownloadAppUpdate(foundUpdates, triggerAtMillis)
             } else {
-
-                stateMachine.addMetadata(
+                stateTracker.addStateMetadata(
                     mapOf(
                         KEY_DOWNLOAD_TYPE to PROP_TYPE_APP,
-                        KEY_DOWNLOAD_RUNNING to false,
+                        KEY_DOWNLOAD_RUNNING to FALSE_STRING,
                         KEY_DOWNLOAD_ERROR to compositeError.errors.joinToString { "${it.javaClass.name} - ${it.message}" }
                     )
                 )
 
                 // Fall back to idle after all the attempts fail.
-                transitionToIdleStateAndScheduleNextCheck()
+                transitionToIdleState()
             }
         } ?: kotlin.run {
             if (downloadedUpdates.isNotEmpty()) {
@@ -1055,10 +1054,10 @@ class UpdaterService : Service() {
                 val updateString = downloadedUpdates.joinToString {
                     "${it.fromUpdate.packageName} - ${it.fromUpdate.versionName} - ${formatShortFileSize(this, it.file.length())}"
                 }
-                stateMachine.addMetadata(
+                stateTracker.addStateMetadata(
                     mapOf(
                         KEY_DOWNLOAD_TYPE to PROP_TYPE_APP,
-                        KEY_DOWNLOAD_RUNNING to false,
+                        KEY_DOWNLOAD_RUNNING to FALSE_STRING,
                         KEY_DOWNLOAD_RESULT to updateString
                     )
                 )
@@ -1066,16 +1065,16 @@ class UpdaterService : Service() {
                 // Move on to installing updates.
                 transitionToInstallStateForAppUpdate(downloadedUpdates)
             } else {
-                stateMachine.addMetadata(
+                stateTracker.addStateMetadata(
                     mapOf(
                         KEY_DOWNLOAD_TYPE to PROP_TYPE_APP,
-                        KEY_DOWNLOAD_RUNNING to false,
+                        KEY_DOWNLOAD_RUNNING to FALSE_STRING,
                         KEY_DOWNLOAD_RESULT to "No Updates"
                     )
                 )
 
                 // Fall back to idle when there's no downloaded update.
-                transitionToIdleStateAndScheduleNextCheck()
+                transitionToIdleState()
             }
         }
     }
@@ -1086,10 +1085,10 @@ class UpdaterService : Service() {
         val nullableError = intent.getSerializableExtra(IntentActions.PROP_ERROR) as? CompositeException
         nullableError?.let {
             // TODO error-handling
-            stateMachine.addMetadata(
+            stateTracker.addStateMetadata(
                 mapOf(
                     KEY_INSTALL_TYPE to PROP_TYPE_APP,
-                    KEY_INSTALL_RUNNING to false,
+                    KEY_INSTALL_RUNNING to FALSE_STRING,
                     KEY_INSTALL_ERROR to (it.message ?: it.javaClass.name)
                 )
             )
@@ -1105,17 +1104,17 @@ class UpdaterService : Service() {
         val appliedUpdates = intent.getParcelableArrayListExtra<AppliedUpdate>(IntentActions.PROP_APPLIED_UPDATES)
         // TODO: What shall we do with this info?
         if (nullableError == null) {
-            stateMachine.addMetadata(
+            stateTracker.addStateMetadata(
                 mapOf(
                     KEY_INSTALL_TYPE to PROP_TYPE_APP,
-                    KEY_INSTALL_RUNNING to false,
+                    KEY_INSTALL_RUNNING to FALSE_STRING,
                     KEY_INSTALL_RESULT to appliedUpdates.joinToString { "${it.packageName} - ${it.versionName}" }
                 )
             )
         }
 
         // Transition to idle at the end.
-        transitionToIdleStateAndScheduleNextCheck()
+        transitionToIdleState()
     }
 
     // Firmware Update ////////////////////////////////////////////////////////
@@ -1125,10 +1124,10 @@ class UpdaterService : Service() {
     ) {
         val update = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_FOUND_UPDATE)
 
-        stateMachine.addMetadata(
+        stateTracker.addStateMetadata(
             mapOf(
                 KEY_CHECK_TYPE to PROP_TYPE_FIRMWARE,
-                KEY_CHECK_RUNNING to false,
+                KEY_CHECK_RUNNING to FALSE_STRING,
                 KEY_CHECK_RESULT to "INCREMENTAL: ${update.isIncremental} - ${update.version}"
             )
         )
@@ -1141,15 +1140,17 @@ class UpdaterService : Service() {
     ) {
         val error: Throwable = intent.getSerializableExtra(IntentActions.PROP_ERROR) as Throwable
 
-        stateMachine.addMetadata(
+        stateTracker.addStateMetadata(
             mapOf(
                 KEY_CHECK_TYPE to PROP_TYPE_FIRMWARE,
-                KEY_CHECK_RUNNING to false,
+                KEY_CHECK_RUNNING to FALSE_STRING,
                 KEY_CHECK_ERROR to (error.message ?: error.javaClass.name)
             )
         )
-        // Fall back to idle.
-        // transitionToState(UpdaterState.Idle)
+
+        // ////////////////////////////////////////////////////////////////////////////
+        // Do not fall back to idle, the checker will proceed with app update checks.
+        // ////////////////////////////////////////////////////////////////////////////
 
         // TODO: Broadcast the error
     }
@@ -1171,17 +1172,17 @@ class UpdaterService : Service() {
             val currentBytes = formatShortFileSize(this, downloadProgressCurrentBytes)
             val totalBytes = formatShortFileSize(this, downloadProgressTotalBytes)
 
-            stateMachine.addMetadata(
+            stateTracker.addStateMetadata(
                 mapOf(
                     KEY_DOWNLOAD_TYPE to PROP_TYPE_FIRMWARE,
-                    KEY_PROGRESS_PERCENTAGE to downloadProgressPercentage,
+                    KEY_PROGRESS_PERCENTAGE to "$downloadProgressPercentage",
                     KEY_PROGRESS_CURRENT_BYTES to currentBytes,
                     KEY_PROGRESS_TOTAL_BYTES to totalBytes
                 )
             )
         } else {
             // Fall back to idle when there's no downloaded update.
-            transitionToIdleStateAndScheduleNextCheck()
+            transitionToIdleState()
         }
     }
 
@@ -1202,10 +1203,10 @@ class UpdaterService : Service() {
             }
 
             val size = formatShortFileSize(this, downloadedUpdate.file.length())
-            stateMachine.addMetadata(
+            stateTracker.addStateMetadata(
                 mapOf(
                     KEY_DOWNLOAD_TYPE to PROP_TYPE_FIRMWARE,
-                    KEY_DOWNLOAD_RUNNING to false,
+                    KEY_DOWNLOAD_RUNNING to FALSE_STRING,
                     KEY_DOWNLOAD_RESULT to "INCREMENTAL: ${foundUpdate.isIncremental} - ${foundUpdate.version} - $size"
                 )
             )
@@ -1214,15 +1215,15 @@ class UpdaterService : Service() {
         } catch (error: Throwable) {
             Timber.w(error)
 
-            stateMachine.addMetadata(
+            stateTracker.addStateMetadata(
                 mapOf(
                     KEY_DOWNLOAD_TYPE to PROP_TYPE_FIRMWARE,
-                    KEY_DOWNLOAD_RUNNING to false,
+                    KEY_DOWNLOAD_RUNNING to FALSE_STRING,
                     KEY_DOWNLOAD_ERROR to (error.message ?: error.javaClass.name)
                 )
             )
             // Fall back to idle when there's no downloaded update.
-            transitionToIdleStateAndScheduleNextCheck()
+            transitionToIdleState()
         }
     }
 
@@ -1238,12 +1239,12 @@ class UpdaterService : Service() {
             val newAttempts = ++downloadAttempts
             if (newAttempts < TOTAL_DOWNLOAD_ATTEMPTS_PER_SESSION) {
                 Timber.w(error, "[Updater] Failed to download some of the found updates, will retry soon (there were $oldAttempts attempts)")
-                val triggerAtMillis = ScheduleUtils.findNextDownloadTimeMillis(newAttempts)
+                val triggerAtMillis = scheduleUtils.findNextDownloadTimeMillis(newAttempts)
 
-                stateMachine.addMetadata(
+                stateTracker.addStateMetadata(
                     mapOf(
                         KEY_DOWNLOAD_TYPE to PROP_TYPE_FIRMWARE,
-                        KEY_DOWNLOAD_RETRY_ATTEMPT to newAttempts,
+                        KEY_DOWNLOAD_RETRY_ATTEMPT to newAttempts.toString(),
                         KEY_DOWNLOAD_ERROR to (error.message ?: error.javaClass.name),
                         KEY_DOWNLOAD_DELAY to Duration.ofMillis(triggerAtMillis).toString(),
                         KEY_DOWNLOAD_RETRY_AT to Instant.ofEpochMilli(triggerAtMillis).atZone(ZoneId.systemDefault()).toString(),
@@ -1254,29 +1255,29 @@ class UpdaterService : Service() {
                 // Retry (and stays in the same state).
                 downloader.scheduleDownloadFirmwareUpdate(foundUpdate, triggerAtMillis)
             } else {
-                stateMachine.addMetadata(
+                stateTracker.addStateMetadata(
                     mapOf(
                         KEY_DOWNLOAD_TYPE to PROP_TYPE_FIRMWARE,
-                        KEY_DOWNLOAD_RUNNING to false,
+                        KEY_DOWNLOAD_RUNNING to FALSE_STRING,
                         KEY_DOWNLOAD_ERROR to (error.message ?: error.javaClass.name)
                     )
                 )
                 // Fall back to idle after all the attempts fail.
-                transitionToIdleStateAndScheduleNextCheck()
+                transitionToIdleState()
             }
         } catch (error: Throwable) {
             Timber.w(error)
 
-            stateMachine.addMetadata(
+            stateTracker.addStateMetadata(
                 mapOf(
                     KEY_DOWNLOAD_TYPE to PROP_TYPE_FIRMWARE,
-                    KEY_DOWNLOAD_RUNNING to false,
+                    KEY_DOWNLOAD_RUNNING to FALSE_STRING,
                     KEY_DOWNLOAD_ERROR to (error.message ?: error.javaClass.name)
                 )
             )
 
             // Fall back to idle when there's no downloaded update.
-            transitionToIdleStateAndScheduleNextCheck()
+            transitionToIdleState()
         }
     }
 
@@ -1292,17 +1293,17 @@ class UpdaterService : Service() {
             Timber.w(error)
         }
 
-        stateMachine.addMetadata(
+        stateTracker.addStateMetadata(
             mapOf(
                 KEY_INSTALL_TYPE to PROP_TYPE_FIRMWARE,
-                KEY_INSTALL_RUNNING to false,
+                KEY_INSTALL_RUNNING to FALSE_STRING,
                 KEY_INSTALL_RESULT to ("INCREMENTAL: ${appliedUpdate.isIncremental} - ${appliedUpdate.version}")
             )
         )
 
         // TODO: Maybe we should transition to 'REBOOTING' state
         // Transition to idle at the end regardless success or fail.
-        transitionToIdleStateAndScheduleNextCheck()
+        transitionToIdleState()
 
         if (appliedUpdate.isIncremental) {
             // Assume it's a silent incremental update, so reboot instantly.
@@ -1320,10 +1321,10 @@ class UpdaterService : Service() {
         val nullableError = intent.getSerializableExtra(IntentActions.PROP_ERROR) as? Throwable
         nullableError?.let { error ->
             // TODO error-handling
-            stateMachine.addMetadata(
+            stateTracker.addStateMetadata(
                 mapOf(
                     KEY_INSTALL_TYPE to PROP_TYPE_FIRMWARE,
-                    KEY_INSTALL_RUNNING to false,
+                    KEY_INSTALL_RUNNING to FALSE_STRING,
                     KEY_INSTALL_ERROR to (error.message ?: error.javaClass.name)
                 )
             )
@@ -1345,19 +1346,33 @@ class UpdaterService : Service() {
             // Wait for the date time settled.
             .debounce(Intervals.DEBOUNCE_DATETIME_CHANGE, TimeUnit.MILLISECONDS, schedulers.computation())
 
-        // Wait for the user-setup-COMPLETE to reflect the date time change.
-        Observables.combineLatest(
-            timeChangedObservable,
-            sharedSettings.observeUserSetupComplete()
-        )
+        timeChangedObservable
             .observeOn(updaterScheduler)
-            .subscribe({ (_, userSetupComplete) ->
+            .subscribe({
+                Timber.v("[Updater] Detect the date time change!\n\t${it.action}\n\t${it.extras}")
+                transitionToIdleState()
+            }, Timber::e)
+            .addTo(disposablesOnCreateDestroy)
+    }
+
+    // User Setup Complete ////////////////////////////////////////////////////
+
+    private fun observeUserSetupComplete() {
+        sharedSettings.observeUserSetupComplete()
+            .distinctUntilChanged()
+            // Skip initial value, only monitor changes
+            .skip(1)
+            .observeOn(updaterScheduler)
+            .subscribe({ userSetupComplete ->
+                Timber.d("[Updater] User Setup Complete flag changed to $userSetupComplete.")
+                // If the user-setup-complete flag changes, we should restart the session
+                // This is because we only download FULL updates in OOBE and
+                // SEQUENTIAL updates after OOBE
+                transitionToIdleState()
+
                 if (userSetupComplete) {
-                    Timber.v("[Updater] Detect the date time change with user-setup complete!")
-                    transitionToIdleStateAndScheduleNextCheck()
-                } else {
-                    Timber.v("[Updater] Detect the date time change with user-setup INCOMPLETE!")
-                    transitionToIdleState()
+                    val heartbeatInterval = updaterConfig.heartbeatIntervalMillis
+                    heartBeater.scheduleRecurringHeartBeat(heartbeatInterval)
                 }
             }, Timber::e)
             .addTo(disposablesOnCreateDestroy)

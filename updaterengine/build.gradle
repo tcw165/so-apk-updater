@@ -28,7 +28,7 @@ android {
 
         multiDexEnabled true
 
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         consumerProguardFiles 'lib-proguard-rules.pro'
     }
@@ -112,6 +112,9 @@ dependencies {
     api deps.androidx.constraintLayout
     api deps.androidx.preference
     api deps.androidx.coreKtx
+    api deps.androidx.workManager
+    api deps.androidx.workManagerRx
+
     // Multi-dex.
     api deps.androidx.multidex
 
@@ -156,11 +159,23 @@ dependencies {
 
     // Time
     api deps.threetenbp
+    // Use JVM Backport only for testing
+    // Reference: https://github.com/JakeWharton/ThreeTenABP/issues/14
+    testCompile('org.threeten:threetenbp:1.3.8') {
+        exclude group: 'com.jakewharton.threetenabp', module: 'threetenabp'
+    }
 
     // Unit tests.
+    testImplementation deps.kotlin.unitTest
     testImplementation deps.test.junit
-    testImplementation deps.test.mockk
+    testImplementation deps.test.kotlin
+    testImplementation deps.test.kluent
     testImplementation deps.test.mockito
+
+    // BDD
+    testImplementation deps.test.kotlinTest
+    // Mocking
+    testImplementation deps.test.mockk
 
     // Instrumentation tests.
     androidTestImplementation deps.test.runner
