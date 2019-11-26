@@ -619,7 +619,15 @@ class UpdaterService : Service() {
      * this one schedules a delayed check after the cleanup.
      */
     private fun transitionToIdleState() {
-        transitionToState(UpdaterState.Idle, emptyMap())
+        val interval = updaterConfig.checkIntervalMillis
+        transitionToState(
+            UpdaterState.Idle,
+            mapOf(
+                KEY_CHECK_INTERVAL to Duration.ofMillis(interval).toString(),
+                KEY_NEXT_CHECK_TIME to Instant.now().plusMillis(interval).atZone(ZoneId.systemDefault()).toString(),
+                PROP_CURRENT_TIME to Instant.now().atZone(ZoneId.systemDefault()).toString()
+            )
+        )
 
         // Reset attempts
         checkAttempts = 0
@@ -632,15 +640,6 @@ class UpdaterService : Service() {
 
         // Schedule a next check after the interval given from the config.
         if (sharedSettings.isUserSetupComplete()) {
-            val interval = updaterConfig.checkIntervalMillis
-
-            stateTracker.addStateMetadata(
-                mapOf(
-                    KEY_CHECK_INTERVAL to Duration.ofMillis(interval).toString(),
-                    KEY_NEXT_CHECK_TIME to Instant.now().plusMillis(interval).atZone(ZoneId.systemDefault()).toString(),
-                    PROP_CURRENT_TIME to Instant.now().atZone(ZoneId.systemDefault()).toString()
-                )
-            )
             scheduleDelayedCheck(this, interval)
         }
     }
@@ -804,8 +803,8 @@ class UpdaterService : Service() {
     ) {
         // For visuals of state transition, check out the link here,
         // https://www.notion.so/sodalabs/APK-Updater-Overview-a3033e1f51604668a9dae02bdb1d7d09
-        val state = stateTracker.snapshotState()
-        Timber.v("[Updater] Transition updater state from $state to $nextState")
+        val currentState = stateTracker.snapshotState()
+        Timber.v("[Updater] Transition updater state from $currentState to $nextState")
         stateTracker.putState(nextState, metadata)
     }
 
