@@ -87,6 +87,7 @@ class UpdaterStateTracker @Inject constructor(
         synchronized(lock) {
             internalState.set(state)
 
+            // Prepare the common metadata.
             internalStateMetadata.clear()
             internalStateMetadata.putAll(
                 mapOf(
@@ -98,6 +99,8 @@ class UpdaterStateTracker @Inject constructor(
                     PROP_BASE_URL to getBaseUrl()
                 )
             )
+            // Append the given metadata.
+            internalStateMetadata.putAll(metadata)
         }
     }
 
