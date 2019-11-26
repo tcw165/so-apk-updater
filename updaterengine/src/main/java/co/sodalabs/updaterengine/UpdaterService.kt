@@ -124,8 +124,6 @@ class UpdaterService : Service() {
             context: Context,
             resetSession: Boolean
         ) {
-            // Cancel pending jobs immediately.
-            cancelPendingCheck(context)
             // Start Service with action on next main thread execution.
             uiHandler.post {
                 Timber.v("[Updater] Do an immediate check now!")
@@ -196,31 +194,6 @@ class UpdaterService : Service() {
                 // to an Intent. Then the Intent is handled here in onHandleWork()!
                 jobScheduler.cancel(UpdaterJobs.JOB_ID_ENGINE_TRANSITION_TO_CHECK)
                 jobScheduler.schedule(builder.build())
-            }
-        }
-
-        private fun cancelPendingCheck(
-            context: Context
-        ) {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-                Timber.v("[Updater] (< 21) Cancel any pending check, using AlarmManager")
-
-                val intent = Intent(context, UpdaterService::class.java)
-                intent.apply {
-                    action = IntentActions.ACTION_CHECK_UPDATE
-                }
-
-                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
-
-                alarmManager.cancel(pendingIntent)
-            } else {
-                Timber.v("[Updater] (>= 21) Cancel a pending check, using android-21 JobScheduler")
-
-                val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-                // Note: The job would be consumed by CheckJobService and translated
-                // to an Intent. Then the Intent is handled here in onHandleWork()!
-                jobScheduler.cancel(UpdaterJobs.JOB_ID_ENGINE_TRANSITION_TO_CHECK)
             }
         }
 
@@ -634,7 +607,7 @@ class UpdaterService : Service() {
         downloadAttempts = 0
 
         // Cancel pending downloads and installs.
-        cancelPendingCheck(this)
+        checker.cancelPendingAndWipCheck()
         downloader.cancelPendingAndWipDownloads()
         installer.cancelPendingInstalls()
 
@@ -653,6 +626,7 @@ class UpdaterService : Service() {
             resetSession
         ) {
             // Cancel pending downloads and installs.
+            checker.cancelPendingAndWipCheck()
             downloader.cancelPendingAndWipDownloads()
             installer.cancelPendingInstalls()
 
@@ -779,7 +753,7 @@ class UpdaterService : Service() {
         downloadAttempts = 0
 
         // Cancel pending jobs.
-        cancelPendingCheck(this)
+        checker.cancelPendingAndWipCheck()
         downloader.cancelPendingAndWipDownloads()
         installer.cancelPendingInstalls()
 

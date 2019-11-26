@@ -29,17 +29,28 @@ import co.sodalabs.updaterengine.extension.isGreaterThan
 import dagger.android.AndroidInjection
 import retrofit2.HttpException
 import timber.log.Timber
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 class CheckJobIntentService : JobIntentService() {
 
     companion object {
 
+        /**
+         * The docs of JobSchedulers says it doesn't support cancellation of the
+         * running Job; It only cancels the pending Job.
+         * Therefore, we use a static boolean to cancel the running Job and prevent
+         * the state transitioning from a running ghost Job.
+         */
+        private val canRun = AtomicBoolean(true)
+
         fun checkUpdatesNow(
             context: Context
         ) {
             val intent = Intent(context, CheckJobIntentService::class.java)
             intent.action = IntentActions.ACTION_CHECK_UPDATE
+
+            canRun.set(true)
             enqueueWork(
                 context,
                 ComponentName(context, CheckJobIntentService::class.java),
@@ -92,6 +103,34 @@ class CheckJobIntentService : JobIntentService() {
                 jobScheduler.schedule(builder.build())
             }
         }
+
+        fun cancelCheck(
+            context: Context
+        ) {
+            // Stop any running task.
+            canRun.set(false)
+
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                Timber.v("[Check] (< 21) Cancel any pending check, using AlarmManager")
+
+                val intent = Intent(context, UpdaterService::class.java)
+                intent.apply {
+                    action = IntentActions.ACTION_CHECK_UPDATE
+                }
+
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+
+                alarmManager.cancel(pendingIntent)
+            } else {
+                Timber.v("[Check] (>= 21) Cancel a pending check, using android-21 JobScheduler")
+
+                val jobScheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
+                // Note: The job would be consumed by CheckJobService and translated
+                // to an Intent. Then the Intent is handled here in onHandleWork()!
+                jobScheduler.cancel(UpdaterJobs.JOB_ID_ENGINE_TRANSITION_TO_CHECK)
+            }
+        }
     }
 
     @Inject
@@ -137,15 +176,27 @@ class CheckJobIntentService : JobIntentService() {
         }
         // Notify the updater the firmware update is found!
         firmwareUpdateOpt?.let { firmwareUpdate ->
-            UpdaterService.notifyFirmwareUpdateFound(this, firmwareUpdate)
+            if (canRun.get()) {
+                UpdaterService.notifyFirmwareUpdateFound(this, firmwareUpdate)
+            } else {
+                // No-op since the cancellation from engine wants to stop
+                // running work without the state transitioning.
+                Timber.w("[Check] Running check for firmware is cancelled!")
+            }
             // Stop here since we have the firmware to update!
             return
         }
 
         // 2) Query app update.
         val (appUpdates, appErrors) = checkAppUpdates()
-        // Notify the updater the app update is found!
-        UpdaterService.notifyAppUpdateCheckComplete(this, appUpdates, appErrors)
+        if (canRun.get()) {
+            // Notify the updater the app update is found!
+            UpdaterService.notifyAppUpdateCheckComplete(this, appUpdates, appErrors)
+        } else {
+            // No-op since the cancellation from engine wants to stop
+            // running work without the state transitioning.
+            Timber.w("[Check] Running check for apps is cancelled!")
+        }
     }
 
     // Check for Firmware /////////////////////////////////////////////////////
