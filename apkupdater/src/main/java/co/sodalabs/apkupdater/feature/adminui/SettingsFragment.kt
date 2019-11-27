@@ -17,6 +17,7 @@ import co.sodalabs.updaterengine.IPackageVersionProvider
 import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.IThreadSchedulers
+import co.sodalabs.updaterengine.ITimeUtil
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.PreferenceProps
@@ -28,7 +29,6 @@ import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
-import co.sodalabs.updaterengine.extension.getPrettyDateNow
 import co.sodalabs.updaterengine.extension.smartRetryWhen
 import co.sodalabs.updaterengine.feature.logPersistence.ILogFileProvider
 import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceScheduler
@@ -79,6 +79,8 @@ class SettingsFragment :
     lateinit var logsPersistenceScheduler: LogsPersistenceScheduler
     @Inject
     lateinit var logFileProvider: ILogFileProvider
+    @Inject
+    lateinit var timeUtil: ITimeUtil
 
     private val disposables = CompositeDisposable()
 
@@ -270,7 +272,7 @@ class SettingsFragment :
             }
             .observeOn(schedulers.main())
             .subscribe({ code ->
-                val now = getPrettyDateNow()
+                val now = timeUtil.systemZonedNow().toString()
                 heartBeatWatcherPref.title = "$heartbeatWatcherTitle at $last (HTTP status code: $code)"
                 last = now
             }, Timber::e)
