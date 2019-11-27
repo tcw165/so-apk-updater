@@ -6,7 +6,7 @@ import androidx.work.WorkerParameters
 import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.ITimeUtil
 import co.sodalabs.updaterengine.Intervals
-import co.sodalabs.updaterengine.di.utils.ChildWorkerFactory
+import co.sodalabs.updaterengine.di.utils.WorkerFactoryInjector
 import co.sodalabs.updaterengine.utils.AdbUtils
 import co.sodalabs.updaterengine.utils.FileUtils
 import io.reactivex.Completable
@@ -35,11 +35,11 @@ class LogPersistenceWorker(
     private val logSender: ILogSender,
     private val config: ILogPersistenceConfig,
     private val timeUtils: ITimeUtil,
-    logFileProvider: ILogFileProvider
+    private val logFileProvider: ILogFileProvider
 ) : RxWorker(context, params) {
 
-    private val logFile: File = logFileProvider.logFile
-    private val tempLogFile: File = logFileProvider.tempLogFile
+    private val logFile: File by lazy { logFileProvider.logFile }
+    private val tempLogFile: File by lazy { logFileProvider.tempLogFile }
 
     override fun createWork(): Single<Result> {
         // Log information about next scheduling of this task
@@ -211,7 +211,7 @@ class LogPersistenceWorker(
         private val config: Provider<ILogPersistenceConfig>,
         private val timeUtils: Provider<ITimeUtil>,
         private val logFileProvider: Provider<ILogFileProvider>
-    ) : ChildWorkerFactory {
+    ) : WorkerFactoryInjector {
         override fun create(appContext: Context, params: WorkerParameters): RxWorker {
             return LogPersistenceWorker(
                 appContext,

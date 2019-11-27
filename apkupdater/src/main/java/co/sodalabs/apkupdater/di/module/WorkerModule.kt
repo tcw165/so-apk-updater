@@ -3,7 +3,7 @@
 package co.sodalabs.apkupdater.di.module
 
 import androidx.work.RxWorker
-import co.sodalabs.updaterengine.di.utils.ChildWorkerFactory
+import co.sodalabs.updaterengine.di.utils.WorkerFactoryInjector
 import co.sodalabs.updaterengine.feature.logPersistence.LogPersistenceWorker
 import dagger.Binds
 import dagger.MapKey
@@ -21,5 +21,5 @@ abstract class WorkerModule {
     @Binds
     @IntoMap
     @WorkerKey(LogPersistenceWorker::class)
-    internal abstract fun bindLogPersistenceWorker(factory: LogPersistenceWorker.Factory): ChildWorkerFactory
+    internal abstract fun bindLogPersistenceWorker(factory: LogPersistenceWorker.Factory): WorkerFactoryInjector
 }

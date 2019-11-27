@@ -32,9 +32,10 @@ import javax.inject.Provider
  * - https://proandroiddev.com/dagger-2-setup-with-workmanager-a-complete-step-by-step-guild-bb9f474bde37
  * - https://android.jlelse.eu/injecting-into-workers-android-workmanager-and-dagger-948193c17684
  */
-class WorkerFactory @Inject constructor(
-    private val workerFactories: Map<Class<out RxWorker>, @JvmSuppressWildcards Provider<ChildWorkerFactory>>
+class WorkerFactoryInjectorProvider @Inject constructor(
+    private val workerFactories: Map<Class<out RxWorker>, @JvmSuppressWildcards Provider<WorkerFactoryInjector>>
 ) : WorkerFactory() {
+
     override fun createWorker(
         appContext: Context,
         workerClassName: String,
@@ -60,6 +61,6 @@ class WorkerFactory @Inject constructor(
  * Every [Worker] must provide a factory that implements this interface to assist [WorkerFactory]
  * with the injection
  */
-interface ChildWorkerFactory {
+interface WorkerFactoryInjector {
     fun create(appContext: Context, params: WorkerParameters): RxWorker
 }
