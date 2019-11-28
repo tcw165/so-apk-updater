@@ -28,7 +28,7 @@ import javax.inject.Provider
  */
 class LogPersistenceWorker(
     context: Context,
-    private val params: WorkerParameters,
+    params: WorkerParameters,
     private val prefs: IAppPreference,
     private val adbUtils: AdbUtils,
     private val fileUtils: FileUtils,
@@ -44,7 +44,7 @@ class LogPersistenceWorker(
     override fun createWork(): Single<Result> {
         // Log information about next scheduling of this task
         Timber.i("[LogPersistenceWorker] Persistence task started at ${timeUtils.systemZonedNow()}")
-        val isRepeatTask = params.inputData.getBoolean(LogsPersistenceConstants.PARAM_REPEAT_TASK, false)
+        val isRepeatTask = inputData.getBoolean(LogsPersistenceConstants.PARAM_REPEAT_TASK, false)
         if (isRepeatTask) {
             val nextTriggerTime = timeUtils.systemZonedNow()
                 .plusNanos(TimeUnit.MILLISECONDS.toNanos(config.repeatIntervalInMillis))
@@ -54,7 +54,7 @@ class LogPersistenceWorker(
         }
         // Flag indicating whether the user triggered this action via Admin UI
         val isUserTriggered =
-            params.inputData.getBoolean(LogsPersistenceConstants.PARAM_TRIGGERED_BY_USER, false)
+            inputData.getBoolean(LogsPersistenceConstants.PARAM_TRIGGERED_BY_USER, false)
         val workSource = if (isUserTriggered) {
             // If the current operation is due to user triggered event and the log file already
             // exists, then just send the logs to the server. Otherwise, first run the persistence

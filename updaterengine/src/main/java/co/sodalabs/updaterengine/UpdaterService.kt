@@ -207,7 +207,7 @@ class UpdaterService : Service() {
             updates: List<AppUpdate>,
             errors: List<Throwable>
         ) {
-            val resultMessage = if (errors.isEmpty()) " with ${updates.size} updates" else " with errors: $errors"
+            val resultMessage = if (errors.isEmpty()) "with ${updates.size} updates" else "with errors: $errors"
             Timber.v("[Updater] Check app job completed $resultMessage")
             uiHandler.post {
                 val action = IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE
@@ -614,6 +614,8 @@ class UpdaterService : Service() {
         // Schedule a next check after the interval given from the config.
         if (sharedSettings.isUserSetupComplete()) {
             scheduleDelayedCheck(this, interval)
+        } else {
+            Timber.w("[Updater] No next check would be scheduled cause user-setup-completed is false")
         }
     }
 
@@ -920,8 +922,8 @@ class UpdaterService : Service() {
             Timber.w(it)
 
             // Fall back to idle.
-            transitionToState(
-                UpdaterState.Idle,
+            transitionToIdleState()
+            stateTracker.addStateMetadata(
                 mapOf(
                     KEY_CHECK_TYPE to PROP_TYPE_APP,
                     KEY_CHECK_RUNNING to FALSE_STRING,
@@ -934,9 +936,10 @@ class UpdaterService : Service() {
             val updates = intent.getParcelableArrayListExtra<AppUpdate>(IntentActions.PROP_FOUND_UPDATES)
 
             if (updates.isEmpty()) {
+                transitionToIdleState()
+
                 val error = NoUpdateFoundException()
-                transitionToState(
-                    UpdaterState.Idle,
+                stateTracker.addStateMetadata(
                     mapOf(
                         KEY_CHECK_TYPE to PROP_TYPE_APP,
                         KEY_CHECK_RUNNING to FALSE_STRING,
