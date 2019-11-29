@@ -6,6 +6,7 @@ import android.os.StrictMode.VmPolicy
 import android.provider.Settings
 import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
+import androidx.work.ListenableWorker
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
 import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
@@ -23,6 +24,7 @@ import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.UpdatesChecker
 import co.sodalabs.updaterengine.UpdatesDownloader
 import co.sodalabs.updaterengine.UpdatesInstaller
+import co.sodalabs.updaterengine.di.HasWorkerInjector
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import com.bugsnag.android.Bugsnag
 import com.bugsnag.android.Configuration
@@ -45,13 +47,18 @@ private const val EMPTY_STRING = ""
 
 class UpdaterApp :
     MultiDexApplication(),
-    HasAndroidInjector {
+    HasAndroidInjector,
+    HasWorkerInjector {
 
     @Inject
-    lateinit var actualInjector: DispatchingAndroidInjector<UpdaterApp>
+    lateinit var actualAndroidInjector: DispatchingAndroidInjector<UpdaterApp>
+    @Inject
+    lateinit var actualWorkerInjector: DispatchingAndroidInjector<ListenableWorker>
 
     @Suppress("UNCHECKED_CAST")
-    override fun androidInjector(): AndroidInjector<Any> = actualInjector as AndroidInjector<Any>
+    override fun androidInjector(): AndroidInjector<Any> = actualAndroidInjector as AndroidInjector<Any>
+
+    override fun workerInjector(): AndroidInjector<ListenableWorker> = actualWorkerInjector
 
     @Inject
     lateinit var updatesChecker: UpdatesChecker
