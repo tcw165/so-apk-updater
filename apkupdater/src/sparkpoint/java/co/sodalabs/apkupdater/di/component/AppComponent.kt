@@ -8,16 +8,18 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.di.module.AppPreferenceModule
+import co.sodalabs.apkupdater.di.module.ComponentLauncherModule
 import co.sodalabs.apkupdater.di.module.LoggingModule
 import co.sodalabs.apkupdater.di.module.NetworkModule
 import co.sodalabs.apkupdater.di.module.SubComponentActivityModule
+import co.sodalabs.apkupdater.di.module.SubComponentReceiverModule
 import co.sodalabs.apkupdater.di.module.SubComponentServiceModule
+import co.sodalabs.apkupdater.di.module.SubComponentWorkerModule
 import co.sodalabs.apkupdater.di.module.SystemModule
 import co.sodalabs.apkupdater.di.module.ThreadSchedulersModule
 import co.sodalabs.apkupdater.di.module.TrackersModule
 import co.sodalabs.apkupdater.di.module.UpdaterModule
 import co.sodalabs.apkupdater.di.module.UtilsModule
-import co.sodalabs.apkupdater.di.module.WorkerModule
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.ISharedSettings
@@ -41,10 +43,12 @@ import dagger.android.support.AndroidSupportInjectionModule
     UtilsModule::class,
     UpdaterModule::class,
     LoggingModule::class,
-    WorkerModule::class,
+    ComponentLauncherModule::class,
     // Modules for constructing sub-components
     SubComponentActivityModule::class,
-    SubComponentServiceModule::class
+    SubComponentServiceModule::class,
+    SubComponentReceiverModule::class,
+    SubComponentWorkerModule::class
 ])
 interface AppComponent : AndroidInjector<UpdaterApp> {
 

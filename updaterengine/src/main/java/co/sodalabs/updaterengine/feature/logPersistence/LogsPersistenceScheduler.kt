@@ -1,7 +1,6 @@
 package co.sodalabs.updaterengine.feature.logPersistence
 
 import android.content.Context
-import androidx.work.Configuration
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -9,7 +8,6 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import co.sodalabs.updaterengine.di.utils.WorkerFactory
 import co.sodalabs.updaterengine.utils.BuildUtils
 import co.sodalabs.updaterengine.utils.getWorkInfoByIdObservable
 import io.reactivex.Observable
@@ -24,7 +22,6 @@ import javax.inject.Inject
  */
 class LogsPersistenceScheduler @Inject constructor(
     private val context: Context,
-    private val workerFactory: WorkerFactory,
     private val persistenceConfig: ILogPersistenceConfig,
     private val logFileProvider: ILogFileProvider
 ) : ILogsPersistenceScheduler {
@@ -34,10 +31,6 @@ class LogsPersistenceScheduler @Inject constructor(
     }
 
     override fun start() {
-        val config = Configuration.Builder()
-            .setWorkerFactory(workerFactory)
-            .build()
-        WorkManager.initialize(context, config)
         val filePath = try {
             logFileProvider.logFile.absolutePath
         } catch (e: Exception) {

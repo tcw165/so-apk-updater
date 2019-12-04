@@ -6,7 +6,9 @@ import android.os.StrictMode.VmPolicy
 import android.provider.Settings
 import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
+import androidx.work.ListenableWorker
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
+import co.sodalabs.apkupdater.feature.watchdog.IForegroundAppWatchdogLauncher
 import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.updaterengine.IAppPreference
@@ -18,11 +20,8 @@ import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.SharedSettingsProps
 import co.sodalabs.updaterengine.SharedSettingsProps.SERVER_ENVIRONMENT
 import co.sodalabs.updaterengine.SharedSettingsProps.SPARKPOINT_REST_API_BASE_URL
-import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.UpdaterService
-import co.sodalabs.updaterengine.UpdatesChecker
-import co.sodalabs.updaterengine.UpdatesDownloader
-import co.sodalabs.updaterengine.UpdatesInstaller
+import co.sodalabs.updaterengine.di.HasWorkerInjector
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import com.bugsnag.android.Bugsnag
 import com.bugsnag.android.Configuration
@@ -45,22 +44,21 @@ private const val EMPTY_STRING = ""
 
 class UpdaterApp :
     MultiDexApplication(),
-    HasAndroidInjector {
+    HasAndroidInjector,
+    HasWorkerInjector {
 
     @Inject
-    lateinit var actualInjector: DispatchingAndroidInjector<UpdaterApp>
+    lateinit var actualAndroidInjector: DispatchingAndroidInjector<UpdaterApp>
+    @Inject
+    lateinit var actualWorkerInjector: DispatchingAndroidInjector<ListenableWorker>
 
     @Suppress("UNCHECKED_CAST")
-    override fun androidInjector(): AndroidInjector<Any> = actualInjector as AndroidInjector<Any>
+    override fun androidInjector(): AndroidInjector<Any> = actualAndroidInjector as AndroidInjector<Any>
+
+    override fun workerInjector(): AndroidInjector<ListenableWorker> = actualWorkerInjector
 
     @Inject
-    lateinit var updatesChecker: UpdatesChecker
-    @Inject
-    lateinit var updatesDownloader: UpdatesDownloader
-    @Inject
-    lateinit var updatesInstaller: UpdatesInstaller
-    @Inject
-    lateinit var heartBeater: UpdaterHeartBeater
+    lateinit var foregroundAppWatchdogLauncher: IForegroundAppWatchdogLauncher
     @Inject
     lateinit var sharedSettings: ISharedSettings
     @Inject
@@ -82,6 +80,7 @@ class UpdaterApp :
         initDatetime()
         initLeakCanary()
         initStrictMode()
+        initForegroundAppWatchdog()
         logSystemInfo()
 
         safeguardsUndeliverableException()
@@ -401,4 +400,10 @@ class UpdaterApp :
     //  that we don't want to use for triggering restart engine event
     private fun ignoredProperties(key: String) =
         key != PreferenceProps.LOG_FILE_CREATED_TIMESTAMP
+
+    // Foreground App Watchdog ////////////////////////////////////////////////
+
+    private fun initForegroundAppWatchdog() {
+        foregroundAppWatchdogLauncher.scheduleForegroundProcessValidation()
+    }
 }

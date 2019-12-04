@@ -6,7 +6,7 @@ import androidx.work.WorkerParameters
 import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.ITimeUtil
 import co.sodalabs.updaterengine.Intervals
-import co.sodalabs.updaterengine.di.utils.ChildWorkerFactory
+import co.sodalabs.updaterengine.di.WorkerInjection
 import co.sodalabs.updaterengine.utils.AdbUtils
 import co.sodalabs.updaterengine.utils.FileUtils
 import io.reactivex.Completable
@@ -17,7 +17,6 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
-import javax.inject.Provider
 
 /**
  * The RxWorker for the [androidx.work.WorkManager] that runs every time the
@@ -28,20 +27,30 @@ import javax.inject.Provider
  */
 class LogPersistenceWorker(
     context: Context,
-    params: WorkerParameters,
-    private val prefs: IAppPreference,
-    private val adbUtils: AdbUtils,
-    private val fileUtils: FileUtils,
-    private val logSender: ILogSender,
-    private val config: ILogPersistenceConfig,
-    private val timeUtils: ITimeUtil,
-    logFileProvider: ILogFileProvider
+    params: WorkerParameters
 ) : RxWorker(context, params) {
 
-    private val logFile: File = logFileProvider.logFile
-    private val tempLogFile: File = logFileProvider.tempLogFile
+    @Inject
+    lateinit var prefs: IAppPreference
+    @Inject
+    lateinit var adbUtils: AdbUtils
+    @Inject
+    lateinit var fileUtils: FileUtils
+    @Inject
+    lateinit var logSender: ILogSender
+    @Inject
+    lateinit var config: ILogPersistenceConfig
+    @Inject
+    lateinit var timeUtils: ITimeUtil
+    @Inject
+    lateinit var logFileProvider: ILogFileProvider
+
+    private val logFile: File by lazy { logFileProvider.logFile }
+    private val tempLogFile: File by lazy { logFileProvider.tempLogFile }
 
     override fun createWork(): Single<Result> {
+        WorkerInjection.inject(this)
+
         // Log information about next scheduling of this task
         Timber.i("[LogPersistenceWorker] Persistence task started at ${timeUtils.systemZonedNow()}")
         val isRepeatTask = inputData.getBoolean(LogsPersistenceConstants.PARAM_REPEAT_TASK, false)
@@ -201,29 +210,5 @@ class LogPersistenceWorker(
                     emitter.onError(e)
                 }
             }
-    }
-
-    class Factory @Inject constructor(
-        private val prefs: Provider<IAppPreference>,
-        private val adbUtils: Provider<AdbUtils>,
-        private val fileUtils: Provider<FileUtils>,
-        private val logSender: Provider<ILogSender>,
-        private val config: Provider<ILogPersistenceConfig>,
-        private val timeUtils: Provider<ITimeUtil>,
-        private val logFileProvider: Provider<ILogFileProvider>
-    ) : ChildWorkerFactory {
-        override fun create(appContext: Context, params: WorkerParameters): RxWorker {
-            return LogPersistenceWorker(
-                appContext,
-                params,
-                prefs.get(),
-                adbUtils.get(),
-                fileUtils.get(),
-                logSender.get(),
-                config.get(),
-                timeUtils.get(),
-                logFileProvider.get()
-            )
-        }
     }
 }

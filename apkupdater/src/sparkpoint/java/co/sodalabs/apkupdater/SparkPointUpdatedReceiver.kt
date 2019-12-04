@@ -7,17 +7,24 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
+import dagger.android.AndroidInjection
 import timber.log.Timber
+import javax.inject.Inject
 
 private const val RESTART_HOME_LAUNCHER = 0
 private const val RESTART_DELAY_MILLIS = 600L
 
 class SparkPointUpdatedReceiver : BroadcastReceiver() {
 
+    @Inject
+    lateinit var systemLauncherUtil: ISystemLauncherUtil
+
     override fun onReceive(
         context: Context,
         intent: Intent
     ) {
+        AndroidInjection.inject(this, context)
+
         when (intent.action) {
             Intent.ACTION_PACKAGE_ADDED,
             Intent.ACTION_PACKAGE_REPLACED -> {
@@ -38,24 +45,14 @@ class SparkPointUpdatedReceiver : BroadcastReceiver() {
         override fun handleMessage(msg: Message) {
             if (msg.what != RESTART_HOME_LAUNCHER) return
 
-            val context = msg.obj as Context
-            restartPlayer(context)
+            restartPlayer()
         }
     }
 
-    private fun restartPlayer(
-        context: Context
-    ) {
+    private fun restartPlayer() {
         Timber.v("SparkPoint player is just replaced, restart the HOME launcher...")
         try {
-            // Some install fails and therefore cannot restart the app.
-            // See https://app.clubhouse.io/soda/story/869/updater-crashes-when-the-sparkpoint-player-updates
-            context.startActivity(Intent(Intent.ACTION_MAIN).apply {
-                addCategory(Intent.CATEGORY_HOME)
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            })
+            systemLauncherUtil.startSystemLauncher()
         } catch (error: Throwable) {
             Timber.w(error)
         }

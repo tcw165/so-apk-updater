@@ -498,6 +498,8 @@ class UpdaterService : Service() {
     lateinit var schedulers: IThreadSchedulers
     @Inject
     lateinit var logPersistenceScheduler: LogsPersistenceScheduler
+    @Inject
+    lateinit var timeUtil: ITimeUtil
 
     private val disposablesOnCreateDestroy = CompositeDisposable()
 
@@ -597,8 +599,8 @@ class UpdaterService : Service() {
             UpdaterState.Idle,
             mapOf(
                 KEY_CHECK_INTERVAL to Duration.ofMillis(interval).toString(),
-                KEY_NEXT_CHECK_TIME to Instant.now().plusMillis(interval).atZone(ZoneId.systemDefault()).toString(),
-                PROP_CURRENT_TIME to Instant.now().atZone(ZoneId.systemDefault()).toString()
+                KEY_NEXT_CHECK_TIME to timeUtil.now().plusMillis(interval).atZone(ZoneId.systemDefault()).toString(),
+                PROP_CURRENT_TIME to timeUtil.systemZonedNow().toString()
             )
         )
 
@@ -697,15 +699,16 @@ class UpdaterService : Service() {
         ) {
             val installWindow = updaterConfig.installWindow
             val time = scheduleUtils.findNextInstallTimeMillis(installWindow)
+            val delay = time - timeUtil.nowEpochMillis()
 
             transitionToState(
                 UpdaterState.Install,
                 mapOf(
                     KEY_INSTALL_TYPE to PROP_TYPE_APP,
                     KEY_INSTALL_RUNNING to TRUE_STRING,
-                    KEY_INSTALL_DELAY to Duration.ofMillis(time).toString(),
+                    KEY_INSTALL_DELAY to Duration.ofMillis(delay).toString(),
                     KEY_INSTALL_AT to Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault()).toString(),
-                    PROP_CURRENT_TIME to Instant.now().atZone(ZoneId.systemDefault()).toString()
+                    PROP_CURRENT_TIME to timeUtil.systemZonedNow().toString()
                 )
             )
 
@@ -724,17 +727,18 @@ class UpdaterService : Service() {
         ) {
             val installWindow = updaterConfig.installWindow
             val time = scheduleUtils.findNextInstallTimeMillis(installWindow)
+            val delay = time - timeUtil.nowEpochMillis()
 
             transitionToState(
                 UpdaterState.Install,
                 mapOf(
                     KEY_INSTALL_TYPE to PROP_TYPE_FIRMWARE,
                     KEY_INSTALL_RUNNING to TRUE_STRING,
-                    KEY_INSTALL_DELAY to Duration.ofMillis(time).toString(),
+                    KEY_INSTALL_DELAY to Duration.ofMillis(delay).toString(),
                     KEY_INSTALL_AT to Instant.ofEpochMilli(time).atZone(
                         ZoneId.systemDefault()
                     ).toString(),
-                    PROP_CURRENT_TIME to Instant.now().atZone(ZoneId.systemDefault()).toString()
+                    PROP_CURRENT_TIME to timeUtil.systemZonedNow().toString()
                 )
             )
 
@@ -762,10 +766,7 @@ class UpdaterService : Service() {
         transitionToState(UpdaterState.Install, emptyMap())
 
         val update = intent.getParcelableExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATE)
-        val currentMillis = Instant.now()
-            .atZone(ZoneId.systemDefault())
-            .toInstant()
-            .toEpochMilli()
+        val currentMillis = timeUtil.nowEpochMillis()
         val triggerTime = currentMillis + 1000L
         installer.scheduleInstallFirmwareUpdate(update, triggerTime)
     }
@@ -944,7 +945,8 @@ class UpdaterService : Service() {
                         KEY_CHECK_TYPE to PROP_TYPE_APP,
                         KEY_CHECK_RUNNING to FALSE_STRING,
                         KEY_CHECK_ERROR to (error.message ?: error.javaClass.name)
-                    ))
+                    )
+                )
             } else {
                 transitionToDownloadStateForAppUpdate(updates)
             }
@@ -991,15 +993,16 @@ class UpdaterService : Service() {
             if (newAttempts < TOTAL_DOWNLOAD_ATTEMPTS_PER_SESSION) {
                 Timber.w(compositeError, "[Updater] Failed to download some of the found updates, will retry soon (there were $oldAttempts attempts)")
                 val triggerAtMillis = scheduleUtils.findNextDownloadTimeMillis(newAttempts)
+                val delay = triggerAtMillis - timeUtil.nowEpochMillis()
 
                 stateTracker.addStateMetadata(
                     mapOf(
                         KEY_DOWNLOAD_TYPE to PROP_TYPE_APP,
                         KEY_DOWNLOAD_RETRY_ATTEMPT to newAttempts.toString(),
                         KEY_DOWNLOAD_ERROR to compositeError.errors.joinToString { "${it.javaClass.name} - ${it.message}" },
-                        KEY_DOWNLOAD_DELAY to Duration.ofMillis(triggerAtMillis).toString(),
+                        KEY_DOWNLOAD_DELAY to Duration.ofMillis(delay).toString(),
                         KEY_DOWNLOAD_RETRY_AT to Instant.ofEpochMilli(triggerAtMillis).atZone(ZoneId.systemDefault()).toString(),
-                        PROP_CURRENT_TIME to Instant.now().atZone(ZoneId.systemDefault()).toString()
+                        PROP_CURRENT_TIME to timeUtil.systemZonedNow().toString()
                     )
                 )
 
@@ -1216,15 +1219,16 @@ class UpdaterService : Service() {
             if (newAttempts < TOTAL_DOWNLOAD_ATTEMPTS_PER_SESSION) {
                 Timber.w(error, "[Updater] Failed to download some of the found updates, will retry soon (there were $oldAttempts attempts)")
                 val triggerAtMillis = scheduleUtils.findNextDownloadTimeMillis(newAttempts)
+                val delay = triggerAtMillis - timeUtil.nowEpochMillis()
 
                 stateTracker.addStateMetadata(
                     mapOf(
                         KEY_DOWNLOAD_TYPE to PROP_TYPE_FIRMWARE,
                         KEY_DOWNLOAD_RETRY_ATTEMPT to newAttempts.toString(),
                         KEY_DOWNLOAD_ERROR to (error.message ?: error.javaClass.name),
-                        KEY_DOWNLOAD_DELAY to Duration.ofMillis(triggerAtMillis).toString(),
+                        KEY_DOWNLOAD_DELAY to Duration.ofMillis(delay).toString(),
                         KEY_DOWNLOAD_RETRY_AT to Instant.ofEpochMilli(triggerAtMillis).atZone(ZoneId.systemDefault()).toString(),
-                        PROP_CURRENT_TIME to Instant.now().atZone(ZoneId.systemDefault()).toString()
+                        PROP_CURRENT_TIME to timeUtil.systemZonedNow().toString()
                     )
                 )
 
