@@ -3,8 +3,10 @@
 package co.sodalabs.apkupdater.di.module
 
 import co.sodalabs.apkupdater.ILeakUtil
+import co.sodalabs.apkupdater.ISystemLauncherUtil
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.apkupdater.utils.AndroidLeakUtil
+import co.sodalabs.apkupdater.utils.AndroidSystemLauncherUtil
 import co.sodalabs.updaterengine.ITimeUtil
 import co.sodalabs.updaterengine.IZipUtil
 import co.sodalabs.updaterengine.utils.AndroidTimeUtil
@@ -32,4 +34,10 @@ abstract class UtilsModule {
     abstract fun provideLeakUtil(
         util: AndroidLeakUtil
     ): ILeakUtil
+
+    @Binds
+    @ApplicationScope
+    abstract fun provideSystemLauncherUtil(
+        util: AndroidSystemLauncherUtil
+    ): ISystemLauncherUtil
 }

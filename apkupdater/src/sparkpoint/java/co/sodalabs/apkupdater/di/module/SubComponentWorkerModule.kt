@@ -3,6 +3,7 @@
 package co.sodalabs.apkupdater.di.module
 
 import co.sodalabs.apkupdater.di.scopes.WorkerScope
+import co.sodalabs.apkupdater.feature.watchdog.ForegroundAppWatchdogWorker
 import co.sodalabs.updaterengine.di.modules.WorkerInjectionModule
 import co.sodalabs.updaterengine.feature.logPersistence.LogPersistenceWorker
 import dagger.Module
@@ -20,4 +21,14 @@ abstract class SubComponentWorkerModule {
         WorkerInjectionModule::class
     ])
     abstract fun contributeFollowupContentSendingWorkerInjector(): LogPersistenceWorker
+
+    /**
+     * The sub-component for [ForegroundAppWatchdogWorker]
+     */
+    @WorkerScope
+    @ContributesAndroidInjector(modules = [
+        // Module for binding worker injection
+        WorkerInjectionModule::class
+    ])
+    abstract fun contributeForegroundAppWatchdogWorkerInjector(): ForegroundAppWatchdogWorker
 }

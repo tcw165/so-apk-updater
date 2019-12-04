@@ -8,9 +8,11 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.di.module.AppPreferenceModule
+import co.sodalabs.apkupdater.di.module.ComponentLauncherModule
 import co.sodalabs.apkupdater.di.module.LoggingModule
 import co.sodalabs.apkupdater.di.module.NetworkModule
 import co.sodalabs.apkupdater.di.module.SubComponentActivityModule
+import co.sodalabs.apkupdater.di.module.SubComponentReceiverModule
 import co.sodalabs.apkupdater.di.module.SubComponentServiceModule
 import co.sodalabs.apkupdater.di.module.SubComponentWorkerModule
 import co.sodalabs.apkupdater.di.module.SystemModule
@@ -41,9 +43,11 @@ import dagger.android.support.AndroidSupportInjectionModule
     UtilsModule::class,
     UpdaterModule::class,
     LoggingModule::class,
+    ComponentLauncherModule::class,
     // Modules for constructing sub-components
     SubComponentActivityModule::class,
     SubComponentServiceModule::class,
+    SubComponentReceiverModule::class,
     SubComponentWorkerModule::class
 ])
 interface AppComponent : AndroidInjector<UpdaterApp> {

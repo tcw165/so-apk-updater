@@ -58,7 +58,9 @@ android {
         buildConfigField "String", "ADMIN_PASSCODE", "\"000000\"" // Must be 0..9
 
         buildConfigField "long", "HEARTBEAT_INTERVAL_SECONDS", "15"
-        buildConfigField "long", "CHECK_INTERVAL_SECONDS", "600" // 24 min
+        buildConfigField "long", "CHECK_INTERVAL_SECONDS", "1440" // 24 min
+        buildConfigField "long", "LAUNCHER_WATCHDOG_MIN_INTERVAL_SECONDS", "1440" // 24 min
+        buildConfigField "long", "LAUNCHER_WATCHDOG_MAX_INTERVAL_SECONDS", "1800" // 30 min
         buildConfigField "int", "INSTALL_HOUR_BEGIN", "0" // 00:00
         buildConfigField "int", "INSTALL_HOUR_END", "23" // 23:00
         buildConfigField "boolean", "INSTALL_SILENTLY", "true"

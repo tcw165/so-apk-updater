@@ -1,8 +1,9 @@
-<manifest package="co.sodalabs.apkupdater"
-          xmlns:android="http://schemas.android.com/apk/res/android"
-          xmlns:tools="http://schemas.android.com/tools"
-          android:sharedUserId="android.uid.system"
-          tools:node="merge">
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="co.sodalabs.apkupdater"
+    android:sharedUserId="android.uid.system"
+    tools:node="merge">
 
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -12,6 +13,11 @@
         tools:ignore="ProtectedPermissions" />
     <uses-permission
         android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+    <!--suppress DeprecatedClassUsageInspection -->
+    <uses-permission android:name="android.permission.GET_TASKS" />
+    <uses-permission
+        android:name="android.permission.FORCE_STOP_PACKAGES"
         tools:ignore="ProtectedPermissions" />
 
     <application
