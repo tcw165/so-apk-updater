@@ -1,6 +1,8 @@
 package co.sodalabs.apkupdater
 
 import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
 import android.os.StrictMode
 import android.os.StrictMode.VmPolicy
 import android.provider.Settings
@@ -8,7 +10,6 @@ import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
 import androidx.work.ListenableWorker
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
-import co.sodalabs.apkupdater.feature.watchdog.IForegroundAppWatchdogLauncher
 import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.updaterengine.IAppPreference
@@ -58,13 +59,22 @@ class UpdaterApp :
     override fun workerInjector(): AndroidInjector<ListenableWorker> = actualWorkerInjector
 
     @Inject
-    lateinit var foregroundAppWatchdogLauncher: IForegroundAppWatchdogLauncher
-    @Inject
     lateinit var sharedSettings: ISharedSettings
     @Inject
     lateinit var updaterStateTracker: IUpdaterStateTracker
 
     private val globalDisposables = CompositeDisposable()
+
+    /**
+     * A most early checkpoint for initializing the Timber log.
+     *
+     * Note: This is called prior to Application's [onCreate] and ContentProvider's
+     * onCreate.
+     */
+    override fun attachBaseContext(base: Context?) {
+        super.attachBaseContext(base)
+        initLogging()
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -74,18 +84,20 @@ class UpdaterApp :
         // preference to instantiate.
         injectDefaultPreferencesBeforeInjectingDep()
         injectDependencies()
+        initToggleableLogging()
         initNetworkEnvironment()
         initCrashReporting()
-        initLogging()
         initDatetime()
         initLeakCanary()
         initStrictMode()
-        initForegroundAppWatchdog()
         logSystemInfo()
 
         safeguardsUndeliverableException()
 
         observeSystemConfigChange()
+
+        // Initialize the launching works.
+        sendBroadcast(Intent(WorkOnAppLaunchInitializer.UPDATER_LAUNCH))
 
         // Install the updater engine after everything else is ready.
         UpdaterService.start(this)
@@ -133,8 +145,12 @@ class UpdaterApp :
     private fun initLogging() {
         val logTree = Timber.DebugTree()
         Timber.plant(logTree)
+    }
 
+    @SuppressLint("LogNotTimber")
+    private fun initToggleableLogging() {
         /* Do not remove, will need this again.
+        val logTree = Timber.DebugTree()
         if (BuildUtils.isRelease()) {
             // Note: There would be a short latency on planting the log tree on
             // release build.
@@ -234,7 +250,12 @@ class UpdaterApp :
 
     private val rawPreference by lazy { PreferenceManager.getDefaultSharedPreferences(this) }
 
+    @SuppressLint("LogNotTimber")
     private fun injectDependencies() {
+        // Using LogCat instead Timber here cause the injection for Timber is NOT
+        // ready yet!
+        Timber.v("[Updater] Initializing dependencies...")
+
         DaggerAppComponent.builder()
             .setApplication(this)
             .setAppPreference(rawPreference)
@@ -400,10 +421,4 @@ class UpdaterApp :
     //  that we don't want to use for triggering restart engine event
     private fun ignoredProperties(key: String) =
         key != PreferenceProps.LOG_FILE_CREATED_TIMESTAMP
-
-    // Foreground App Watchdog ////////////////////////////////////////////////
-
-    private fun initForegroundAppWatchdog() {
-        foregroundAppWatchdogLauncher.scheduleForegroundProcessValidation()
-    }
 }
