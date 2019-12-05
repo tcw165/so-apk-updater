@@ -48,6 +48,22 @@
             </intent-filter>
         </activity>
 
+        <!--Disable the default WorkManager initialization, and...-->
+        <provider
+            android:name="androidx.work.impl.WorkManagerInitializer"
+            android:authorities="com.sample.workmanager-init"
+            android:enabled="false"
+            android:exported="false"
+            tools:replace="android:authorities" />
+        <!--
+        Replace the default WorkManager initializer with ours.
+        Reference: https://medium.com/@programmerr47/custom-work-manager-initialization-efdd2afa6459
+        -->
+        <provider
+            android:name="co.sodalabs.apkupdater.WorkManagerInitializer"
+            android:authorities="${applicationId}.workmanager-init"
+            android:enabled="true"
+            android:exported="false" />
         <!--For file sharing beyond N-->
         <provider
             android:name="co.sodalabs.updaterengine.feature.installer.ApkFileProvider"

@@ -508,6 +508,7 @@ class UpdaterService : Service() {
         AndroidInjection.inject(this)
         super.onCreate()
 
+        // TODO: Shall we move this to WorkManagerInitializer?
         // Persist logs locally to be used later
         logPersistenceScheduler.start()
 
@@ -518,8 +519,12 @@ class UpdaterService : Service() {
 
     override fun onDestroy() {
         Timber.v("[Updater] Updater Service is offline")
+
+        // TODO: Shall we move this to WorkManagerInitializer?
         logPersistenceScheduler.stop()
+
         disposablesOnCreateDestroy.clear()
+
         super.onDestroy()
     }
 
