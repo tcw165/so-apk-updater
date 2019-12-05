@@ -12,6 +12,7 @@ import co.sodalabs.apkupdater.di.module.ComponentLauncherModule
 import co.sodalabs.apkupdater.di.module.LoggingModule
 import co.sodalabs.apkupdater.di.module.NetworkModule
 import co.sodalabs.apkupdater.di.module.SubComponentActivityModule
+import co.sodalabs.apkupdater.di.module.SubComponentProviderModule
 import co.sodalabs.apkupdater.di.module.SubComponentReceiverModule
 import co.sodalabs.apkupdater.di.module.SubComponentServiceModule
 import co.sodalabs.apkupdater.di.module.SubComponentWorkerModule
@@ -48,7 +49,8 @@ import dagger.android.support.AndroidSupportInjectionModule
     SubComponentActivityModule::class,
     SubComponentServiceModule::class,
     SubComponentReceiverModule::class,
-    SubComponentWorkerModule::class
+    SubComponentWorkerModule::class,
+    SubComponentProviderModule::class
 ])
 interface AppComponent : AndroidInjector<UpdaterApp> {
 

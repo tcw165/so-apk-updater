@@ -48,6 +48,17 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".WorkOnAppLaunchInitializer"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="sodalabs.intent.action.updater_launch" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </receiver>
+
         <!--For file sharing beyond N-->
         <provider
             android:name="co.sodalabs.updaterengine.feature.installer.ApkFileProvider"

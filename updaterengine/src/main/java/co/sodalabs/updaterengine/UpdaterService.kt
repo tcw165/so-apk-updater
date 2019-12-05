@@ -508,6 +508,7 @@ class UpdaterService : Service() {
         AndroidInjection.inject(this)
         super.onCreate()
 
+        // TODO: Shall we move this to WorkOnAppLaunchInitializer?
         // Persist logs locally to be used later
         logPersistenceScheduler.start()
 
@@ -518,8 +519,12 @@ class UpdaterService : Service() {
 
     override fun onDestroy() {
         Timber.v("[Updater] Updater Service is offline")
+
+        // TODO: Shall we move this to WorkOnAppLaunchInitializer?
         logPersistenceScheduler.stop()
+
         disposablesOnCreateDestroy.clear()
+
         super.onDestroy()
     }
 
@@ -575,6 +580,8 @@ class UpdaterService : Service() {
     }
 
     private fun start() {
+        Timber.v("[Updater] Engine starts...")
+
         // Restore the updater state from the persistent store.
         // If it is in the INSTALL state, then install the updates from the disk cache.
         continueInstallsOrScheduleCheckOnStart()

@@ -1,6 +1,8 @@
 package co.sodalabs.apkupdater.feature.watchdog
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequest
@@ -20,6 +22,9 @@ private const val UNIQUE_WORK_NAME = "validate_foreground_app"
 private const val MIN_DELAY_MILLIS = BuildConfig.LAUNCHER_WATCHDOG_MIN_INTERVAL_SECONDS * 1000L
 private const val MAX_DELAY_MILLIS = BuildConfig.LAUNCHER_WATCHDOG_MAX_INTERVAL_SECONDS * 1000L
 
+private const val MSG_VALIDATE_FOREGROUND_APP = 0
+private const val MSG_CANCEL_VALIDATION = 1
+
 class ForegroundAppWatchdogLauncher @Inject constructor(
     private val context: Context,
     private val timeUtil: ITimeUtil,
@@ -31,7 +36,23 @@ class ForegroundAppWatchdogLauncher @Inject constructor(
         WorkManager.getInstance(context)
     }
 
+    private val uiHandler = Handler(Looper.getMainLooper(), Handler.Callback { msg ->
+        when (msg.what) {
+            MSG_VALIDATE_FOREGROUND_APP -> actuallyValidate()
+            MSG_CANCEL_VALIDATION -> actuallyCancelValidation()
+        }
+        true
+    })
+
     override fun scheduleForegroundProcessValidation() {
+        uiHandler.sendEmptyMessage(MSG_VALIDATE_FOREGROUND_APP)
+    }
+
+    override fun cancelPendingAndOnGoingValidation() {
+        uiHandler.sendEmptyMessage(MSG_CANCEL_VALIDATION)
+    }
+
+    private fun actuallyValidate() {
         Timber.d("[ForegroundAppWatchdog] Schedule next foreground app validation (min: $MIN_DELAY_MILLIS milliseconds, max: $MAX_DELAY_MILLIS milliseconds).")
         schedulers.ensureMainThread()
 
@@ -60,7 +81,7 @@ class ForegroundAppWatchdogLauncher @Inject constructor(
         )
     }
 
-    override fun cancelPendingAndOnGoingValidation() {
+    private fun actuallyCancelValidation() {
         Timber.d("[ForegroundAppWatchdog] Cancel validation.")
         schedulers.ensureMainThread()
 
