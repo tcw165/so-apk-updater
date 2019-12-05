@@ -2,6 +2,7 @@ package co.sodalabs.apkupdater
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.os.StrictMode
 import android.os.StrictMode.VmPolicy
 import android.provider.Settings
@@ -67,7 +68,8 @@ class UpdaterApp :
     /**
      * A most early checkpoint for initializing the Timber log.
      *
-     * Note: This is called prior to [onCreate] and ContentProvider's onCreate.
+     * Note: This is called prior to Application's [onCreate] and ContentProvider's
+     * onCreate.
      */
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
@@ -93,6 +95,9 @@ class UpdaterApp :
         safeguardsUndeliverableException()
 
         observeSystemConfigChange()
+
+        // Initialize the launching works.
+        sendBroadcast(Intent(WorkOnAppLaunchInitializer.UPDATER_LAUNCH))
 
         // Install the updater engine after everything else is ready.
         UpdaterService.start(this)

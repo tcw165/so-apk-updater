@@ -1,7 +1,8 @@
-<manifest package="co.sodalabs.updaterengine"
-          xmlns:android="http://schemas.android.com/apk/res/android"
-          xmlns:tools="http://schemas.android.com/tools"
-          android:sharedUserId="android.uid.system">
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="co.sodalabs.updaterengine"
+    android:sharedUserId="android.uid.system">
     <!--'sharedUserId' is for permission of read/writing '/cache/recovery/' directory-->
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -39,18 +40,6 @@
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
-        <receiver
-            android:name=".BootCompleteReceiver"
-            android:enabled="true"
-            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </receiver>
-
         <!-- Downloader -->
         <service
             android:name=".feature.downloader.DownloadJobIntentService"
@@ -82,6 +71,18 @@
                 android:resource="@xml/apk_file_provider" />
         </provider>
         -->
+
+        <receiver
+            android:name=".UpdaterOnBootInitializer"
+            android:enabled="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </receiver>
 
         <!--
         For DEBUG primarily. For example, the panel is completely hidden as a source

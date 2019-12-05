@@ -580,6 +580,8 @@ class UpdaterService : Service() {
     }
 
     private fun start() {
+        Timber.v("[Updater] Engine starts...")
+
         // Restore the updater state from the persistent store.
         // If it is in the INSTALL state, then install the updates from the disk cache.
         continueInstallsOrScheduleCheckOnStart()
