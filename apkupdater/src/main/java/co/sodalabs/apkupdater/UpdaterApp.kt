@@ -5,7 +5,6 @@ import android.content.Context
 import android.os.StrictMode
 import android.os.StrictMode.VmPolicy
 import android.provider.Settings
-import android.util.Log
 import androidx.multidex.MultiDexApplication
 import androidx.preference.PreferenceManager
 import androidx.work.ListenableWorker
@@ -63,32 +62,29 @@ class UpdaterApp :
     @Inject
     lateinit var updaterStateTracker: IUpdaterStateTracker
 
-    private val tag = UpdaterApp::class.java.simpleName
     private val globalDisposables = CompositeDisposable()
 
     /**
-     * A most early checkpoint for initializing the dependencies.
+     * A most early checkpoint for initializing the Timber log.
      *
      * Note: This is called prior to [onCreate] and ContentProvider's onCreate.
-     *
-     * Reference: https://stackoverflow.com/questions/23521083/inject-database-in-a-contentprovider-with-dagger
      */
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
+        initLogging()
+    }
+
+    override fun onCreate() {
+        super.onCreate()
 
         // Note: Injection of default rawPreference must be prior than dependencies
         // injection! Because the modules like network depends on the default
         // preference to instantiate.
         injectDefaultPreferencesBeforeInjectingDep()
         injectDependencies()
-    }
-
-    override fun onCreate() {
-        super.onCreate()
-
+        initToggleableLogging()
         initNetworkEnvironment()
         initCrashReporting()
-        initLogging()
         initDatetime()
         initLeakCanary()
         initStrictMode()
@@ -144,8 +140,12 @@ class UpdaterApp :
     private fun initLogging() {
         val logTree = Timber.DebugTree()
         Timber.plant(logTree)
+    }
 
+    @SuppressLint("LogNotTimber")
+    private fun initToggleableLogging() {
         /* Do not remove, will need this again.
+        val logTree = Timber.DebugTree()
         if (BuildUtils.isRelease()) {
             // Note: There would be a short latency on planting the log tree on
             // release build.
@@ -249,7 +249,7 @@ class UpdaterApp :
     private fun injectDependencies() {
         // Using LogCat instead Timber here cause the injection for Timber is NOT
         // ready yet!
-        Log.v(tag, "[Updater] Initializing dependencies...")
+        Timber.v("[Updater] Initializing dependencies...")
 
         DaggerAppComponent.builder()
             .setApplication(this)
