@@ -42,32 +42,43 @@ class WorkManagerInitializer : ContentProvider() {
         return true
     }
 
-    override fun query(uri: Uri,
+    override fun query(
+        uri: Uri,
         projection: Array<String>?,
         selection: String?,
         selectionArgs: Array<String>?,
-        sortOrder: String?): Cursor? {
+        sortOrder: String?
+    ): Cursor? {
         return null
     }
 
-    override fun getType(uri: Uri): String? {
+    override fun getType(
+        uri: Uri
+    ): String? {
         return null
     }
 
-    override fun insert(uri: Uri, values: ContentValues?): Uri? {
+    override fun insert(
+        uri: Uri,
+        values: ContentValues?
+    ): Uri? {
         return null
     }
 
-    override fun delete(uri: Uri,
+    override fun delete(
+        uri: Uri,
         selection: String?,
-        selectionArgs: Array<String>?): Int {
+        selectionArgs: Array<String>?
+    ): Int {
         return 0
     }
 
-    override fun update(uri: Uri,
+    override fun update(
+        uri: Uri,
         values: ContentValues?,
         selection: String?,
-        selectionArgs: Array<String>?): Int {
+        selectionArgs: Array<String>?
+    ): Int {
         return 0
     }
 
