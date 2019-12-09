@@ -27,6 +27,9 @@ private const val CACHE_UPDATE_RECORDS_SIZE_MB = 10
 private const val DAY_MIN = 0
 private const val DAY_MAX = 24
 
+private const val MIN_CHECK_INTERVAL_MILLIS = Intervals.SAMPLE_INTERVAL_NORMAL
+private const val MIN_HEARTBEAT_INTERVAL_MILLIS = Intervals.SAMPLE_INTERVAL_NORMAL
+
 class AndroidUpdaterConfig @Inject constructor(
     private val context: Context, // Application context is fine
     private val appPreference: IAppPreference
@@ -46,17 +49,31 @@ class AndroidUpdaterConfig @Inject constructor(
         }
 
     override var heartbeatIntervalMillis: Long
-        get() = 1000L * appPreference.getLong(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
+        get() {
+            val rawValue = 1000L * appPreference.getLong(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
+            val validValue = validateHeartbeatInterval(rawValue)
+            if (rawValue != validValue) {
+                appPreference.putLong(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, validValue / 1000L)
+            }
+            return validValue
+        }
         set(value) {
-            require(value < Intervals.SAMPLE_INTERVAL_NORMAL) { "The given interval, $value, is too small, which should be greater than ${Intervals.SAMPLE_INTERVAL_NORMAL}" }
-            appPreference.putLong(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, value)
+            require(value >= Intervals.SAMPLE_INTERVAL_NORMAL) { "The given interval, $value, is too small, which should be greater than ${Intervals.SAMPLE_INTERVAL_NORMAL}" }
+            appPreference.putLong(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, value / 1000L)
         }
 
     override var checkIntervalMillis: Long
-        get() = 1000L * appPreference.getLong(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS)
+        get() {
+            val rawValue = 1000L * appPreference.getLong(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS)
+            val validValue = validateCheckInterval(rawValue)
+            if (rawValue != validValue) {
+                appPreference.putLong(PreferenceProps.CHECK_INTERVAL_SECONDS, validValue / 1000L)
+            }
+            return validValue
+        }
         set(value) {
-            require(value < Intervals.SAMPLE_INTERVAL_NORMAL) { "The given interval, $value, is too small, which should be greater than ${Intervals.SAMPLE_INTERVAL_NORMAL}" }
-            appPreference.putLong(PreferenceProps.CHECK_INTERVAL_SECONDS, value)
+            require(value >= MIN_CHECK_INTERVAL_MILLIS) { "The given interval, $value, is too small, which should be greater than ${Intervals.SAMPLE_INTERVAL_NORMAL}" }
+            appPreference.putLong(PreferenceProps.CHECK_INTERVAL_SECONDS, value / 1000L)
         }
 
     @Suppress("ReplaceRangeStartEndInclusiveWithFirstLast")
@@ -122,5 +139,17 @@ class AndroidUpdaterConfig @Inject constructor(
             CACHE_JOURNAL_VERSION,
             CACHE_UPDATE_RECORDS_SIZE_MB.mbToBytes()
         )
+    }
+
+    private fun validateHeartbeatInterval(
+        rawMillis: Long
+    ): Long {
+        return Math.max(rawMillis, MIN_HEARTBEAT_INTERVAL_MILLIS)
+    }
+
+    private fun validateCheckInterval(
+        rawMillis: Long
+    ): Long {
+        return Math.max(rawMillis, MIN_CHECK_INTERVAL_MILLIS)
     }
 }
