@@ -60,7 +60,7 @@ class ForegroundAppWatchdogWorker(
                     forceStopPackageMethod.invoke(activityManager, foregroundPackageName)
                     if (!canRun.get()) throw InterruptedException()
 
-                    systemLauncherUtil.startSystemLauncher()
+                    systemLauncherUtil.startSodaLabsLauncherIfPresent()
 
                     // Add rescue time to to heartbeat metadata!
                     updaterStateTracker.addStateMetadata(
@@ -77,9 +77,6 @@ class ForegroundAppWatchdogWorker(
         } catch (error: Throwable) {
             Timber.w(error, "[ForegroundAppWatchdog] Something is wrong...")
         }
-
-        // Most importantly, schedule next validation.
-        watchdogLauncher.scheduleForegroundProcessValidation()
 
         return Result.success()
     }

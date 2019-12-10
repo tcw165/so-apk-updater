@@ -11,6 +11,7 @@ import javax.inject.Inject
 class AndroidAutoExitHelper @Inject constructor(
     private val activity: AppCompatActivity,
     private val touchTracker: ITouchTracker,
+    private val systemLauncherUtil: ISystemLauncherUtil,
     private val schedulers: IThreadSchedulers
 ) : IAutoExitHelper {
 
@@ -33,7 +34,7 @@ class AndroidAutoExitHelper @Inject constructor(
         return Completable
             .fromAction {
                 Timber.v("[Dismiss] Pop layer cause it's timeout!")
-                activity.finish()
+                systemLauncherUtil.startSodaLabsLauncherIfPresent()
             }
             .subscribeOn(schedulers.main())
     }

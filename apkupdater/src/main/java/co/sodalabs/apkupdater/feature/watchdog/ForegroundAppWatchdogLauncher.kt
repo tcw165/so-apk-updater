@@ -4,8 +4,8 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import androidx.work.Constraints
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequest
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
 import co.sodalabs.apkupdater.BuildConfig
 import co.sodalabs.apkupdater.feature.watchdog.ForegroundAppWatchdogMetadata.KEY_NEXT_CHECK_TIME
@@ -56,9 +56,8 @@ class ForegroundAppWatchdogLauncher @Inject constructor(
         Timber.d("[ForegroundAppWatchdog] Schedule next foreground app validation (min: $MIN_DELAY_MILLIS milliseconds, max: $MAX_DELAY_MILLIS milliseconds).")
         schedulers.ensureMainThread()
 
-        val request = OneTimeWorkRequest
-            .Builder(ForegroundAppWatchdogWorker::class.java)
-            .setInitialDelay(MIN_DELAY_MILLIS, TimeUnit.MILLISECONDS)
+        val request = PeriodicWorkRequest
+            .Builder(ForegroundAppWatchdogWorker::class.java, MIN_DELAY_MILLIS, TimeUnit.MILLISECONDS)
             .setConstraints(buildConstraints())
             .build()
 
@@ -72,11 +71,11 @@ class ForegroundAppWatchdogLauncher @Inject constructor(
         // Mark runnable!
         ForegroundAppWatchdogWorker.canRun.set(true)
 
-        workManager.enqueueUniqueWork(
+        workManager.enqueueUniquePeriodicWork(
             UNIQUE_WORK_NAME,
             // Since the work is persistable and we'll schedule new one on boot,
             // it's always safe to override the work!
-            ExistingWorkPolicy.REPLACE,
+            ExistingPeriodicWorkPolicy.REPLACE,
             request
         )
     }
