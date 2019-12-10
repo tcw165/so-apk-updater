@@ -21,7 +21,7 @@ class AdbUtils @Inject constructor(
         return Completable
             .fromCallable {
                 try {
-                    val cmd = arrayOf("logcat", "-f", file.absolutePath, "$applicationTag:I")
+                    val cmd = arrayOf("logcat", "-v", "time", "-f", file.absolutePath, "$applicationTag:I")
                     Runtime.getRuntime().exec(cmd)
                 } catch (e: Exception) {
                     Timber.e("[AdbUtils] Error while fetching logs from logcat: \n $e")
