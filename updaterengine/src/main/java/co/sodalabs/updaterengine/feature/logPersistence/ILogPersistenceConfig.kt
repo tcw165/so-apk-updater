@@ -5,4 +5,6 @@ interface ILogPersistenceConfig {
     val maxLogFileSizeInBytes: Long
     val maxLogFieDurationInMillis: Long
     val repeatIntervalInMillis: Long
+    val whitelist: List<String>
+    val maxLogLinesCount: Int
 }

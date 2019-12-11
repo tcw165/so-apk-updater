@@ -12,4 +12,6 @@ class LogPersistenceConfig @Inject constructor() : ILogPersistenceConfig {
     override val maxLogFileSizeInBytes: Long = BuildConfig.MAX_LOG_FILE_SIZE_IN_BYTES
     override val maxLogFieDurationInMillis: Long = BuildConfig.MAX_FILE_DURATION_IN_MILLIS
     override val repeatIntervalInMillis: Long = BuildConfig.REPEAT_INTERVAL_IN_MILLIS
+    override val whitelist: List<String> = BuildConfig.LOGGING_WHITELIST.toList()
+    override val maxLogLinesCount: Int = BuildConfig.MAX_LOG_LINES_COUNT
 }
