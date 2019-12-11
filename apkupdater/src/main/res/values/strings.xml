@@ -1,45 +1,73 @@
 <resources>
     <string name="app_name">App Updater</string>
-
     <string name="configuration_change_countdown">Configuration change detected …</string>
 
-    <string name="auto_install">Auto Install</string>
-    <string name="auto_download">Auto Download</string>
-    <string name="check_for_updates">Check for Updates</string>
-
-    <string name="admin_passcode">Admin Passcode</string>
 
     <string name="device_category">Device</string>
+    <string name="version_information">Version Information</string>
+    <string name="admin_passcode">Admin Passcode</string>
+    <string name="admin_passcode_desc">The passcode for accessing the administration settings.</string>
     <string name="device_id">Device ID</string>
-    <string name="device_mock_user_setup_complete">Mock User-Setup-Incomplete</string>
+    <string name="device_id_desc">Unique Device ID stored in the secure settings and shared amoungst other apps with the permission.</string>
     <string name="device_mock_device_id">Mock Device ID</string>
+    <string name="device_mock_device_id_desc">Mock the device ID for testing. Set the empty string to clear the mock.</string>
     <string name="device_mock_firmware_version">Mock Firmware Version</string>
+    <string name="device_mock_firmware_version_desc">Mock the firmware version for testing. Set the empty string to clear the mock.</string>
     <string name="device_mock_sparkpoint_version">Mock Sparkpoint Version</string>
+    <string name="device_mock_sparkpoint_version_desc">Mock the Sparkpoint version for testing. Set the empty string to clear the mock.</string>
+    <string name="server_url">Change Server</string>
+    <string name="server_url_desc">The base server that the device is pointing to.</string>
+
+
+    <string name="heartbeat_category">Heart beat</string>
+    <string name="heartbeat_interval">Heart beat Interval</string>
+    <string name="heartbeat_interval_desc">Engine reports the heart-beat every this interval in seconds.</string>
+    <string name="heartbeat_success">Heart beat was sent!</string>
+    <string name="test_heartbeat">Test Heart Beat Now!</string>
+
+
+    <string name="check_category">Check</string>
+    <string name="update_channel">Update Channel</string>
+    <string name="update_channel_desc">Choose between Canary and Stable releases. Canary stands for releases that are still pending for testing (beta releases). Stable stands for approved releases that is ready for all devices. When in doubt, make sure the device is pointing to Stable.</string>
+    <string name="check_interval">Check Update Interval</string>
+    <string name="check_interval_desc">Interval in seconds that the recurring update check happens.</string>
+    <string name="check_for_updates">Check for Update Now!</string>
+
+
+    <string name="download_category">Download</string>
+    <string name="download_use_cache">Enable Download Cache</string>
+    <string name="download_cache_max_size">Download Cache Max Size</string>
+    <string name="download_cache_max_size_desc">The maximum size of cache for storing the download files (in MB).</string>
+
+
+
+    <string name="install_category">Install</string>
+    <string name="install_hour_start">Install Start Window</string>
+    <string name="install_hour_start_desc">The start hour of install window. This means the device will only start update after this time. The time is set in 24 hour format. You can only set on the hour right now.</string>
+    <string name="install_hour_end">Install End Window</string>
+    <string name="install_hour_end_desc">The end hour of install window. This means the device will not be able to update after this time. The time is set in 24 hour format. You can only set on the hour right now.</string>
+    <string name="enable_full_update">Enable Firmware Full Update [WILL BREAK HEART BEAT]</string>
+    <string name="enable_full_update_desc">Turning this on enables the FULL firmware update; Off for the silently incremental firmware update. This will break the heart beat functionality and will leave your device reporting offline so remember to disable this afterwards.</string>
+    <string name="install_allow_downgrade">Allow App Downgrade</string>
+
 
     <string name="network_category">Network</string>
     <string name="network_connection_timeout">Connection Timeout</string>
+    <string name="network_connection_timeout_desc">HTTP/HTTPS connection timeout in seconds.</string>
     <string name="network_read_timeout">Read Timeout</string>
+    <string name="network_read_timeout_desc">HTTP/HTTPS read timeout in seconds.</string>
     <string name="network_write_timeout">Write Timeout</string>
-
-    <string name="api_base_urls">API Base URLs</string>
-
-    <string name="heartbeat_category">Heartbeat</string>
-    <string name="heartbeat_interval">Heartbeat Interval</string>
-
-    <string name="check_category">Check</string>
-    <string name="check_interval">Check Interval</string>
-
-    <string name="download_category">Download</string>
-    <string name="download_use_cache">Download Use Cache</string>
-    <string name="download_cache_max_size">Download Cache Max Size</string>
-
-    <string name="install_category">Install</string>
-    <string name="install_hour_begin">Install Window: Begin Hour of Day</string>
-    <string name="install_hour_end">Install Window: End Hour of Day</string>
-    <string name="install_allow_downgrade">Install Allow Downgrade</string>
+    <string name="network_write_timeout_desc">HTTP/HTTPS write timeout in seconds.</string>
 
     <string name="other_category">Other</string>
+    <string name="android_settings">Android Settings</string>
+    <string name="android_settings_desc">Open the Android settings UI.</string>
+    <string name="main_application">Set Main Application</string>
+    <string name="main_application_desc">Clicking this button will show a dialog to set the main application on the device. The main application should always be Sparkpoint. Once the chooser dialog opens, please select Sparkpoint and click the Always button.</string>
+    <string name="speed_test">Internet Speed Test</string>
+    <string name="speed_test_desc">Show the Internet Speed Test app</string>
+    <string name="send_logs">Send Logs</string>
+    <string name="send_logs_desc">Send logs to the server team</string>
     <string name="send_logs_success_msg">Logs sent to the server!</string>
     <string name="send_logs_failure_msg">Problem while sending logs to the server!</string>
-    <string name="update_channel">Update Channel</string>
 </resources>
