@@ -146,14 +146,19 @@ class SettingsActivity :
 
     private fun logSSLProtocols() {
         try {
-            Timber.v("SSL Protocols: [")
-            val sslParameters: SSLParameters = SSLContext.getDefault().defaultSSLParameters
-            val protocols = sslParameters.protocols
-            for (i in 0 until protocols.size) {
-                val protocol = protocols[i]
-                Timber.v("    $protocol,")
-            }
-            Timber.v("]")
+            val log = StringBuilder()
+                .apply {
+                    appendln("SSL Protocols: [")
+                    val sslParameters: SSLParameters = SSLContext.getDefault().defaultSSLParameters
+                    val protocols = sslParameters.protocols
+                    for (i in 0 until protocols.size) {
+                        val protocol = protocols[i]
+                        appendln("    $protocol,")
+                    }
+                    append("]")
+                }
+                .toString()
+            Timber.v(log)
         } catch (err: Throwable) {
             Timber.e(err)
         }
