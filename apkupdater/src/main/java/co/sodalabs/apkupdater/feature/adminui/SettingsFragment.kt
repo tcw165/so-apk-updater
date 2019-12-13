@@ -310,7 +310,11 @@ class SettingsFragment :
         checkUpdateNowPref.clicks()
             .observeOn(schedulers.main())
             .flatMap {
-                UpdaterService.checkUpdateNow(safeContext, resetSession = true)
+                UpdaterService.checkUpdateNow(
+                    safeContext,
+                    resetSession = true,
+                    installImmediately = true
+                )
 
                 // TODO: Pull out to a function of ApkUpdater.
                 val intentFilter = IntentFilter(IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE)
