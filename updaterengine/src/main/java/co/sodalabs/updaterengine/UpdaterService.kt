@@ -80,6 +80,7 @@ import org.threeten.bp.Instant
 import org.threeten.bp.ZoneId
 import timber.log.Timber
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -843,6 +844,9 @@ class UpdaterService : Service() {
 
     private fun continueInstallsOrScheduleCheckOnStart() {
         inflateUpdatesFromCache()
+            // Regardless the error, we should ALWAYS schedule the next check
+            .doOnError(Timber::e)
+            .onErrorReturnItem(emptyList())
             .observeOn(updaterScheduler)
             .subscribe({ foundInstallCache ->
                 // TODO: Should check the timestamp of the install cache to see if it's due.
@@ -869,8 +873,16 @@ class UpdaterService : Service() {
                 ensureBackgroundThread()
 
                 val diskCache = updaterConfig.downloadedUpdateDiskCache
-                if (diskCache.isClosed()) {
-                    diskCache.open()
+                try {
+                    if (diskCache.isClosed()) {
+                        diskCache.open()
+                    }
+                } catch (error: IOException) {
+                    Timber.w(error)
+                    // Cache is full, which means the entire disk is full
+                    // TODO: Should we also clear up the other caches?
+                    cleanDownloadedAppUpdateCache()
+                    return@fromCallable emptyList<DownloadedAppUpdate>()
                 }
 
                 val record: DiskLruCache.Value? = diskCache.get(CACHE_KEY_DOWNLOADED_UPDATES)
@@ -927,10 +939,8 @@ class UpdaterService : Service() {
 
     private fun cleanDownloadedAppUpdateCache() {
         val diskCache = updaterConfig.downloadedUpdateDiskCache
-        if (diskCache.isOpened()) {
-            Timber.v("[Updater] Remove installs cache")
-            diskCache.delete()
-        }
+        Timber.v("[Updater] Remove installs cache")
+        diskCache.delete()
     }
 
     private fun List<DownloadedAppUpdate>.trimGoneFiles(): List<DownloadedAppUpdate> {
