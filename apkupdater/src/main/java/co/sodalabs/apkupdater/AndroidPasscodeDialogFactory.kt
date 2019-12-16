@@ -53,9 +53,7 @@ class AndroidPasscodeDialogFactory @Inject constructor(
             .create<Boolean> { emitter ->
                 val dialog = createDialog(emitter)
                 emitter.setCancellable {
-                    if (dialog.isShowing) {
-                        dialog.dismiss()
-                    }
+                    dialog.dismiss()
 
                     // The system TextLine has a memory leak issue under 23.
                     leakUtil.clearTextLineCache()
