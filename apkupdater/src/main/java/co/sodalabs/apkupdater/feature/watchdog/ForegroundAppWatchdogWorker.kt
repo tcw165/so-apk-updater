@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import co.sodalabs.apkupdater.ISystemLauncherUtil
+import co.sodalabs.apkupdater.feature.watchdog.ForegroundAppWatchdogMetadata.KEY_FOREGROUND_ACTIVITY
 import co.sodalabs.apkupdater.feature.watchdog.ForegroundAppWatchdogMetadata.KEY_RESCUE_TIME
 import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ITimeUtil
@@ -51,8 +52,16 @@ class ForegroundAppWatchdogWorker(
             if (sharedSettings.isUserSetupComplete()) {
                 // Only check after user-setup.
                 val foregroundTaskInfo = activityManager.getRunningTasks(1)[0]
-                val foregroundPackageName = foregroundTaskInfo.topActivity.packageName
+                val foregroundActivity = foregroundTaskInfo.topActivity
+                val foregroundPackageName = foregroundActivity.packageName
                 if (!canRun.get()) throw InterruptedException()
+
+                // Add foreground Activity component name to heartbeat metadata!
+                updaterStateTracker.addStateMetadata(
+                    mapOf(
+                        KEY_FOREGROUND_ACTIVITY to "$foregroundPackageName/${foregroundActivity.className}"
+                    )
+                )
 
                 if (!foregroundPackageName.isFromSodalabs()) {
                     Timber.v("[ForegroundAppWatchdog] Current foreground app, '$foregroundPackageName', is NOT from SodaLabs, so force stop it and start the default SodaLabs launcher!")
