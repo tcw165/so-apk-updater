@@ -60,7 +60,8 @@ class ForegroundAppWatchdogWorker(
                     forceStopPackageMethod.invoke(activityManager, foregroundPackageName)
                     if (!canRun.get()) throw InterruptedException()
 
-                    systemLauncherUtil.startSodaLabsLauncherIfPresent()
+                    systemLauncherUtil.setSodaLabsLauncherAsDefaultIfInstalled()
+                    systemLauncherUtil.startSodaLabsLauncherIfInstalled()
 
                     // Add rescue time to to heartbeat metadata!
                     updaterStateTracker.addStateMetadata(

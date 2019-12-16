@@ -61,6 +61,9 @@ class LogsPersistenceLauncher @Inject constructor(
     override fun cancelPendingAndRunningBackingUp() {
         ensureMainThread()
 
+        // TODO: Also cancel the running work!
+
+        // Cancel all the pending works.
         workManager.cancelAllWorkByTag(LogsPersistenceConstants.WORK_TAG)
     }
 

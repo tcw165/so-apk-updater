@@ -9,6 +9,7 @@ import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import co.sodalabs.apkupdater.BuildConfig
+import co.sodalabs.apkupdater.ISystemLauncherUtil
 import co.sodalabs.apkupdater.R
 import co.sodalabs.apkupdater.data.UiState
 import co.sodalabs.privilegedinstaller.RxLocalBroadcastReceiver
@@ -29,6 +30,7 @@ import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
+import co.sodalabs.updaterengine.extension.showShortToast
 import co.sodalabs.updaterengine.extension.smartRetryWhen
 import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceLauncher
 import com.jakewharton.rxrelay2.PublishRelay
@@ -78,6 +80,8 @@ class SettingsFragment :
     lateinit var logsPersistenceLauncher: LogsPersistenceLauncher
     @Inject
     lateinit var timeUtil: ITimeUtil
+    @Inject
+    lateinit var systemLauncherUtil: ISystemLauncherUtil
 
     private val disposables = CompositeDisposable()
 
@@ -510,15 +514,13 @@ class SettingsFragment :
             .addTo(disposables)
 
         homeIntentPref.clicks()
-            .observeOn(schedulers.main())
+            .observeOn(schedulers.io())
             .subscribe({
-                startActivity(Intent(Intent.ACTION_MAIN).apply {
-                    addCategory(Intent.CATEGORY_HOME)
-                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                })
-            }, Timber::e)
+                systemLauncherUtil.startSystemLauncherWithSelector()
+            }, { error ->
+                activity?.showShortToast(error.toString())
+                Timber.e(error)
+            })
             .addTo(disposables)
 
         showInternetSpeedTestPref.clicks()
