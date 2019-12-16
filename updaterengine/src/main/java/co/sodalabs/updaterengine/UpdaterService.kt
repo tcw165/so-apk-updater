@@ -38,7 +38,7 @@ import co.sodalabs.updaterengine.extension.prepareUpdateFound
 import co.sodalabs.updaterengine.extension.prepareUpdateInstalled
 import co.sodalabs.updaterengine.extension.toBoolean
 import co.sodalabs.updaterengine.extension.toInt
-import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceScheduler
+import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceLauncher
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import co.sodalabs.updaterengine.feature.statemachine.KEY_CHECK_ERROR
@@ -503,7 +503,7 @@ class UpdaterService : Service() {
     @Inject
     lateinit var schedulers: IThreadSchedulers
     @Inject
-    lateinit var logPersistenceScheduler: LogsPersistenceScheduler
+    lateinit var logPersistenceScheduler: LogsPersistenceLauncher
     @Inject
     lateinit var timeUtil: ITimeUtil
 
@@ -517,7 +517,7 @@ class UpdaterService : Service() {
 
         // TODO: Shall we move this to WorkOnAppLaunchInitializer?
         // Persist logs locally to be used later
-        logPersistenceScheduler.start()
+        logPersistenceScheduler.scheduleBackingUpLogToCloud()
 
         observeUpdateIntentOnEngineThread()
         observeDeviceTimeChanges()
@@ -528,7 +528,7 @@ class UpdaterService : Service() {
         Timber.v("[Updater] Updater Service is offline")
 
         // TODO: Shall we move this to WorkOnAppLaunchInitializer?
-        logPersistenceScheduler.stop()
+        logPersistenceScheduler.cancelPendingAndRunningBackingUp()
 
         disposablesOnCreateDestroy.clear()
 

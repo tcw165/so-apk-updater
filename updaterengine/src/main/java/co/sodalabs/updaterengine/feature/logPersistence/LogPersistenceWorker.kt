@@ -31,7 +31,7 @@ class LogPersistenceWorker(
 ) : RxWorker(context, params) {
 
     @Inject
-    lateinit var prefs: IAppPreference
+    lateinit var appPreference: IAppPreference
     @Inject
     lateinit var adbUtils: AdbUtils
     @Inject
@@ -62,14 +62,15 @@ class LogPersistenceWorker(
             Timber.i("[LogPersistenceWorker] No future scheduling, this is a one-time task")
         }
         // Flag indicating whether the user triggered this action via Admin UI
-        val isUserTriggered =
-            inputData.getBoolean(LogsPersistenceConstants.PARAM_TRIGGERED_BY_USER, false)
+        val isUserTriggered = inputData.getBoolean(LogsPersistenceConstants.PARAM_TRIGGERED_BY_USER, false)
         val workSource = if (isUserTriggered) {
             // If the current operation is due to user triggered event and the log file already
             // exists, then just send the logs to the server. Otherwise, first run the persistence
             // sequence before attempting to send the logs.
             Single
-                .fromCallable { logFile.exists() }
+                .fromCallable {
+                    logFile.exists()
+                }
                 .flatMapCompletable { isExists ->
                     if (isExists) {
                         logSender.sendLogsToServer(logFile)
@@ -100,7 +101,7 @@ class LogPersistenceWorker(
     private fun checkShouldDeleteFile(): Single<Pair<File, Boolean>> {
         return Single
             .fromCallable {
-                val createdOn = prefs.logFileCreatedTimestamp
+                val createdOn = appPreference.logFileCreatedTimestamp
                 // TODO: Might also want to check if we have sufficient storage available on the device
                 // Not urgent because we only target one device over which we have complete control
                 // Delete file if size or duration limit is crossed
@@ -120,6 +121,7 @@ class LogPersistenceWorker(
     private fun backupAndDeleteLogsIfRequired(file: File, shouldDelete: Boolean): Single<File> {
         return if (shouldDelete) {
             Timber.i("[LogPersistenceWorker] Deleting file")
+
             // Send logs to the server before deleting them.
             // Even if sending fails, we want to delete the logs because otherwise there is a
             // high chance that we might get stuck into a cycle where the log file grows larger
@@ -156,7 +158,7 @@ class LogPersistenceWorker(
                             // Java IO up to Java 7 (and Android API level 26) does not provide a way
                             // to know the creation date of a file, so we record it manually
                             val time = timeUtils.systemZonedNow()
-                            prefs.logFileCreatedTimestamp = time.toInstant().toEpochMilli()
+                            appPreference.logFileCreatedTimestamp = time.toInstant().toEpochMilli()
                             Timber.i("[LogPersistenceWorker] Log file created at: $time")
                         } else {
                             throw IllegalStateException("Failed to create temporary file")
@@ -181,7 +183,10 @@ class LogPersistenceWorker(
             .andThen(copyToFile(tempLogFile, file))
     }
 
-    private fun copyToFile(temp: File, file: File): Completable {
+    private fun copyToFile(
+        temp: File,
+        file: File
+    ): Completable {
         return Completable
             .create { emitter ->
                 try {
@@ -197,7 +202,7 @@ class LogPersistenceWorker(
                                 bytes = input.read(buffer)
                             }
                         }
-                        Timber.i("[LogPersistenceWorker] Wrote ${tempLogFile.length()} bytes to temp file")
+                        Timber.i("[LogPersistenceWorker] Wrote ${temp.length()} bytes to temp file")
                         temp.delete()
                         emitter.onComplete()
 

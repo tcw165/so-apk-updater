@@ -30,8 +30,7 @@ import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.smartRetryWhen
-import co.sodalabs.updaterengine.feature.logPersistence.ILogFileProvider
-import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceScheduler
+import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceLauncher
 import com.jakewharton.rxrelay2.PublishRelay
 import dagger.android.support.AndroidSupportInjection
 import io.reactivex.Observable
@@ -76,9 +75,7 @@ class SettingsFragment :
     @Inject
     lateinit var systemProperties: ISystemProperties
     @Inject
-    lateinit var logsPersistenceScheduler: LogsPersistenceScheduler
-    @Inject
-    lateinit var logFileProvider: ILogFileProvider
+    lateinit var logsPersistenceLauncher: LogsPersistenceLauncher
     @Inject
     lateinit var timeUtil: ITimeUtil
 
@@ -547,7 +544,7 @@ class SettingsFragment :
             .addTo(disposables)
 
         sendLogsPref.clicks()
-            .flatMap { logsPersistenceScheduler.triggerImmediate(logFileProvider.logFile.absolutePath) }
+            .flatMap { logsPersistenceLauncher.backupLogToCloudNow() }
             .observeOn(schedulers.main())
             .subscribe({ success ->
                 val message = if (success) {

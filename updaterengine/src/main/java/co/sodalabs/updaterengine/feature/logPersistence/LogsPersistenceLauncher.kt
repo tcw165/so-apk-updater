@@ -8,10 +8,10 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import co.sodalabs.updaterengine.extension.ensureMainThread
 import co.sodalabs.updaterengine.utils.BuildUtils
 import co.sodalabs.updaterengine.utils.getWorkInfoByIdObservable
 import io.reactivex.Observable
-import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -20,27 +20,22 @@ import javax.inject.Inject
  *
  * @param context The application context object that used to request a [WorkManager] instance
  */
-class LogsPersistenceScheduler @Inject constructor(
+class LogsPersistenceLauncher @Inject constructor(
     private val context: Context,
-    private val persistenceConfig: ILogPersistenceConfig,
-    private val logFileProvider: ILogFileProvider
-) : ILogsPersistenceScheduler {
+    private val persistenceConfig: ILogPersistenceConfig
+) : ILogsPersistenceLauncher {
 
     private val workManager by lazy {
         WorkManager.getInstance(context)
     }
 
-    override fun start() {
-        val filePath = try {
-            logFileProvider.logFile.absolutePath
-        } catch (e: Exception) {
-            // We want to log this to Bugsnag because this is a very unlikely yet an unrecoverable
-            // situation which we want to be notified about.
-            Timber.e("[LogsPersistenceScheduler] Invalid log file provided, disabling log persistence. $e")
-            stop()
-            return
-        }
-        Timber.i("[LogsPersistenceScheduler] Log file found at $filePath")
+    override fun scheduleBackingUpLogToCloud() {
+        ensureMainThread()
+
+        val data = Data.Builder()
+            .putBoolean(LogsPersistenceConstants.PARAM_REPEAT_TASK, true)
+            .build()
+
         if (BuildUtils.isDebug()) {
             val request = OneTimeWorkRequest
                 .Builder(LogPersistenceWorker::class.java)
@@ -51,9 +46,6 @@ class LogsPersistenceScheduler @Inject constructor(
                 ExistingWorkPolicy.REPLACE,
                 request)
         } else {
-            val data = Data.Builder()
-                .putBoolean(LogsPersistenceConstants.PARAM_REPEAT_TASK, true)
-                .build()
             val request = PeriodicWorkRequest
                 .Builder(LogPersistenceWorker::class.java, persistenceConfig.repeatIntervalInMillis, TimeUnit.MILLISECONDS)
                 .addTag(LogsPersistenceConstants.WORK_TAG)
@@ -66,11 +58,15 @@ class LogsPersistenceScheduler @Inject constructor(
         }
     }
 
-    override fun stop() {
+    override fun cancelPendingAndRunningBackingUp() {
+        ensureMainThread()
+
         workManager.cancelAllWorkByTag(LogsPersistenceConstants.WORK_TAG)
     }
 
-    override fun triggerImmediate(filePath: String): Observable<Boolean> {
+    override fun backupLogToCloudNow(): Observable<Boolean> {
+        ensureMainThread()
+
         val data = Data.Builder()
             .putBoolean(LogsPersistenceConstants.PARAM_TRIGGERED_BY_USER, true)
             .build()
