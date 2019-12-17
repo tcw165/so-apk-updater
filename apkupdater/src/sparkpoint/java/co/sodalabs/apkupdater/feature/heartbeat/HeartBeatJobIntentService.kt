@@ -28,6 +28,7 @@ import co.sodalabs.updaterengine.extension.benchmark
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import dagger.android.AndroidInjection
 import timber.log.Timber
+import java.net.UnknownHostException
 import javax.inject.Inject
 
 private const val INITIAL_CHECK_DELAY_MILLIS = 1000L // 1 second
@@ -221,6 +222,13 @@ class HeartBeatJobIntentService : JobIntentService() {
     private fun reportAPINoResponse(
         error: Throwable
     ) {
+        if (error is DeviceNotSetupException ||
+            error is UnknownHostException) {
+            Timber.w(error)
+        } else {
+            Timber.e(error)
+        }
+
         val failureIntent = generateHeartBeatIntent(HTTPResponseCode.Unknown.code)
         failureIntent.putExtra(IntentActions.PROP_ERROR, error)
         broadcastManager.sendBroadcast(failureIntent)

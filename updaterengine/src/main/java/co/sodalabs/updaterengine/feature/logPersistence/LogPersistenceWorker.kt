@@ -176,7 +176,7 @@ class LogPersistenceWorker(
         // complete, this timer introduces a delay of 500ms to ensure that we read file after
         // the ADB command is executed
         return Completable.mergeArray(
-            adbUtils.copyLogsToFile(tempLogFile, config.tag),
+            adbUtils.copyLogsToFile(file = tempLogFile, maxLineCount = config.maxLogLinesCount, whiteList = config.whitelist),
             Completable.timer(Intervals.DELAY_ADB, TimeUnit.MILLISECONDS))
             .andThen(copyToFile(tempLogFile, file))
     }

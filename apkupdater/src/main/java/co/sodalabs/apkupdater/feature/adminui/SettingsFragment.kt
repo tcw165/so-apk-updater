@@ -455,11 +455,6 @@ class SettingsFragment :
                 context?.let { c ->
                     Toast.makeText(c, "Capture $error", Toast.LENGTH_LONG).show()
                 }
-                if (error is DeviceNotSetupException) {
-                    Timber.w(error)
-                } else {
-                    Timber.e(error)
-                }
             }, Timber::e)
             .addTo(disposables)
     }
