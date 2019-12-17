@@ -216,15 +216,24 @@ class CheckJobIntentService : JobIntentService() {
     ): FirmwareUpdate? {
         val foundUpdate = this
         val newVersion = foundUpdate.version
-        return if (newVersion.isGreaterThan(currentFirmwareVersion, orEqualTo = false)) {
-            Timber.v("[Check] Firmware update with version '$newVersion' (current is '$currentFirmwareVersion')... allowed!")
-            foundUpdate
-        } else {
+
+        val isFullUpdate = !foundUpdate.isIncremental
+        if (isFullUpdate) {
+            // Full update always passes!
+            Timber.v("[Check] Full firmware update with version '$newVersion' (current is '$currentFirmwareVersion')... allowed!")
+            return foundUpdate
+        }
+
+        val notStrictlyGreaterVersion = !newVersion.isGreaterThan(currentFirmwareVersion, orEqualTo = false)
+        if (notStrictlyGreaterVersion) {
             // The version is NOT greater than the current version, we'll
             // skip this update.
-            Timber.v("[Check] Firmware update with version '$newVersion' (current is '$currentFirmwareVersion')... skipped")
-            null
+            Timber.v("[Check] Incremental firmware update with version '$newVersion' (current is '$currentFirmwareVersion')... skipped")
+            return null
         }
+
+        Timber.v("[Check] Incremental firmware update with version '$newVersion' (current is '$currentFirmwareVersion')... allowed!")
+        return foundUpdate
     }
 
     private fun queryFullFirmwareUpdate(
