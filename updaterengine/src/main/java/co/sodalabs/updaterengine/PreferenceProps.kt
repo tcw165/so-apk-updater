@@ -39,6 +39,8 @@ object PreferenceProps {
     const val INSTALL_SILENTLY = "$PREFIX.install_silently"
     const val INSTALL_ALLOW_DOWNGRADE = "$PREFIX.install_allow_downgrade"
 
+    const val SESSION_ID = "$PREFIX.session_id"
+
     // Log Persistence ////////////////////////////////////////////////////////
 
     const val LOG_FILE_CREATED_TIMESTAMP = "$PREFIX.log_file_created_on"

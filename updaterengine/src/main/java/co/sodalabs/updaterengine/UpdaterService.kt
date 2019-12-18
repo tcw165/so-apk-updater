@@ -498,6 +498,8 @@ class UpdaterService : Service() {
     @Inject
     lateinit var sharedSettings: ISharedSettings
     @Inject
+    lateinit var appPreference: IAppPreference
+    @Inject
     lateinit var stateTracker: IUpdaterStateTracker
     @Inject
     lateinit var scheduleUtils: ScheduleUtils
@@ -631,12 +633,22 @@ class UpdaterService : Service() {
         downloader.cancelPendingAndWipDownloads()
         installer.cancelPendingInstalls()
 
+        // Generate a new id that is unique to this session only.
+        // The id is composed of the device Id and the time of creation.
+        appPreference.putString(PreferenceProps.SESSION_ID, createSessionId())
+
         // Schedule a next check after the interval given from the config.
         if (sharedSettings.isUserSetupComplete()) {
             scheduleDelayedCheck(this, interval)
         } else {
             Timber.w("[Updater] No next check would be scheduled cause user-setup-completed is false")
         }
+    }
+
+    private fun createSessionId(): String {
+        val id = "${sharedSettings.getDeviceId()}-${timeUtil.nowEpochMillis()}"
+        Timber.i("[Updater Service] Generated new session id: $id")
+        return id
     }
 
     private fun transitionToCheckState(

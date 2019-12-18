@@ -12,6 +12,7 @@ import androidx.work.ListenableWorker
 import co.sodalabs.apkupdater.di.component.DaggerAppComponent
 import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
+import co.sodalabs.apkupdater.utils.SessionLoggingTree
 import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ISystemProperties
@@ -59,11 +60,24 @@ class UpdaterApp :
     override fun workerInjector(): AndroidInjector<ListenableWorker> = actualWorkerInjector
 
     @Inject
+    lateinit var schedulers: IThreadSchedulers
+    @Inject
+    lateinit var appPreference: IAppPreference
+    @Inject
+    lateinit var systemProperties: ISystemProperties
+    @Inject
     lateinit var sharedSettings: ISharedSettings
     @Inject
     lateinit var updaterStateTracker: IUpdaterStateTracker
 
+    private val rawPreference by lazy { PreferenceManager.getDefaultSharedPreferences(this) }
+
     private val globalDisposables = CompositeDisposable()
+
+    // This tree lives until we are done with dependency injection
+    // where we replace this tree with a [co.sodalabs.apkupdater.utils.SessionLoggingTree]
+    // tree that includes the session id
+    private val treeBeforeInjection = Timber.DebugTree()
 
     /**
      * A most early checkpoint for initializing the Timber log.
@@ -84,6 +98,7 @@ class UpdaterApp :
         // preference to instantiate.
         injectDefaultPreferencesBeforeInjectingDep()
         injectDependencies()
+        initSessionLogging()
         initToggleableLogging()
         initNetworkEnvironment()
         initCrashReporting()
@@ -143,8 +158,14 @@ class UpdaterApp :
 
     @SuppressLint("LogNotTimber")
     private fun initLogging() {
-        val logTree = Timber.DebugTree()
-        Timber.plant(logTree)
+        Timber.plant(treeBeforeInjection)
+    }
+
+    @SuppressLint("LogNotTimber")
+    private fun initSessionLogging() {
+        Timber.uproot(treeBeforeInjection)
+        Timber.plant(SessionLoggingTree(appPreference))
+        Timber.i("[Updater App] Replaced Debug Tree with Session Logging Tree")
     }
 
     @SuppressLint("LogNotTimber")
@@ -240,15 +261,6 @@ class UpdaterApp :
     }
 
     // Application Singletons /////////////////////////////////////////////////
-
-    @Inject
-    lateinit var schedulers: IThreadSchedulers
-    @Inject
-    lateinit var appPreference: IAppPreference
-    @Inject
-    lateinit var systemProperties: ISystemProperties
-
-    private val rawPreference by lazy { PreferenceManager.getDefaultSharedPreferences(this) }
 
     @SuppressLint("LogNotTimber")
     private fun injectDependencies() {
@@ -419,6 +431,8 @@ class UpdaterApp :
 
     // TODO: There should be more sophisticated mechanism to ignore properties
     //  that we don't want to use for triggering restart engine event
-    private fun ignoredProperties(key: String) =
-        key != PreferenceProps.LOG_FILE_CREATED_TIMESTAMP
+    private fun ignoredProperties(key: String): Boolean {
+        return key != PreferenceProps.LOG_FILE_CREATED_TIMESTAMP &&
+            key != PreferenceProps.SESSION_ID
+    }
 }
