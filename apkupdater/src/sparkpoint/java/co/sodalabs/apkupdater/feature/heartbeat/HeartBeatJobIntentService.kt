@@ -21,6 +21,7 @@ import co.sodalabs.updaterengine.extension.benchmark
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import dagger.android.AndroidInjection
 import timber.log.Timber
+import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.inject.Inject
 
@@ -164,6 +165,7 @@ class HeartBeatJobIntentService : JobIntentService() {
         error: Throwable
     ) {
         if (error is DeviceNotSetupException ||
+            error is SocketTimeoutException ||
             error is UnknownHostException) {
             Timber.w(error)
         } else {
