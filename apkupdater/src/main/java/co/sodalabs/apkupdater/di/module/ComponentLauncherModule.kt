@@ -5,6 +5,8 @@ package co.sodalabs.apkupdater.di.module
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.apkupdater.feature.homeCorrector.HomeActivityCorrectorLauncher
 import co.sodalabs.apkupdater.feature.homeCorrector.IHomeCorrectorLauncher
+import co.sodalabs.apkupdater.feature.remoteConfig.IRemoteConfigSyncLauncher
+import co.sodalabs.apkupdater.feature.remoteConfig.RemoteConfigSyncLauncher
 import co.sodalabs.apkupdater.feature.watchdog.ForegroundAppWatchdogLauncher
 import co.sodalabs.apkupdater.feature.watchdog.IForegroundAppWatchdogLauncher
 import dagger.Binds
@@ -20,4 +22,8 @@ abstract class ComponentLauncherModule {
     @Binds
     @ApplicationScope
     abstract fun provideHomeCorrectorLauncher(launcher: HomeActivityCorrectorLauncher): IHomeCorrectorLauncher
+
+    @Binds
+    @ApplicationScope
+    abstract fun provideRemoteConfigWorkLauncher(launcher: RemoteConfigSyncLauncher): IRemoteConfigSyncLauncher
 }

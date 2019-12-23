@@ -407,6 +407,8 @@ class UpdaterApp :
 
     @SuppressLint("ApplySharedPref")
     private fun observeSystemConfigChange() {
+        // FIXME: Please don't restart the process!
+
         // Restart the process for all kinds of rawPreference change!
         appPreference.observeAnyChange()
             .filter(this::ignoredProperties)
@@ -432,7 +434,10 @@ class UpdaterApp :
     // TODO: There should be more sophisticated mechanism to ignore properties
     //  that we don't want to use for triggering restart engine event
     private fun ignoredProperties(key: String): Boolean {
-        return key != PreferenceProps.LOG_FILE_CREATED_TIMESTAMP &&
-            key != PreferenceProps.SESSION_ID
+        return key !in listOf(
+            PreferenceProps.HEARTBEAT_VERBAL_RESULT,
+            PreferenceProps.LOG_FILE_CREATED_TIMESTAMP,
+            PreferenceProps.SESSION_ID
+        )
     }
 }

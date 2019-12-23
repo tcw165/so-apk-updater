@@ -1,9 +1,11 @@
 package co.sodalabs.updaterengine.feature.logPersistence
 
 import android.content.Context
+import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkInfo
@@ -32,14 +34,16 @@ class LogsPersistenceLauncher @Inject constructor(
     override fun scheduleBackingUpLogToCloud() {
         ensureMainThread()
 
-        val data = Data.Builder()
+        val requestData = Data.Builder()
             .putBoolean(LogsPersistenceConstants.PARAM_REPEAT_TASK, true)
             .build()
+        val requestConstraints = provideCommonConstraint()
 
         if (BuildUtils.isDebug()) {
             val request = OneTimeWorkRequest
                 .Builder(LogPersistenceWorker::class.java)
                 .addTag(LogsPersistenceConstants.WORK_TAG)
+                .setConstraints(requestConstraints)
                 .build()
             workManager.enqueueUniqueWork(
                 LogsPersistenceConstants.WORK_NAME,
@@ -49,7 +53,8 @@ class LogsPersistenceLauncher @Inject constructor(
             val request = PeriodicWorkRequest
                 .Builder(LogPersistenceWorker::class.java, persistenceConfig.repeatIntervalInMillis, TimeUnit.MILLISECONDS)
                 .addTag(LogsPersistenceConstants.WORK_TAG)
-                .setInputData(data)
+                .setConstraints(requestConstraints)
+                .setInputData(requestData)
                 .build()
             workManager.enqueueUniquePeriodicWork(
                 LogsPersistenceConstants.WORK_NAME,
@@ -70,12 +75,14 @@ class LogsPersistenceLauncher @Inject constructor(
     override fun backupLogToCloudNow(): Observable<Boolean> {
         ensureMainThread()
 
-        val data = Data.Builder()
+        val requestData = Data.Builder()
             .putBoolean(LogsPersistenceConstants.PARAM_TRIGGERED_BY_USER, true)
             .build()
+        val requestConstraints = provideCommonConstraint()
         val request = OneTimeWorkRequest
             .Builder(LogPersistenceWorker::class.java)
-            .setInputData(data)
+            .setConstraints(requestConstraints)
+            .setInputData(requestData)
             .build()
         val requestId = request.id
         workManager.enqueue(request)
@@ -86,4 +93,8 @@ class LogsPersistenceLauncher @Inject constructor(
             }
             .map { state -> state == WorkInfo.State.SUCCEEDED }
     }
+
+    private fun provideCommonConstraint(): Constraints = Constraints.Builder()
+        .setRequiredNetworkType(NetworkType.CONNECTED)
+        .build()
 }

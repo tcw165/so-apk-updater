@@ -47,8 +47,7 @@
 
         <Preference
             app:enabled="false"
-            app:key="heartbeat_watcher"
-            app:title="@string/heartbeat_success" />
+            app:key="heartbeat_watcher" />
 
         <Preference
             app:icon="@drawable/bt_heartbeat"

@@ -26,6 +26,7 @@ object PreferenceProps {
     // Heartbeat //////////////////////////////////////////////////////////////
 
     const val HEARTBEAT_INTERVAL_SECONDS = "$PREFIX.heartbeat_interval"
+    const val HEARTBEAT_VERBAL_RESULT = "$PREFIX.heartbeat_verbal_result"
 
     // Updater ////////////////////////////////////////////////////////////////
 

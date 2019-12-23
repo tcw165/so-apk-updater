@@ -5,6 +5,7 @@ package co.sodalabs.apkupdater.di.module
 import co.sodalabs.apkupdater.di.scopes.WorkerScope
 import co.sodalabs.apkupdater.feature.homeCorrector.HomeActivityCorrectorWorker
 import co.sodalabs.apkupdater.feature.homeCorrector.HomeActivityLauncherWorker
+import co.sodalabs.apkupdater.feature.remoteConfig.RemoteConfigSyncWorker
 import co.sodalabs.apkupdater.feature.watchdog.ForegroundAppWatchdogWorker
 import co.sodalabs.updaterengine.di.modules.WorkerInjectionModule
 import co.sodalabs.updaterengine.feature.logPersistence.LogPersistenceWorker
@@ -53,4 +54,14 @@ abstract class SubComponentWorkerModule {
         WorkerInjectionModule::class
     ])
     abstract fun contributeHomeCorrectorWorkerInjector(): HomeActivityCorrectorWorker
+
+    /**
+     * The sub-component for [RemoteConfigSyncWorker]
+     */
+    @WorkerScope
+    @ContributesAndroidInjector(modules = [
+        // Module for binding worker injection
+        WorkerInjectionModule::class
+    ])
+    abstract fun contributeRemoteConfigWorkerInjector(): RemoteConfigSyncWorker
 }

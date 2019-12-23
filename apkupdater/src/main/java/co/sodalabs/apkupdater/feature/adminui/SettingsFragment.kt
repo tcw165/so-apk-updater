@@ -22,6 +22,7 @@ import co.sodalabs.updaterengine.ITimeUtil
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.PreferenceProps
+import co.sodalabs.updaterengine.PreferenceProps.HEARTBEAT_VERBAL_RESULT
 import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.UpdaterService
@@ -41,6 +42,8 @@ import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
 import javax.inject.Inject
+
+private const val NOT_AVAILABLE_STRING = "n/a"
 
 private const val KEY_API_BASE_URL = PreferenceProps.API_BASE_URL
 private const val KEY_API_UPDATE_CHANNEL = PreferenceProps.API_UPDATE_CHANNEL
@@ -260,8 +263,8 @@ class SettingsFragment :
     }
 
     private fun observeRecurringHeartBeat() {
-        var last = "???"
-        heartbeater.observeRecurringHeartBeat()
+        appPreference.observeStringChange(HEARTBEAT_VERBAL_RESULT, NOT_AVAILABLE_STRING)
+            .startWith(getFirstHeartbeatVerbalResult().toObservable())
             .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.computation()) { error ->
                 if (error is DeviceNotSetupException) {
                     false
@@ -272,12 +275,18 @@ class SettingsFragment :
                 }
             }
             .observeOn(schedulers.main())
-            .subscribe({ code ->
-                val now = timeUtil.systemZonedNow().toString()
-                heartBeatWatcherPref.title = "$heartbeatWatcherTitle at $last (HTTP status code: $code)"
-                last = now
+            .subscribe({ verbalResult ->
+                heartBeatWatcherPref.title = verbalResult
             }, Timber::e)
             .addTo(disposables)
+    }
+
+    private fun getFirstHeartbeatVerbalResult(): Single<String> {
+        return Single
+            .fromCallable {
+                appPreference.getString(HEARTBEAT_VERBAL_RESULT, NOT_AVAILABLE_STRING)
+            }
+            .subscribeOn(schedulers.io())
     }
 
     private fun markHeartBeatWIP() {
