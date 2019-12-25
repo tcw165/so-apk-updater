@@ -85,9 +85,10 @@ class RemoteConfigSyncLauncher @Inject constructor(
     private fun addTimezoneFromConfig(
         config: RemoteConfig
     ): Pair<String, Any>? {
+        val remoteTimezone = config.timezone ?: return null
         val currentTimezone = TimeZone.getDefault()
         val currentCity = currentTimezone.id
-        val newCity = timezoneMapper.extractTimezoneCity(config.timezone)
+        val newCity = timezoneMapper.extractTimezoneCity(remoteTimezone)
 
         return if (currentCity != newCity && newCity != null) {
             Timber.v("[RemoteConfig] Ready to change timezone city ID from '$currentCity' to '$newCity'")

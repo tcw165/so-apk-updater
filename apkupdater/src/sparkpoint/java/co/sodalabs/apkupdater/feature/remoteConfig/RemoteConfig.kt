@@ -8,11 +8,11 @@ import com.squareup.moshi.JsonClass
 @JsonClass(generateAdapter = true)
 data class RemoteConfig(
     @Json(name = "timezone")
-    val timezone: String,
+    val timezone: String?,
     @Json(name = "install_window_start")
-    val installWindowStart: Int,
+    val installWindowStart: Int?,
     @Json(name = "install_window_end")
-    val installWindowEnd: Int,
+    val installWindowEnd: Int?,
     @Json(name = "download_using_cache")
     val downloadUsingDiskCache: Boolean,
     @Json(name = "force_full_firmware_update")
