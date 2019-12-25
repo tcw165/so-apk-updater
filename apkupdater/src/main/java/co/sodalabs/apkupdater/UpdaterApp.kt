@@ -22,7 +22,6 @@ import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.SharedSettingsProps
 import co.sodalabs.updaterengine.SharedSettingsProps.SERVER_ENVIRONMENT
 import co.sodalabs.updaterengine.SharedSettingsProps.SPARKPOINT_REST_API_BASE_URL
-import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.di.HasWorkerInjector
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import com.bugsnag.android.Bugsnag
@@ -113,9 +112,6 @@ class UpdaterApp :
 
         // Initialize the launching works.
         sendBroadcast(Intent(WorkOnAppLaunchInitializer.UPDATER_LAUNCH))
-
-        // Install the updater engine after everything else is ready.
-        UpdaterService.start(this)
     }
 
     private fun initLeakCanary() {

@@ -21,19 +21,19 @@ fun List<AppUpdate>.getIndicesToRemove(
 
             if (allowDowngrade ||
                 remoteVersionName.isGreaterThan(localVersionName, orEqualTo = allowDowngrade)) {
-                Timber.v("[Check] \"$packageName\" from $localVersionName to $remoteVersionName ... allowed!")
+                Timber.v("[VersionCheck] \"$packageName\" from $localVersionName to $remoteVersionName ... allowed!")
             } else {
                 // Sorry, we will discard this update cause the version isn't
                 // greater than the current local version.
                 toTrimIndices.add(i)
-                Timber.v("[Check] \"$packageName\" from $localVersionName to $remoteVersionName ... skipped!")
+                Timber.v("[VersionCheck] \"$packageName\" from $localVersionName to $remoteVersionName ... skipped!")
             }
         } else {
-            Timber.v("[Check] \"$packageName\" from null to $remoteVersionName ... allowed!")
+            Timber.v("[VersionCheck] \"$packageName\" from null to $remoteVersionName ... allowed!")
         }
     }
 
-    Timber.v("[Check] Filter invalid updates... drop ${toTrimIndices.size} updates")
+    Timber.v("[VersionCheck] Filter invalid updates... drop ${toTrimIndices.size} updates")
 
     return toTrimIndices
 }

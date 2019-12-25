@@ -210,7 +210,7 @@ class InstallerJobIntentService : JobIntentService() {
 
         // Log the content of the command file
         if (BuildUtils.isDebug()) {
-            val content = COMMAND_FILE.bufferedReader().readText()
+            val content = COMMAND_FILE.bufferedReader().use { it.readText() }
             Timber.v("[Install] Write firmware install command... successfully")
             Timber.v("[Install] The actual command content:\n$content\n")
         }
