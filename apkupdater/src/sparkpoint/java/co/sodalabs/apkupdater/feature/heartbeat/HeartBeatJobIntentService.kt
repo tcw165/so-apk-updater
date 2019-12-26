@@ -19,11 +19,14 @@ import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.benchmark
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
+import co.sodalabs.updaterengine.utils.LinuxCommandUtils
 import dagger.android.AndroidInjection
 import timber.log.Timber
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.inject.Inject
+
+private const val LOW_STORAGE_THRESHOLD = 524288000 // 500 MB
 
 class HeartBeatJobIntentService : JobIntentService() {
 
@@ -45,6 +48,8 @@ class HeartBeatJobIntentService : JobIntentService() {
     // implementation is low cost and viable before we scale up.
     @Inject
     lateinit var remoteConfigSyncLauncher: IRemoteConfigSyncLauncher
+    @Inject
+    lateinit var linuxCommandUtils: LinuxCommandUtils
 
     override fun onCreate() {
         AndroidInjection.inject(this)
@@ -79,6 +84,13 @@ class HeartBeatJobIntentService : JobIntentService() {
             // Note: There was a race condition in between getting updater state
             // and the metadata.
             val (state, stateMetadata) = updaterStateTracker.snapshotStateWithMetadata()
+
+            linuxCommandUtils.logDiskUsageByApps()
+            val diskUsageStats = linuxCommandUtils.collectDiskUsageLogs()
+            val isPartitionOutOfStorage =
+                diskUsageStats.any { stat -> stat.freeInBytes < LOW_STORAGE_THRESHOLD }
+            // TODO: Add this boolean to heartbeat body
+            Timber.i("[HeartBeat] Device Running Out Of Storage: $isPartitionOutOfStorage")
 
             val provisioned = sharedSettings.isDeviceProvisioned()
             val userSetupComplete = sharedSettings.isUserSetupComplete()
