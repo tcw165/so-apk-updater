@@ -227,7 +227,7 @@ class DownloadJobIntentService : JobIntentService() {
         // Execute batch download
         val (completedTasks, errors) = downloadBatchAppUpdate(
             urls = updates.map { it.downloadUrl },
-            diskLruCache = updaterConfig.apkDiskCache,
+            diskLruCache = updaterConfig.updateDiskCache,
             downloadingCallback = { urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long ->
                 // Let the engine know the download is in-progress.
                 UpdaterService.notifyAppUpdateDownloadProgress(
@@ -275,7 +275,7 @@ class DownloadJobIntentService : JobIntentService() {
         // Execute batch download
         val (completedTasks, errors) = downloadBatchAppUpdate(
             urls = updates.map { it.fileURL },
-            diskLruCache = updaterConfig.firmwareDiskCache,
+            diskLruCache = updaterConfig.updateDiskCache,
             downloadingCallback = { urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long ->
                 // Let the engine know the download is in-progress.
                 UpdaterService.notifyFirmwareUpdateDownloadProgress(

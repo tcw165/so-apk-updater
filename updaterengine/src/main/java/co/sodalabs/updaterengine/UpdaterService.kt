@@ -18,6 +18,7 @@ import android.os.PersistableBundle
 import android.text.format.Formatter.formatShortFileSize
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import co.sodalabs.updaterengine.IntentActions.PROP_INSTALL_IMMEDIATELY
+import co.sodalabs.updaterengine.PreferenceProps.LAST_KNOWN_FIRMWARE_VERSION
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedAppUpdate
@@ -71,6 +72,7 @@ import com.jakewharton.rxrelay2.PublishRelay
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import dagger.android.AndroidInjection
+import io.reactivex.Completable
 import io.reactivex.Single
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.internal.schedulers.SingleScheduler
@@ -98,6 +100,7 @@ private const val INVALID_PROGRESS_VALUE = -1
 
 private const val TRUE_STRING = "TRUE"
 private const val FALSE_STRING = "FALSE"
+private const val EMPTY_STRING = ""
 
 private const val DEFAULT_INSTALL_IMMEDIATELY = false
 
@@ -496,9 +499,11 @@ class UpdaterService : Service() {
     @Inject
     lateinit var jsonBuilder: Moshi
     @Inject
+    lateinit var appPreference: IAppPreference
+    @Inject
     lateinit var sharedSettings: ISharedSettings
     @Inject
-    lateinit var appPreference: IAppPreference
+    lateinit var systemProperties: ISystemProperties
     @Inject
     lateinit var stateTracker: IUpdaterStateTracker
     @Inject
@@ -855,7 +860,8 @@ class UpdaterService : Service() {
     }
 
     private fun continueInstallsOrScheduleCheckOnStart() {
-        inflateUpdatesFromCache()
+        cleanupDiskCacheConditionally()
+            .andThen(inflateUpdatesFromCache())
             // Regardless the error, we should ALWAYS schedule the next check
             .doOnError(Timber::e)
             .onErrorReturnItem(emptyList())
@@ -875,6 +881,55 @@ class UpdaterService : Service() {
 
     // Disk Cache /////////////////////////////////////////////////////////////
 
+    private fun cleanupDiskCacheConditionally(): Completable {
+        return Completable
+            .fromAction {
+                try {
+                    val knownFirmwareVersion = appPreference.getString(LAST_KNOWN_FIRMWARE_VERSION, EMPTY_STRING)
+                    val currentFirmwareVersion = systemProperties.getFirmwareVersion()
+
+                    if (knownFirmwareVersion != currentFirmwareVersion) {
+                        Timber.v("[Updater] Erase the disk cache cause we detect a firmware bump!")
+
+                        // Erase the cache since there's a firmware bump!
+                        deleteDiskCache()
+                    }
+
+                    // Remember the new firmware version.
+                    appPreference.putString(LAST_KNOWN_FIRMWARE_VERSION, currentFirmwareVersion)
+                } catch (error: Throwable) {
+                    Timber.e(error, "[Updater] Oops, delete the disk cache entirely cause something really bad happens...")
+                    deleteDiskCache()
+                }
+            }
+            .subscribeOn(schedulers.io())
+    }
+
+    private fun deleteDiskCache() {
+        ensureBackgroundThread()
+
+        Timber.v("[Updater] Deleting invalid files under cache directory...")
+        val whitelist = getDiskCacheWhitelist()
+        val rootDir = updaterConfig.baseDiskCacheDir
+        val fileInRootDir = rootDir.listFiles()
+
+        fileInRootDir.forEach { file ->
+            if (whitelist.contains(file.canonicalPath)) {
+                Timber.v("[Updater] Leave '${file.canonicalPath}' alone since it's protected by the whitelist")
+            } else {
+                Timber.v("[Updater] Deleting '${file.canonicalPath}'...")
+                file.deleteRecursively()
+            }
+        }
+    }
+
+    private fun getDiskCacheWhitelist(): Set<String> {
+        return setOf(
+            updaterConfig.updateDiskCache.directory.canonicalPath,
+            updaterConfig.downloadedUpdateDiskCache.directory.canonicalPath
+        )
+    }
+
     /**
      * Inflate the persistable update (fully downloaded) and then delete the
      * cache file (the journal file not the download cache).
@@ -884,7 +939,7 @@ class UpdaterService : Service() {
             .fromCallable {
                 ensureBackgroundThread()
 
-                val diskCache = updaterConfig.downloadedUpdateDiskCache
+                val diskCache = updaterConfig.updateDiskCache
                 try {
                     if (diskCache.isClosed()) {
                         diskCache.open()
@@ -951,7 +1006,7 @@ class UpdaterService : Service() {
 
     private fun cleanDownloadedAppUpdateCache() {
         val diskCache = updaterConfig.downloadedUpdateDiskCache
-        Timber.v("[Updater] Remove installs cache")
+        Timber.v("[Updater] Remove pending install cache")
         diskCache.delete()
     }
 

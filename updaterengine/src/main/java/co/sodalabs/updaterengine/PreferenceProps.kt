@@ -11,6 +11,8 @@ object PreferenceProps {
     const val NETWORK_READ_TIMEOUT_SECONDS = "$PREFIX.network_read_timeout"
     const val NETWORK_WRITE_TIMEOUT_SECONDS = "$PREFIX.network_write_timeout"
 
+    const val LAST_KNOWN_FIRMWARE_VERSION = "$PREFIX.last_known_firmware_version"
+
     // API ////////////////////////////////////////////////////////////////////
 
     const val API_BASE_URL = "$PREFIX.api_base_url"

@@ -12,10 +12,9 @@ import java.io.File
 import javax.inject.Inject
 import kotlin.math.max
 
-private const val CACHE_APK_DIR = "apks"
-private const val CACHE_APK_SIZE_MB = 1024
-private const val CACHE_FIRMWARE_DIR = "system_image"
-private const val CACHE_FIRMWARE_SIZE_MB = 1024
+private const val CACHE_UPDATE_DIR = "updates"
+private const val CACHE_UPDATE_SIZE_MB = 2048
+@Deprecated("Soon be replaced by shared preference")
 private const val CACHE_DOWNLOADED_UPDATE_DIR = "downloaded_update"
 /**
  * Version history:
@@ -110,7 +109,6 @@ class AndroidUpdaterConfig @Inject constructor(
         set(value) {
             appPreference.putBoolean(PreferenceProps.DOWNLOAD_USE_CACHE, value)
         }
-
     override val isBetaAllowed: Boolean
         get() {
             val channelBeta = BuildConfig.UPDATE_CHANNELS[0]
@@ -119,28 +117,21 @@ class AndroidUpdaterConfig @Inject constructor(
             return channel == channelBeta
         }
 
-    override val apkDiskCache: DiskLruCache by lazy {
+    override val baseDiskCacheDir: File by lazy { StorageUtils.getCacheDirectory(context, true) }
+
+    override val updateDiskCache: DiskLruCache by lazy {
         // The cache dir would be "/storage/emulated/legacy/co.sodalabs.apkupdater/${CACHE_APK_DIR}/"
         DiskLruCache(
-            File(StorageUtils.getCacheDirectory(context, true), CACHE_APK_DIR),
+            File(baseDiskCacheDir, CACHE_UPDATE_DIR),
             CACHE_JOURNAL_VERSION,
-            CACHE_APK_SIZE_MB.mbToBytes()
-        )
-    }
-
-    override val firmwareDiskCache: DiskLruCache by lazy {
-        // The cache dir would be "/storage/emulated/legacy/co.sodalabs.apkupdater/${CACHE_FIRMWARE_DIR}/"
-        DiskLruCache(
-            File(StorageUtils.getCacheDirectory(context, true), CACHE_FIRMWARE_DIR),
-            CACHE_JOURNAL_VERSION,
-            CACHE_FIRMWARE_SIZE_MB.mbToBytes()
+            CACHE_UPDATE_SIZE_MB.mbToBytes()
         )
     }
 
     override val downloadedUpdateDiskCache: DiskLruCache by lazy {
         // The cache dir would be "/storage/emulated/legacy/co.sodalabs.apkupdater/${CACHE_DOWNLOADED_UPDATE_DIR}/"
         DiskLruCache(
-            File(StorageUtils.getCacheDirectory(context, true), CACHE_DOWNLOADED_UPDATE_DIR),
+            File(baseDiskCacheDir, CACHE_DOWNLOADED_UPDATE_DIR),
             CACHE_JOURNAL_VERSION,
             CACHE_UPDATE_RECORDS_SIZE_MB.mbToBytes()
         )
