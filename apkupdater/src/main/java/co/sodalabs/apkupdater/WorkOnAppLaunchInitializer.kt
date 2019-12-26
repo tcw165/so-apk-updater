@@ -3,6 +3,7 @@ package co.sodalabs.apkupdater
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import co.sodalabs.apkupdater.feature.homeCorrector.IHomeCorrectorLauncher
 import co.sodalabs.apkupdater.feature.watchdog.IForegroundAppWatchdogLauncher
 import dagger.android.AndroidInjection
 import timber.log.Timber
@@ -16,12 +17,19 @@ class WorkOnAppLaunchInitializer : BroadcastReceiver() {
 
     @Inject
     lateinit var foregroundAppWatchdogLauncher: IForegroundAppWatchdogLauncher
+    @Inject
+    lateinit var homeCorrectorLauncher: IHomeCorrectorLauncher
 
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent
+    ) {
         AndroidInjection.inject(this, context)
 
         if (intent.action == UPDATER_LAUNCH) {
-            Timber.v("[ForegroundAppWatchdog] Initializing on application launch...")
+            Timber.v("[WorkOnLaunch] Schedule the works necessary for on-launching (Note: Not on-boot)...")
+
+            homeCorrectorLauncher.correctDefaultHomeNow()
 
             foregroundAppWatchdogLauncher.cancelPendingAndOnGoingValidation()
             foregroundAppWatchdogLauncher.scheduleForegroundProcessValidation()

@@ -28,6 +28,7 @@ object IntentActions {
     const val ACTION_SEND_HEART_BEAT_NOW = "$ACTION_PREFIX.send_heart_beat_now"
 
     const val PROP_RESET_UPDATER_SESSION = "$EXTRA_PREFIX.reset_updater_session"
+    const val PROP_INSTALL_IMMEDIATELY = "$EXTRA_PREFIX.install_immediately"
 
     // Used for firmware, since we only ever have one at a time
     const val PROP_FOUND_UPDATE = "$ACTION_PREFIX.found_update"

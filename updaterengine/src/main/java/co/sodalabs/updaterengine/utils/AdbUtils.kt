@@ -31,7 +31,7 @@ class AdbUtils @Inject constructor(
         return Completable
             .fromCallable {
                 try {
-                    val cmd = generateCommand(
+                    val cmd = generateLogCommand(
                         file,
                         applicationTag,
                         maxLineCount,
@@ -47,7 +47,7 @@ class AdbUtils @Inject constructor(
             .subscribeOn(schedulers.io())
     }
 
-    fun generateCommand(
+    fun generateLogCommand(
         file: File,
         applicationTag: String = "",
         maxLineCount: Int = DEFAULT_MAX_LOG_COUNT,

@@ -9,8 +9,8 @@ import co.sodalabs.apkupdater.feature.logpersistence.LogSender
 import co.sodalabs.updaterengine.feature.logPersistence.ILogFileProvider
 import co.sodalabs.updaterengine.feature.logPersistence.ILogPersistenceConfig
 import co.sodalabs.updaterengine.feature.logPersistence.ILogSender
-import co.sodalabs.updaterengine.feature.logPersistence.ILogsPersistenceScheduler
-import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceScheduler
+import co.sodalabs.updaterengine.feature.logPersistence.ILogsPersistenceLauncher
+import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceLauncher
 import dagger.Binds
 import dagger.Module
 
@@ -19,7 +19,7 @@ abstract class LoggingModule {
 
     @Binds
     @ApplicationScope
-    abstract fun provideLogsPersistence(scheduler: LogsPersistenceScheduler): ILogsPersistenceScheduler
+    abstract fun provideLogsPersistence(scheduler: LogsPersistenceLauncher): ILogsPersistenceLauncher
 
     @Binds
     @ApplicationScope

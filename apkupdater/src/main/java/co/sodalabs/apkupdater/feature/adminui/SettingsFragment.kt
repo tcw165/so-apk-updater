@@ -9,6 +9,7 @@ import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import co.sodalabs.apkupdater.BuildConfig
+import co.sodalabs.apkupdater.ISystemLauncherUtil
 import co.sodalabs.apkupdater.R
 import co.sodalabs.apkupdater.data.UiState
 import co.sodalabs.privilegedinstaller.RxLocalBroadcastReceiver
@@ -21,6 +22,7 @@ import co.sodalabs.updaterengine.ITimeUtil
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.PreferenceProps
+import co.sodalabs.updaterengine.PreferenceProps.HEARTBEAT_VERBAL_RESULT
 import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.UpdaterService
@@ -29,9 +31,9 @@ import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
+import co.sodalabs.updaterengine.extension.showShortToast
 import co.sodalabs.updaterengine.extension.smartRetryWhen
-import co.sodalabs.updaterengine.feature.logPersistence.ILogFileProvider
-import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceScheduler
+import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceLauncher
 import com.jakewharton.rxrelay2.PublishRelay
 import dagger.android.support.AndroidSupportInjection
 import io.reactivex.Observable
@@ -40,6 +42,8 @@ import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
 import javax.inject.Inject
+
+private const val NOT_AVAILABLE_STRING = "n/a"
 
 private const val KEY_API_BASE_URL = PreferenceProps.API_BASE_URL
 private const val KEY_API_UPDATE_CHANNEL = PreferenceProps.API_UPDATE_CHANNEL
@@ -76,11 +80,11 @@ class SettingsFragment :
     @Inject
     lateinit var systemProperties: ISystemProperties
     @Inject
-    lateinit var logsPersistenceScheduler: LogsPersistenceScheduler
-    @Inject
-    lateinit var logFileProvider: ILogFileProvider
+    lateinit var logsPersistenceLauncher: LogsPersistenceLauncher
     @Inject
     lateinit var timeUtil: ITimeUtil
+    @Inject
+    lateinit var systemLauncherUtil: ISystemLauncherUtil
 
     private val disposables = CompositeDisposable()
 
@@ -259,8 +263,8 @@ class SettingsFragment :
     }
 
     private fun observeRecurringHeartBeat() {
-        var last = "???"
-        heartbeater.observeRecurringHeartBeat()
+        appPreference.observeStringChange(HEARTBEAT_VERBAL_RESULT, NOT_AVAILABLE_STRING)
+            .startWith(getFirstHeartbeatVerbalResult().toObservable())
             .smartRetryWhen(ALWAYS_RETRY, Intervals.RETRY_AFTER_1S, schedulers.computation()) { error ->
                 if (error is DeviceNotSetupException) {
                     false
@@ -271,12 +275,18 @@ class SettingsFragment :
                 }
             }
             .observeOn(schedulers.main())
-            .subscribe({ code ->
-                val now = timeUtil.systemZonedNow().toString()
-                heartBeatWatcherPref.title = "$heartbeatWatcherTitle at $last (HTTP status code: $code)"
-                last = now
+            .subscribe({ verbalResult ->
+                heartBeatWatcherPref.title = verbalResult
             }, Timber::e)
             .addTo(disposables)
+    }
+
+    private fun getFirstHeartbeatVerbalResult(): Single<String> {
+        return Single
+            .fromCallable {
+                appPreference.getString(HEARTBEAT_VERBAL_RESULT, NOT_AVAILABLE_STRING)
+            }
+            .subscribeOn(schedulers.io())
     }
 
     private fun markHeartBeatWIP() {
@@ -310,7 +320,11 @@ class SettingsFragment :
         checkUpdateNowPref.clicks()
             .observeOn(schedulers.main())
             .flatMap {
-                UpdaterService.checkUpdateNow(safeContext, resetSession = true)
+                UpdaterService.checkUpdateNow(
+                    safeContext,
+                    resetSession = true,
+                    installImmediately = true
+                )
 
                 // TODO: Pull out to a function of ApkUpdater.
                 val intentFilter = IntentFilter(IntentActions.ACTION_CHECK_APP_UPDATE_COMPLETE)
@@ -509,15 +523,13 @@ class SettingsFragment :
             .addTo(disposables)
 
         homeIntentPref.clicks()
-            .observeOn(schedulers.main())
+            .observeOn(schedulers.io())
             .subscribe({
-                startActivity(Intent(Intent.ACTION_MAIN).apply {
-                    addCategory(Intent.CATEGORY_HOME)
-                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                })
-            }, Timber::e)
+                systemLauncherUtil.startSystemLauncherWithSelector()
+            }, { error ->
+                activity?.showShortToast(error.toString())
+                Timber.e(error)
+            })
             .addTo(disposables)
 
         showInternetSpeedTestPref.clicks()
@@ -543,7 +555,7 @@ class SettingsFragment :
             .addTo(disposables)
 
         sendLogsPref.clicks()
-            .flatMap { logsPersistenceScheduler.triggerImmediate(logFileProvider.logFile.absolutePath) }
+            .flatMap { logsPersistenceLauncher.backupLogToCloudNow() }
             .observeOn(schedulers.main())
             .subscribe({ success ->
                 val message = if (success) {

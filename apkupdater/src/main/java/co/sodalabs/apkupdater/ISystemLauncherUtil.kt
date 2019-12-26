@@ -1,5 +1,7 @@
 package co.sodalabs.apkupdater
 
 interface ISystemLauncherUtil {
-    fun startSystemLauncher()
+    fun startSystemLauncherWithSelector()
+    fun startSodaLabsLauncherIfInstalled()
+    fun setSodaLabsLauncherAsDefaultIfInstalled()
 }

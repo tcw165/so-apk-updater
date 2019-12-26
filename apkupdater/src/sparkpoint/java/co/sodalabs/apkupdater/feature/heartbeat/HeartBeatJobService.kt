@@ -3,7 +3,10 @@ package co.sodalabs.apkupdater.feature.heartbeat
 import android.annotation.TargetApi
 import android.app.job.JobParameters
 import android.app.job.JobService
+import co.sodalabs.updaterengine.UpdaterHeartBeater
 import co.sodalabs.updaterengine.UpdaterJobs
+import dagger.android.AndroidInjection
+import javax.inject.Inject
 
 /**
  * Interface between the new {@link android.app.job.JobScheduler} API and
@@ -14,9 +17,17 @@ import co.sodalabs.updaterengine.UpdaterJobs
 @TargetApi(21)
 class HeartBeatJobService : JobService() {
 
+    @Inject
+    lateinit var heartbeater: UpdaterHeartBeater
+
+    override fun onCreate() {
+        AndroidInjection.inject(this)
+        super.onCreate()
+    }
+
     override fun onStartJob(params: JobParameters): Boolean {
         when (params.jobId) {
-            UpdaterJobs.JOB_ID_HEART_BEAT -> checkVersions()
+            UpdaterJobs.JOB_ID_HEART_BEAT -> sendHeartbeat()
         }
 
         // TODO: Shall we return true and call jobFinished()?
@@ -28,7 +39,7 @@ class HeartBeatJobService : JobService() {
         return true
     }
 
-    private fun checkVersions() {
-        HeartBeatJobIntentService.sendHeartBeatNow(this)
+    private fun sendHeartbeat() {
+        heartbeater.sendHeartBeatNow()
     }
 }

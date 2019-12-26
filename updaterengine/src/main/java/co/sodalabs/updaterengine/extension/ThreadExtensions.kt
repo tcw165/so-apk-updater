@@ -5,13 +5,13 @@ import android.os.HandlerThread
 import android.os.Looper
 
 fun ensureMainThread() {
-    if (Looper.myLooper() != Looper.getMainLooper()) {
+    if (Thread.currentThread() != Looper.getMainLooper().thread) {
         throw IllegalThreadStateException("Must run on MAIN thread")
     }
 }
 
 fun ensureBackgroundThread() {
-    if (Looper.myLooper() == Looper.getMainLooper()) {
+    if (Thread.currentThread() == Looper.getMainLooper().thread) {
         throw IllegalThreadStateException("Must NOT run on MAIN thread")
     }
 }

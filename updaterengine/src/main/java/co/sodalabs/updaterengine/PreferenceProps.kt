@@ -26,6 +26,7 @@ object PreferenceProps {
     // Heartbeat //////////////////////////////////////////////////////////////
 
     const val HEARTBEAT_INTERVAL_SECONDS = "$PREFIX.heartbeat_interval"
+    const val HEARTBEAT_VERBAL_RESULT = "$PREFIX.heartbeat_verbal_result"
 
     // Updater ////////////////////////////////////////////////////////////////
 
@@ -38,6 +39,8 @@ object PreferenceProps {
     const val INSTALL_HOUR_END = "$PREFIX.install_hour_end"
     const val INSTALL_SILENTLY = "$PREFIX.install_silently"
     const val INSTALL_ALLOW_DOWNGRADE = "$PREFIX.install_allow_downgrade"
+
+    const val SESSION_ID = "$PREFIX.session_id"
 
     // Log Persistence ////////////////////////////////////////////////////////
 

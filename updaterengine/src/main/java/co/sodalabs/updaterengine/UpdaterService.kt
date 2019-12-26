@@ -17,6 +17,7 @@ import android.os.Looper
 import android.os.PersistableBundle
 import android.text.format.Formatter.formatShortFileSize
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import co.sodalabs.updaterengine.IntentActions.PROP_INSTALL_IMMEDIATELY
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedAppUpdate
@@ -37,7 +38,7 @@ import co.sodalabs.updaterengine.extension.prepareUpdateFound
 import co.sodalabs.updaterengine.extension.prepareUpdateInstalled
 import co.sodalabs.updaterengine.extension.toBoolean
 import co.sodalabs.updaterengine.extension.toInt
-import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceScheduler
+import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceLauncher
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import co.sodalabs.updaterengine.feature.statemachine.KEY_CHECK_ERROR
@@ -80,6 +81,7 @@ import org.threeten.bp.ZoneId
 import timber.log.Timber
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -96,6 +98,8 @@ private const val INVALID_PROGRESS_VALUE = -1
 
 private const val TRUE_STRING = "TRUE"
 private const val FALSE_STRING = "FALSE"
+
+private const val DEFAULT_INSTALL_IMMEDIATELY = false
 
 class UpdaterService : Service() {
 
@@ -123,7 +127,8 @@ class UpdaterService : Service() {
          */
         fun checkUpdateNow(
             context: Context,
-            resetSession: Boolean
+            resetSession: Boolean,
+            installImmediately: Boolean = DEFAULT_INSTALL_IMMEDIATELY
         ) {
             // Start Service with action on next main thread execution.
             uiHandler.post {
@@ -134,6 +139,7 @@ class UpdaterService : Service() {
                     // Can't put boolean cause persistable bundle doesn't support
                     // boolean under 22.
                     putExtra(IntentActions.PROP_RESET_UPDATER_SESSION, resetSession.toInt())
+                    putExtra(PROP_INSTALL_IMMEDIATELY, installImmediately.toInt())
                 }
                 context.startService(serviceIntent)
             }
@@ -492,16 +498,19 @@ class UpdaterService : Service() {
     @Inject
     lateinit var sharedSettings: ISharedSettings
     @Inject
+    lateinit var appPreference: IAppPreference
+    @Inject
     lateinit var stateTracker: IUpdaterStateTracker
     @Inject
     lateinit var scheduleUtils: ScheduleUtils
     @Inject
     lateinit var schedulers: IThreadSchedulers
     @Inject
-    lateinit var logPersistenceScheduler: LogsPersistenceScheduler
+    lateinit var logPersistenceScheduler: LogsPersistenceLauncher
     @Inject
     lateinit var timeUtil: ITimeUtil
 
+    private val sessionStateMetadata = ConcurrentHashMap<String, Any>()
     private val disposablesOnCreateDestroy = CompositeDisposable()
 
     override fun onCreate() {
@@ -511,7 +520,7 @@ class UpdaterService : Service() {
 
         // TODO: Shall we move this to WorkOnAppLaunchInitializer?
         // Persist logs locally to be used later
-        logPersistenceScheduler.start()
+        logPersistenceScheduler.scheduleBackingUpLogToCloud()
 
         observeUpdateIntentOnEngineThread()
         observeDeviceTimeChanges()
@@ -522,7 +531,7 @@ class UpdaterService : Service() {
         Timber.v("[Updater] Updater Service is offline")
 
         // TODO: Shall we move this to WorkOnAppLaunchInitializer?
-        logPersistenceScheduler.stop()
+        logPersistenceScheduler.cancelPendingAndRunningBackingUp()
 
         disposablesOnCreateDestroy.clear()
 
@@ -616,10 +625,17 @@ class UpdaterService : Service() {
         checkAttempts = 0
         downloadAttempts = 0
 
+        // Clear session metadata
+        sessionStateMetadata.clear()
+
         // Cancel pending downloads and installs.
         checker.cancelPendingAndWipCheck()
         downloader.cancelPendingAndWipDownloads()
         installer.cancelPendingInstalls()
+
+        // Generate a new id that is unique to this session only.
+        // The id is composed of the device Id and the time of creation.
+        appPreference.putString(PreferenceProps.SESSION_ID, createSessionId())
 
         // Schedule a next check after the interval given from the config.
         if (sharedSettings.isUserSetupComplete()) {
@@ -629,14 +645,25 @@ class UpdaterService : Service() {
         }
     }
 
+    private fun createSessionId(): String {
+        val id = "${sharedSettings.getDeviceId()}-${timeUtil.nowEpochMillis()}"
+        Timber.i("[Updater Service] Generated new session id: $id")
+        return id
+    }
+
     private fun transitionToCheckState(
-        resetSession: Boolean
+        resetSession: Boolean,
+        installImmediately: Boolean
     ) {
         val updaterState = stateTracker.snapshotState()
         if (updaterState == UpdaterState.Idle ||
             // For admin user to reset the session.
             resetSession
         ) {
+            // Add metadata here and only here when transitioning to CHECK
+            // It will be cleared whenever going back to IDLE
+            sessionStateMetadata[PROP_INSTALL_IMMEDIATELY] = installImmediately
+
             // Cancel pending downloads and installs.
             checker.cancelPendingAndWipCheck()
             downloader.cancelPendingAndWipDownloads()
@@ -706,21 +733,38 @@ class UpdaterService : Service() {
             updaterState == UpdaterState.Download
         ) {
             val installWindow = updaterConfig.installWindow
-            val time = scheduleUtils.findNextInstallTimeMillis(installWindow)
-            val delay = time - timeUtil.nowEpochMillis()
+            val installImmediately = sessionStateMetadata[PROP_INSTALL_IMMEDIATELY] as? Boolean
+                ?: DEFAULT_INSTALL_IMMEDIATELY
 
-            transitionToState(
-                UpdaterState.Install,
-                mapOf(
-                    KEY_INSTALL_TYPE to PROP_TYPE_APP,
-                    KEY_INSTALL_RUNNING to TRUE_STRING,
-                    KEY_INSTALL_DELAY to Duration.ofMillis(delay).toString(),
-                    KEY_INSTALL_AT to Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault()).toString(),
-                    PROP_CURRENT_TIME to timeUtil.systemZonedNow().toString()
+            if (installImmediately) {
+                transitionToState(
+                    UpdaterState.Install,
+                    mapOf(
+                        KEY_INSTALL_TYPE to PROP_TYPE_APP,
+                        KEY_INSTALL_RUNNING to TRUE_STRING,
+                        KEY_INSTALL_AT to timeUtil.nowEpochFormatted(),
+                        PROP_CURRENT_TIME to timeUtil.systemZonedNow().toString()
+                    )
                 )
-            )
 
-            installer.scheduleInstallAppUpdate(downloadedUpdates, time)
+                installer.installAppUpdateNow(downloadedUpdates)
+            } else {
+                val time = scheduleUtils.findNextInstallTimeMillis(installWindow)
+                val delay = time - timeUtil.nowEpochMillis()
+
+                transitionToState(
+                    UpdaterState.Install,
+                    mapOf(
+                        KEY_INSTALL_TYPE to PROP_TYPE_APP,
+                        KEY_INSTALL_RUNNING to TRUE_STRING,
+                        KEY_INSTALL_DELAY to Duration.ofMillis(delay).toString(),
+                        KEY_INSTALL_AT to Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault()).toString(),
+                        PROP_CURRENT_TIME to timeUtil.systemZonedNow().toString()
+                    )
+                )
+
+                installer.scheduleInstallAppUpdate(downloadedUpdates, time)
+            }
         } else {
             throw IllegalStateException("Can't transition from $updaterState to ${UpdaterState.Install}")
         }
@@ -734,23 +778,40 @@ class UpdaterService : Service() {
             updaterState == UpdaterState.Download
         ) {
             val installWindow = updaterConfig.installWindow
-            val time = scheduleUtils.findNextInstallTimeMillis(installWindow)
-            val delay = time - timeUtil.nowEpochMillis()
+            val installImmediately = sessionStateMetadata[PROP_INSTALL_IMMEDIATELY] as? Boolean
+                ?: DEFAULT_INSTALL_IMMEDIATELY
 
-            transitionToState(
-                UpdaterState.Install,
-                mapOf(
-                    KEY_INSTALL_TYPE to PROP_TYPE_FIRMWARE,
-                    KEY_INSTALL_RUNNING to TRUE_STRING,
-                    KEY_INSTALL_DELAY to Duration.ofMillis(delay).toString(),
-                    KEY_INSTALL_AT to Instant.ofEpochMilli(time).atZone(
-                        ZoneId.systemDefault()
-                    ).toString(),
-                    PROP_CURRENT_TIME to timeUtil.systemZonedNow().toString()
+            if (installImmediately) {
+                transitionToState(
+                    UpdaterState.Install,
+                    mapOf(
+                        KEY_INSTALL_TYPE to PROP_TYPE_APP,
+                        KEY_INSTALL_RUNNING to TRUE_STRING,
+                        KEY_INSTALL_AT to timeUtil.nowEpochFormatted(),
+                        PROP_CURRENT_TIME to timeUtil.systemZonedNow().toString()
+                    )
                 )
-            )
 
-            installer.scheduleInstallFirmwareUpdate(downloadedUpdate, time)
+                installer.installFirmwareUpdateNow(downloadedUpdate)
+            } else {
+                val time = scheduleUtils.findNextInstallTimeMillis(installWindow)
+                val delay = time - timeUtil.nowEpochMillis()
+
+                transitionToState(
+                    UpdaterState.Install,
+                    mapOf(
+                        KEY_INSTALL_TYPE to PROP_TYPE_FIRMWARE,
+                        KEY_INSTALL_RUNNING to TRUE_STRING,
+                        KEY_INSTALL_DELAY to Duration.ofMillis(delay).toString(),
+                        KEY_INSTALL_AT to Instant.ofEpochMilli(time).atZone(
+                            ZoneId.systemDefault()
+                        ).toString(),
+                        PROP_CURRENT_TIME to timeUtil.systemZonedNow().toString()
+                    )
+                )
+
+                installer.scheduleInstallFirmwareUpdate(downloadedUpdate, time)
+            }
         } else {
             throw IllegalStateException("Can't transition from $updaterState to ${UpdaterState.Install}")
         }
@@ -923,8 +984,10 @@ class UpdaterService : Service() {
         // boolean under 22.
         val resetSessionInt = intent.getIntExtra(IntentActions.PROP_RESET_UPDATER_SESSION, false.toInt())
         val resetSessionBoolean = resetSessionInt.toBoolean()
+        val installImmediatelyInt = intent.getIntExtra(PROP_INSTALL_IMMEDIATELY, DEFAULT_INSTALL_IMMEDIATELY.toInt())
+        val installImmediately = installImmediatelyInt.toBoolean()
 
-        transitionToCheckState(resetSessionBoolean)
+        transitionToCheckState(resetSessionBoolean, installImmediately)
     }
 
     // App Update /////////////////////////////////////////////////////////////

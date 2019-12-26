@@ -10,6 +10,7 @@ import co.sodalabs.apkupdater.UpdaterApp
 import co.sodalabs.apkupdater.di.module.AppPreferenceModule
 import co.sodalabs.apkupdater.di.module.ComponentLauncherModule
 import co.sodalabs.apkupdater.di.module.LoggingModule
+import co.sodalabs.apkupdater.di.module.MapperModule
 import co.sodalabs.apkupdater.di.module.NetworkModule
 import co.sodalabs.apkupdater.di.module.SubComponentActivityModule
 import co.sodalabs.apkupdater.di.module.SubComponentProviderModule
@@ -42,6 +43,7 @@ import dagger.android.support.AndroidSupportInjectionModule
     NetworkModule::class,
     TrackersModule::class,
     UtilsModule::class,
+    MapperModule::class,
     UpdaterModule::class,
     LoggingModule::class,
     ComponentLauncherModule::class,

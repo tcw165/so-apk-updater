@@ -1,8 +1,8 @@
 package co.sodalabs.apkupdater
 
 import android.content.Context
+import android.os.StatFs
 import co.sodalabs.updaterengine.IAppPreference
-import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.extension.mbToBytes
@@ -10,6 +10,7 @@ import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
 import co.sodalabs.updaterengine.utils.StorageUtils
 import java.io.File
 import javax.inject.Inject
+import kotlin.math.max
 
 private const val CACHE_APK_DIR = "apks"
 private const val CACHE_APK_SIZE_MB = 1024
@@ -26,6 +27,9 @@ private const val CACHE_UPDATE_RECORDS_SIZE_MB = 10
 
 private const val DAY_MIN = 0
 private const val DAY_MAX = 24
+
+private const val MIN_CHECK_INTERVAL_MILLIS = 2 * 60 * 1000L // 2 minutes
+private const val MIN_HEARTBEAT_INTERVAL_MILLIS = 15 * 1000L // 15 seconds
 
 class AndroidUpdaterConfig @Inject constructor(
     private val context: Context, // Application context is fine
@@ -46,17 +50,35 @@ class AndroidUpdaterConfig @Inject constructor(
         }
 
     override var heartbeatIntervalMillis: Long
-        get() = 1000L * appPreference.getLong(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
+        get() {
+            val rawValue = 1000L * appPreference.getLong(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, BuildConfig.HEARTBEAT_INTERVAL_SECONDS)
+            val validValue = ensureMinimumHeartbeatInterval(rawValue)
+            if (rawValue != validValue) {
+                appPreference.putLong(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, validValue / 1000L)
+            }
+            return validValue
+        }
+        // Currently, the setter is skipped because the [SettingsFragment] directly writes to the underlying SharedPrefs.
+        // We will keep this here for future consumers of this api.
         set(value) {
-            require(value < Intervals.SAMPLE_INTERVAL_NORMAL) { "The given interval, $value, is too small, which should be greater than ${Intervals.SAMPLE_INTERVAL_NORMAL}" }
-            appPreference.putLong(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, value)
+            require(value >= MIN_HEARTBEAT_INTERVAL_MILLIS) { "The given interval, $value, is too small, which should be greater than $MIN_HEARTBEAT_INTERVAL_MILLIS" }
+            appPreference.putLong(PreferenceProps.HEARTBEAT_INTERVAL_SECONDS, value / 1000L)
         }
 
     override var checkIntervalMillis: Long
-        get() = 1000L * appPreference.getLong(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS)
+        get() {
+            val rawValue = 1000L * appPreference.getLong(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS)
+            val validValue = ensureMinimumCheckInterval(rawValue)
+            if (rawValue != validValue) {
+                appPreference.putLong(PreferenceProps.CHECK_INTERVAL_SECONDS, validValue / 1000L)
+            }
+            return validValue
+        }
+        // Currently, the setter is skipped because the [SettingsFragment] directly writes to the underlying SharedPrefs.
+        // We will keep this here for future consumers of this api.
         set(value) {
-            require(value < Intervals.SAMPLE_INTERVAL_NORMAL) { "The given interval, $value, is too small, which should be greater than ${Intervals.SAMPLE_INTERVAL_NORMAL}" }
-            appPreference.putLong(PreferenceProps.CHECK_INTERVAL_SECONDS, value)
+            require(value >= MIN_CHECK_INTERVAL_MILLIS) { "The given interval, $value, is too small, which should be greater than $MIN_CHECK_INTERVAL_MILLIS" }
+            appPreference.putLong(PreferenceProps.CHECK_INTERVAL_SECONDS, value / 1000L)
         }
 
     @Suppress("ReplaceRangeStartEndInclusiveWithFirstLast")
@@ -122,5 +144,34 @@ class AndroidUpdaterConfig @Inject constructor(
             CACHE_JOURNAL_VERSION,
             CACHE_UPDATE_RECORDS_SIZE_MB.mbToBytes()
         )
+    }
+
+    private fun getAvailableSpaceInSDCard(): Long {
+        val dir = StorageUtils.getCacheDirectory(context, true)
+        return StatFs(dir.path).availableBytes
+    }
+
+    /**
+     * The heartbeat interval is currently stored in SharedPrefs.
+     * Because of this, anyone could skip the setter and write
+     * an invalid value. Therefore, we must also enforce the
+     * minimum in the getter.
+     */
+    private fun ensureMinimumHeartbeatInterval(
+        rawMillis: Long
+    ): Long {
+        return max(rawMillis, MIN_HEARTBEAT_INTERVAL_MILLIS)
+    }
+
+    /**
+     * The check interval is currently stored in SharedPrefs.
+     * Because of this, anyone could skip the setter and write
+     * an invalid value. Therefore, we must also enforce the
+     * minimum in the getter.
+     */
+    private fun ensureMinimumCheckInterval(
+        rawMillis: Long
+    ): Long {
+        return max(rawMillis, MIN_CHECK_INTERVAL_MILLIS)
     }
 }

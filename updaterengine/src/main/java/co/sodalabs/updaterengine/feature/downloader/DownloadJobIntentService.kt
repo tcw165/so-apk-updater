@@ -327,6 +327,7 @@ class DownloadJobIntentService : JobIntentService() {
 
         // Delete the cache before downloading if we don't use cache.
         if (!updaterConfig.downloadUseCache) {
+            Timber.v("[Download] Delete the cache cause 'download using cache' is disabled!")
             diskLruCache.delete()
         }
         // Open the cache
@@ -357,7 +358,8 @@ class DownloadJobIntentService : JobIntentService() {
             // Step 2, download the file if cache file size is smaller than the total size.
             val cacheEditor = diskLruCache.edit(urlFileName)
             val cacheFile = cacheEditor.getFile()
-            Timber.v("[Download] Open the cache \"$cacheFile\"")
+            val cacheFileSize = cacheFile.length()
+            Timber.v("[Download] Open the cache '$cacheFile', $cacheFileSize bytes.")
             try {
                 executeDownload(i, url, totalSize, cacheFile, downloadingCallback)
                 completedTasks.add(CompletedTask(i, cacheFile))
@@ -375,7 +377,11 @@ class DownloadJobIntentService : JobIntentService() {
                 }
             } finally {
                 Timber.v("[Download] Close the cache \"$cacheFile\"")
-                cacheEditor.commit()
+                try {
+                    cacheEditor.commit()
+                } catch (ignored: Throwable) {
+                    // No-op
+                }
             }
         }
 

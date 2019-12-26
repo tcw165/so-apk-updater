@@ -9,4 +9,7 @@ interface UpdatesInstaller {
     fun scheduleInstallAppUpdate(downloadedUpdates: List<DownloadedAppUpdate>, triggerAtMillis: Long)
     fun scheduleInstallFirmwareUpdate(downloadedUpdate: DownloadedFirmwareUpdate, triggerAtMillis: Long)
     fun cancelPendingInstalls()
+
+    fun uninstallAppNow(packageNames: List<String>)
+    fun scheduleUninstallApp(packageNames: List<String>, triggerAtMillis: Long)
 }
