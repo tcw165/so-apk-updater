@@ -14,7 +14,6 @@ class AdbUtilsTestSpec : BehaviorSpec({
     val file by lazy { createTempFile() }
 
     Given("a ADB helper utility") {
-
         val testScheduler = TestThreadSchedulers()
         val mockProcessInfoProvider = mockk<ProcessInfoProvider>()
         val adbUtils = spyk(AdbUtils(testScheduler, mockProcessInfoProvider))
@@ -50,7 +49,6 @@ class AdbUtilsTestSpec : BehaviorSpec({
         }
 
         When("whitelist, blacklist and application are not specified") {
-
             val cmd = adbUtils.generateLogCommand(file = file)
 
             Then("generated command should not contain missing items") {
