@@ -63,6 +63,7 @@ android {
         buildConfigField "long", "LAUNCHER_WATCHDOG_MAX_INTERVAL_SECONDS", "1800" // 30 min
         buildConfigField "int", "INSTALL_HOUR_BEGIN", "0" // 00:00
         buildConfigField "int", "INSTALL_HOUR_END", "23" // 23:00
+        buildConfigField "int", "INSTALL_MAX_HISTORY", "28" // Roughly a month if there's an update every day.
         buildConfigField "boolean", "INSTALL_SILENTLY", "true"
         buildConfigField "boolean", "INSTALL_ALLOW_DOWNGRADE", "false"
         buildConfigField "boolean", "DOWNLOAD_USE_CACHE", "true"
@@ -253,6 +254,11 @@ dependencies {
     implementation deps.androidx.coreKtx
     // Multi-dex.
     implementation deps.androidx.multidex
+    // Room
+    implementation deps.androidx.arcRoom
+    implementation deps.androidx.arcRoomRx
+    implementation deps.androidx.arcRoomKtx
+    kapt deps.androidx.arcRoomAnnotation
 
     // Kotlin
     implementation deps.kotlin.stdlibJdk7

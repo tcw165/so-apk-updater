@@ -407,22 +407,27 @@ class UpdaterService : Service() {
          * The method for the updater engine knows the install finishes and
          * to move on. The component responsible for installing should call this
          * method when the install completes.
+         *
+         * @param appliedUpdates The successfully installed updates.
+         * @param failedUpdates The failed updates.
+         * @param errorsToFailedUpdate The errors to the [failedUpdates]
          */
         fun notifyAppUpdateInstalled(
             context: Context,
             appliedUpdates: List<AppliedUpdate>,
-            errors: List<Throwable>
+            failedUpdates: List<DownloadedAppUpdate>,
+            errorsToFailedUpdate: List<Throwable>
         ) {
             Timber.v("[Install] Install job just completes")
             uiHandler.post {
                 val action = IntentActions.ACTION_INSTALL_APP_UPDATE_COMPLETE
                 val broadcastIntent = Intent()
-                broadcastIntent.prepareUpdateInstalled(action, appliedUpdates, errors)
+                broadcastIntent.prepareUpdateInstalled(action, appliedUpdates, failedUpdates, errorsToFailedUpdate)
                 val broadcastManager = LocalBroadcastManager.getInstance(context)
                 broadcastManager.sendBroadcast(broadcastIntent)
 
                 val serviceIntent = Intent(context, UpdaterService::class.java)
-                serviceIntent.prepareUpdateInstalled(action, appliedUpdates, errors)
+                serviceIntent.prepareUpdateInstalled(action, appliedUpdates, failedUpdates, errorsToFailedUpdate)
                 context.startService(serviceIntent)
             }
         }
@@ -1196,14 +1201,15 @@ class UpdaterService : Service() {
     private fun onAppUpdateInstallCompleteOrError(
         intent: Intent
     ) {
+        val failedUpdates = intent.getParcelableArrayListExtra<DownloadedAppUpdate>(IntentActions.PROP_NOT_APPLIED_UPDATES)
         val nullableError = intent.getSerializableExtra(IntentActions.PROP_ERROR) as? CompositeException
-        nullableError?.let {
-            // TODO error-handling
+        nullableError?.let { compositeError ->
+            val compositeErrorMsg = formatCompositeErrorMessage(failedUpdates, compositeError)
             stateTracker.addStateMetadata(
                 mapOf(
                     KEY_INSTALL_TYPE to PROP_TYPE_APP,
                     KEY_INSTALL_RUNNING to FALSE_STRING,
-                    KEY_INSTALL_ERROR to (it.message ?: it.javaClass.name)
+                    KEY_INSTALL_ERROR to compositeErrorMsg
                 )
             )
         }
@@ -1229,6 +1235,24 @@ class UpdaterService : Service() {
 
         // Transition to idle at the end.
         transitionToIdleState()
+    }
+
+    private fun formatCompositeErrorMessage(
+        failedUpdates: List<DownloadedAppUpdate>,
+        compositeErrorToFailedUpdate: CompositeException
+    ): String {
+        val rawErrors = compositeErrorToFailedUpdate.errors
+        return StringBuilder()
+            .apply {
+                appendln('[')
+                failedUpdates.forEachIndexed { i, failedUpdate ->
+                    val error = rawErrors[i]
+                    val errorMsg = error.message ?: error.javaClass.name
+                    appendln("'${failedUpdate.fromUpdate.packageName}': $errorMsg,")
+                }
+                append(']')
+            }
+            .toString()
     }
 
     // Firmware Update ////////////////////////////////////////////////////////

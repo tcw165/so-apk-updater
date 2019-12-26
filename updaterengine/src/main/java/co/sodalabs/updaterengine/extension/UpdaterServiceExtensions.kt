@@ -3,6 +3,7 @@ package co.sodalabs.updaterengine.extension
 import android.content.Intent
 import android.os.Parcelable
 import co.sodalabs.updaterengine.IntentActions
+import co.sodalabs.updaterengine.data.DownloadedAppUpdate
 import co.sodalabs.updaterengine.exception.CompositeException
 
 fun Intent.prepareError(
@@ -71,15 +72,17 @@ fun <T : Parcelable, R : Parcelable> Intent.prepareUpdateDownloaded(
 fun <T : Parcelable> Intent.prepareUpdateInstalled(
     intentAction: String,
     appliedUpdates: List<T>,
-    errors: List<Throwable>
+    failedUpdates: List<DownloadedAppUpdate>,
+    errorsToFailedUpdate: List<Throwable>
 ) {
     this.apply {
         action = intentAction
         // Result
         putParcelableArrayListExtra(IntentActions.PROP_APPLIED_UPDATES, ArrayList(appliedUpdates))
+        putParcelableArrayListExtra(IntentActions.PROP_NOT_APPLIED_UPDATES, ArrayList(failedUpdates))
         // Error
-        if (errors.isNotEmpty()) {
-            putExtra(IntentActions.PROP_ERROR, CompositeException(errors))
+        if (errorsToFailedUpdate.isNotEmpty()) {
+            putExtra(IntentActions.PROP_ERROR, CompositeException(errorsToFailedUpdate))
         }
     }
 }

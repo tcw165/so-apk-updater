@@ -108,7 +108,7 @@ class UpdaterApp :
 
         safeguardsUndeliverableException()
 
-        observeSystemConfigChange()
+        restartAppIfPreferenceChanges()
 
         // Initialize the launching works.
         sendBroadcast(Intent(WorkOnAppLaunchInitializer.UPDATER_LAUNCH))
@@ -402,9 +402,8 @@ class UpdaterApp :
     }
 
     @SuppressLint("ApplySharedPref")
-    private fun observeSystemConfigChange() {
+    private fun restartAppIfPreferenceChanges() {
         // FIXME: Please don't restart the process!
-
         // Restart the process for all kinds of rawPreference change!
         appPreference.observeAnyChange()
             .filter(this::ignoredProperties)

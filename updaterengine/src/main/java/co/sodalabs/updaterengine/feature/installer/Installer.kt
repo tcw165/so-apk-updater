@@ -1,7 +1,6 @@
 package co.sodalabs.updaterengine.feature.installer
 
 import android.content.Context
-import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedAppUpdate
 
 /**
@@ -34,7 +33,7 @@ abstract class Installer(
     @see InstallManagerService
     @see <a href="https://issuetracker.google.com/issues/37091886">ACTION_INSTALL_PACKAGE Fails For Any Possible Uri</a>
      */
-    abstract fun installPackages(localUpdates: List<DownloadedAppUpdate>): Pair<List<AppliedUpdate>, List<Throwable>>
+    abstract fun installPackages(localUpdates: List<DownloadedAppUpdate>): InstallResult
 
     /**
      * Uninstall app as defined by [Installer.apk] in
