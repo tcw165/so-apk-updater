@@ -16,6 +16,7 @@ private const val PREFIX = "remote_config"
 internal const val PARAM_TIMEZONE_CITY_ID = "$PREFIX.timezone_city_id"
 internal const val PARAM_INSTALL_WINDOW = "$PREFIX.install_window"
 internal const val PARAM_ALLOW_DOWNGRADE = "$PREFIX.allow_downgrade"
+internal const val PARAM_CHECK_INTERVAL = "$PREFIX.check_interval"
 
 class RemoteConfigSyncWorker(
     context: Context,
@@ -34,6 +35,7 @@ class RemoteConfigSyncWorker(
             applyTimezone()
             applyInstallWindow()
             applyDowngradeFlag()
+            applyCheckInterval()
 
             Result.success()
         } catch (error: Throwable) {
@@ -77,6 +79,16 @@ class RemoteConfigSyncWorker(
         if (currentDowngradeFlag != newDowngradeFlag) {
             Timber.v("[RemoteConfig] Changing allow downgrade flag from '$currentDowngradeFlag' to '$newDowngradeFlag'")
             appPreference.putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, newDowngradeFlag)
+        }
+    }
+
+    private fun applyCheckInterval() {
+        val newCheckInterval = inputData.getLong(PARAM_CHECK_INTERVAL, BuildConfig.CHECK_INTERVAL_SECONDS)
+        val currentCheckInterval = appPreference.getLong(PreferenceProps.CHECK_INTERVAL_SECONDS, BuildConfig.CHECK_INTERVAL_SECONDS)
+
+        if (currentCheckInterval != newCheckInterval) {
+            Timber.v("[RemoteConfig] Changing check interval from '$currentCheckInterval' to '$newCheckInterval'")
+            appPreference.putLong(PreferenceProps.CHECK_INTERVAL_SECONDS, newCheckInterval)
         }
     }
 }

@@ -18,5 +18,7 @@ data class RemoteConfig(
     @Json(name = "force_full_firmware_update")
     val forceFullFirmwareUpdate: Boolean,
     @Json(name = "allow_downgrade_app")
-    val allowDowngradeApp: Boolean
+    val allowDowngradeApp: Boolean,
+    @Json(name = "update_check_interval")
+    val updateCheckInterval: Int?
 )

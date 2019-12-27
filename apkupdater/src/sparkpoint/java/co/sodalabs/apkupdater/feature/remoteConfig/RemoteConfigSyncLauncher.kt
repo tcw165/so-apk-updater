@@ -29,6 +29,7 @@ class RemoteConfigSyncLauncher @Inject constructor(
         dataPairs.addIfNotNull(addTimezoneFromConfig(config))
         dataPairs.addIfNotNull(addInstallWindowFromConfig(config))
         dataPairs.addIfNotNull(addDowngradeFlagFromConfig(config))
+        dataPairs.addIfNotNull(addCheckIntervalFromConfig(config))
         if (dataPairs.isEmpty()) {
             // Do nothing since remote config is exactly the same with the local
             // config.
@@ -114,6 +115,13 @@ class RemoteConfigSyncLauncher @Inject constructor(
     ): Pair<String, Any>? {
         val allowDowngrade = config.allowDowngradeApp
         return PARAM_ALLOW_DOWNGRADE to allowDowngrade
+    }
+
+    private fun addCheckIntervalFromConfig(
+        config: RemoteConfig
+    ): Pair<String, Any>? {
+        val checkInterval = config.updateCheckInterval ?: return null
+        return PARAM_CHECK_INTERVAL to checkInterval
     }
 
     // Section for the near future.
