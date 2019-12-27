@@ -101,8 +101,9 @@ class RemoteConfigSyncLauncher @Inject constructor(
     private fun addInstallWindowFromConfig(
         config: RemoteConfig
     ): Pair<String, Any>? {
-        // Block for the near future.
-        return null
+        val remoteWindowStart: Int = config.installWindowStart ?: return null
+        val remoteWindowEnd: Int = config.installWindowEnd ?: return null
+        return PARAM_INSTALL_WINDOW to "$remoteWindowStart-$remoteWindowEnd"
     }
 
     // Install Related ////////////////////////////////////////////////////////

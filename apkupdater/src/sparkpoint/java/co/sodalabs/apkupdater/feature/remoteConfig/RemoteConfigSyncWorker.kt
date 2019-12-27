@@ -4,17 +4,25 @@ import android.app.AlarmManager
 import android.content.Context
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import co.sodalabs.apkupdater.BuildConfig
+import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.di.WorkerInjection
 import timber.log.Timber
+import javax.inject.Inject
 
 private const val PREFIX = "remote_config"
 
 internal const val PARAM_TIMEZONE_CITY_ID = "$PREFIX.timezone_city_id"
+internal const val PARAM_INSTALL_WINDOW = "$PREFIX.install_window"
 
 class RemoteConfigSyncWorker(
     context: Context,
     params: WorkerParameters
 ) : Worker(context, params) {
+
+    @Inject
+    lateinit var appPreference: IAppPreference
 
     private val alarmManager by lazy { context.getSystemService(Context.ALARM_SERVICE) as AlarmManager }
 
@@ -23,6 +31,7 @@ class RemoteConfigSyncWorker(
 
         return try {
             applyTimezone()
+            applyInstallWindow()
 
             Result.success()
         } catch (error: Throwable) {
@@ -35,6 +44,27 @@ class RemoteConfigSyncWorker(
         timezoneCityOpt?.let { timezoneCity ->
             Timber.v("[RemoteConfig] Change timezone city ID to '$timezoneCity'")
             alarmManager.setTimeZone(timezoneCity)
+        }
+    }
+
+    private fun applyInstallWindow() {
+        val installWindowOpt = inputData.getString(PARAM_INSTALL_WINDOW)
+            ?.split("-")
+            ?.map { it.toInt() }
+            ?: return
+        require(installWindowOpt.size == 2) { "Hey developer, the install window array size should be exactly two!" }
+
+        val currentWindowStart = appPreference.getInt(PreferenceProps.INSTALL_HOUR_BEGIN, BuildConfig.INSTALL_HOUR_BEGIN)
+        val currentWindowEnd = appPreference.getInt(PreferenceProps.INSTALL_HOUR_END, BuildConfig.INSTALL_HOUR_END)
+        val (installWindowStart, installWindowEnd) = installWindowOpt
+
+        if (currentWindowStart != installWindowStart) {
+            Timber.v("[RemoteConfig] Changing install window start from '$currentWindowStart' to '$installWindowStart'")
+            appPreference.putInt(PreferenceProps.INSTALL_HOUR_BEGIN, installWindowStart)
+        }
+        if (currentWindowEnd != installWindowEnd) {
+            Timber.v("[RemoteConfig] Changing install window end from '$currentWindowEnd' to '$installWindowEnd'")
+            appPreference.putInt(PreferenceProps.INSTALL_HOUR_END, installWindowEnd)
         }
     }
 }
