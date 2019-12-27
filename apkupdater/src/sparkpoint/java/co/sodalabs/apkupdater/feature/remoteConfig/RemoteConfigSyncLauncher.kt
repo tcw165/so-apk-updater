@@ -28,6 +28,7 @@ class RemoteConfigSyncLauncher @Inject constructor(
         val dataPairs = mutableMapOf<String, Any>()
         dataPairs.addIfNotNull(addTimezoneFromConfig(config))
         dataPairs.addIfNotNull(addInstallWindowFromConfig(config))
+        dataPairs.addIfNotNull(addDowngradeFlagFromConfig(config))
         if (dataPairs.isEmpty()) {
             // Do nothing since remote config is exactly the same with the local
             // config.
@@ -98,6 +99,8 @@ class RemoteConfigSyncLauncher @Inject constructor(
         }
     }
 
+    // Install Related ////////////////////////////////////////////////////////
+
     private fun addInstallWindowFromConfig(
         config: RemoteConfig
     ): Pair<String, Any>? {
@@ -106,7 +109,12 @@ class RemoteConfigSyncLauncher @Inject constructor(
         return PARAM_INSTALL_WINDOW to "$remoteWindowStart-$remoteWindowEnd"
     }
 
-    // Install Related ////////////////////////////////////////////////////////
+    private fun addDowngradeFlagFromConfig(
+        config: RemoteConfig
+    ): Pair<String, Any>? {
+        val allowDowngrade = config.allowDowngradeApp
+        return PARAM_ALLOW_DOWNGRADE to allowDowngrade
+    }
 
     // Section for the near future.
 }

@@ -15,6 +15,7 @@ private const val PREFIX = "remote_config"
 
 internal const val PARAM_TIMEZONE_CITY_ID = "$PREFIX.timezone_city_id"
 internal const val PARAM_INSTALL_WINDOW = "$PREFIX.install_window"
+internal const val PARAM_ALLOW_DOWNGRADE = "$PREFIX.allow_downgrade"
 
 class RemoteConfigSyncWorker(
     context: Context,
@@ -32,6 +33,7 @@ class RemoteConfigSyncWorker(
         return try {
             applyTimezone()
             applyInstallWindow()
+            applyDowngradeFlag()
 
             Result.success()
         } catch (error: Throwable) {
@@ -65,6 +67,16 @@ class RemoteConfigSyncWorker(
         if (currentWindowEnd != installWindowEnd) {
             Timber.v("[RemoteConfig] Changing install window end from '$currentWindowEnd' to '$installWindowEnd'")
             appPreference.putInt(PreferenceProps.INSTALL_HOUR_END, installWindowEnd)
+        }
+    }
+
+    private fun applyDowngradeFlag() {
+        val newDowngradeFlag = inputData.getBoolean(PARAM_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
+        val currentDowngradeFlag = appPreference.getBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
+
+        if (currentDowngradeFlag != newDowngradeFlag) {
+            Timber.v("[RemoteConfig] Changing allow downgrade flag from '$currentDowngradeFlag' to '$newDowngradeFlag'")
+            appPreference.putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, newDowngradeFlag)
         }
     }
 }
