@@ -56,6 +56,8 @@ class PrivilegedInstallerService : Service() {
 
         // get internal methods via reflection
         try {
+            // FIXME: The following interfaces doesn't exist in Pie (not sure
+            // FIXME: by what version they are gone)
             val installTypes = arrayOf<Class<*>>(
                 Uri::class.java,
                 IPackageInstallObserver::class.java,

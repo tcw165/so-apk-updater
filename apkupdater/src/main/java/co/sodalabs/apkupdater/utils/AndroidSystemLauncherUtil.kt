@@ -88,7 +88,7 @@ class AndroidSystemLauncherUtil @Inject constructor(
         ensureBackgroundThread()
 
         try {
-            Timber.v("[LauncherUtil] Set '$SPARKPOINT_PACKAGE_NAME' as the preferred HOME.")
+            Timber.v("[LauncherUtil] Set '$SPARKPOINT_PACKAGE_NAME' as the preferred HOME")
 
             val launchIntentOpt: Intent? = packageManager.getLaunchIntentForPackage(SPARKPOINT_PACKAGE_NAME)
             launchIntentOpt?.let { launchIntent ->
@@ -100,6 +100,14 @@ class AndroidSystemLauncherUtil @Inject constructor(
         } catch (error: Throwable) {
             Timber.w(error)
         }
+    }
+
+    override fun getCurrentDefaultSystemLauncherPackageName(): String {
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+        }
+        val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        return resolveInfo.activityInfo.packageName
     }
 
     private fun setSodaLabsLauncherAsDefault(
@@ -132,13 +140,5 @@ class AndroidSystemLauncherUtil @Inject constructor(
         val resolveInfoList = mutableListOf<ResolveInfo>()
         getHomeActivitiesMethod.invoke(packageManager, resolveInfoList)
         return resolveInfoList
-    }
-
-    private fun getCurrentDefaultSystemLauncherPackageName(): String {
-        val intent = Intent(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_HOME)
-        }
-        val resolveInfo = packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
-        return resolveInfo.activityInfo.packageName
     }
 }

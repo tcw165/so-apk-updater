@@ -4,16 +4,14 @@ import Packages
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import co.sodalabs.apkupdater.feature.homeCorrector.IHomeCorrectorLauncher
+import co.sodalabs.apkupdater.feature.watchdog.IForegroundAppWatchdogLauncher
 import dagger.android.AndroidInjection
 import javax.inject.Inject
-
-private const val START_PROCESS_DELAY_MILLIS = 3000L
 
 class SparkPointUpdatedReceiver : BroadcastReceiver() {
 
     @Inject
-    lateinit var homeCorrectorLauncher: IHomeCorrectorLauncher
+    lateinit var foregroundAppWatchdogLauncher: IForegroundAppWatchdogLauncher
 
     override fun onReceive(
         context: Context,
@@ -29,7 +27,8 @@ class SparkPointUpdatedReceiver : BroadcastReceiver() {
 
                 // Check given package name to see if it's the SparkPoint player.
                 if (packageName == Packages.SPARKPOINT_PACKAGE_NAME) {
-                    homeCorrectorLauncher.scheduleStartingSodaLabsLauncher(START_PROCESS_DELAY_MILLIS)
+                    foregroundAppWatchdogLauncher.cancelPendingAndOnGoingValidation()
+                    foregroundAppWatchdogLauncher.correctNowThenCheckPeriodically()
                 }
             }
         }
