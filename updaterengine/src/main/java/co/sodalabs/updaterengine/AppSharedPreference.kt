@@ -69,6 +69,10 @@ class AppSharedPreference @Inject constructor(
         }
     }
 
+    override fun getString(prop: String): String? {
+        return preferences.getString(prop, null)
+    }
+
     override fun getString(prop: String, default: String): String {
         return preferences.getString(prop, default) ?: default
     }
@@ -122,6 +126,12 @@ class AppSharedPreference @Inject constructor(
 
             // Don't emit the initial value
         }
+    }
+
+    override fun unsetKey(key: String) {
+        preferences.edit()
+            .remove(key)
+            .apply()
     }
 
     @SuppressLint("ApplySharedPref")

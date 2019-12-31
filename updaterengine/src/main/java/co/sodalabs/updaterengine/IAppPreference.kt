@@ -18,10 +18,12 @@ interface IAppPreference {
     fun putBoolean(prop: String, value: Boolean)
     fun observeBooleanChange(prop: String, default: Boolean): Observable<Boolean>
 
+    fun getString(prop: String): String?
     fun getString(prop: String, default: String): String
     fun putString(prop: String, value: String)
     fun observeStringChange(prop: String, default: String): Observable<String>
 
+    fun unsetKey(key: String)
     fun containsKey(prop: String): Boolean
     fun observeAnyChange(): Observable<String>
 

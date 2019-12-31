@@ -18,12 +18,15 @@ import android.os.PersistableBundle
 import android.text.format.Formatter.formatShortFileSize
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import co.sodalabs.updaterengine.IntentActions.PROP_INSTALL_IMMEDIATELY
+import co.sodalabs.updaterengine.PreferenceProps.INSTALL_PENDING_INSTALLS_JSON
+import co.sodalabs.updaterengine.PreferenceProps.INSTALL_PENDING_INSTALLS_TYPE
 import co.sodalabs.updaterengine.PreferenceProps.LAST_KNOWN_FIRMWARE_VERSION
 import co.sodalabs.updaterengine.data.AppUpdate
 import co.sodalabs.updaterengine.data.AppliedUpdate
 import co.sodalabs.updaterengine.data.DownloadedAppUpdate
 import co.sodalabs.updaterengine.data.DownloadedFirmwareUpdate
 import co.sodalabs.updaterengine.data.FirmwareUpdate
+import co.sodalabs.updaterengine.data.UpdateType
 import co.sodalabs.updaterengine.exception.CompositeException
 import co.sodalabs.updaterengine.exception.NoUpdateFoundException
 import co.sodalabs.updaterengine.extension.ensureBackgroundThread
@@ -40,7 +43,6 @@ import co.sodalabs.updaterengine.extension.prepareUpdateInstalled
 import co.sodalabs.updaterengine.extension.toBoolean
 import co.sodalabs.updaterengine.extension.toInt
 import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceLauncher
-import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import co.sodalabs.updaterengine.feature.statemachine.KEY_CHECK_ERROR
 import co.sodalabs.updaterengine.feature.statemachine.KEY_CHECK_INTERVAL
@@ -77,12 +79,12 @@ import io.reactivex.Single
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.internal.schedulers.SingleScheduler
 import io.reactivex.rxkotlin.addTo
+import org.json.JSONException
 import org.threeten.bp.Duration
 import org.threeten.bp.Instant
 import org.threeten.bp.ZoneId
 import timber.log.Timber
 import java.io.File
-import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -91,8 +93,6 @@ private const val NOTIFICATION_CHANNEL_ID = "updater_engine"
 private const val NOTIFICATION_ID = 20190802
 
 private const val LENGTH_10M_MILLIS = 10L * 60 * 1000
-
-private const val CACHE_KEY_DOWNLOADED_UPDATES = "downloaded_updates"
 
 private const val TOTAL_CHECK_ATTEMPTS_PER_SESSION = 200
 private const val TOTAL_DOWNLOAD_ATTEMPTS_PER_SESSION = 200
@@ -866,18 +866,29 @@ class UpdaterService : Service() {
 
     private fun continueInstallsOrScheduleCheckOnStart() {
         cleanupDiskCacheConditionally()
-            .andThen(inflateUpdatesFromCache())
+            .andThen(getPendingInstallJSON())
             // Regardless the error, we should ALWAYS schedule the next check
             .doOnError(Timber::e)
-            .onErrorReturnItem(emptyList())
+            .onErrorReturnItem(null to EMPTY_STRING)
+            // Note: After getting the pending install JSON, we do the following
+            // works synchronously in 'engine' thread:
+            // - Inflate the JSON to the download app/firmware data.
+            // - Transition to install state by the inflated data.
             .observeOn(updaterScheduler)
-            .subscribe({ foundInstallCache ->
-                // TODO: Should check the timestamp of the install cache to see if it's due.
-                if (foundInstallCache.isNotEmpty()) {
-                    Timber.v("[Updater] Found a fully downloaded update cache on start!")
-                    transitionToInstallStateForAppUpdate(foundInstallCache)
-                } else {
-                    Timber.v("[Updater] Not found any fully downloaded update cache on start.")
+            .subscribe({ (pendingInstallType, pendingInstallJSON) ->
+                try {
+                    when (pendingInstallType) {
+                        UpdateType.APPS -> {
+                            Timber.v("[Updater] Found some pending apps installs on start!")
+                            transitionToInstallStateForAppUpdate(inflatePendingAppsInstalls(pendingInstallJSON))
+                        }
+                        UpdateType.FIRMWARE -> {
+                            Timber.v("[Updater] Found a firmware install on start!")
+                            transitionToInstallStateForFirmwareUpdate(inflatePendingFirmwareInstall(pendingInstallJSON))
+                        }
+                    }
+                } catch (error: Throwable) {
+                    Timber.w(error, "[Updater] Cannot continue the state transition for pending install...")
                     transitionToIdleState()
                 }
             }, Timber::e)
@@ -930,89 +941,132 @@ class UpdaterService : Service() {
 
     private fun getDiskCacheWhitelist(): Set<String> {
         return setOf(
-            updaterConfig.updateDiskCache.directory.canonicalPath,
-            updaterConfig.downloadedUpdateDiskCache.directory.canonicalPath
+            updaterConfig.updateDiskCache.directory.canonicalPath
         )
     }
 
     /**
-     * Inflate the persistable update (fully downloaded) and then delete the
-     * cache file (the journal file not the download cache).
+     * Get pending install type and JSON.
      */
-    private fun inflateUpdatesFromCache(): Single<List<DownloadedAppUpdate>> {
+    private fun getPendingInstallJSON(): Single<Pair<UpdateType?, String>> {
         return Single
             .fromCallable {
-                ensureBackgroundThread()
-
-                val diskCache = updaterConfig.updateDiskCache
                 try {
-                    if (diskCache.isClosed()) {
-                        diskCache.open()
-                    }
-                } catch (error: IOException) {
+                    val installTypeOpt = appPreference.getString(INSTALL_PENDING_INSTALLS_TYPE)
+                    val installJSONOpt = appPreference.getString(INSTALL_PENDING_INSTALLS_JSON)
+
+                    val sb = StringBuilder()
+                    sb.appendln("[Updater] Get pending install information:")
+                    sb.appendln("* Pending install type: $installTypeOpt")
+                    sb.appendln("* Pending install JSON: $installJSONOpt")
+                    Timber.v(sb.toString())
+
+                    // Clean the pending install keys
+                    appPreference.unsetKey(INSTALL_PENDING_INSTALLS_TYPE)
+                    appPreference.unsetKey(INSTALL_PENDING_INSTALLS_JSON)
+
+                    val installType = installTypeOpt ?: throw NullPointerException("Null pending install type")
+                    val installJSON = installJSONOpt ?: EMPTY_STRING
+                    UpdateType.valueOf(installType) to installJSON
+                } catch (error: Throwable) {
+                    // The error could be the JSON change, we warn it instead
+                    // log it to the server because we expect this exception
+                    // and therefore don't want this exception to be noise.
                     Timber.w(error)
-                    // Cache is full, which means the entire disk is full
-                    // TODO: Should we also clear up the other caches?
-                    cleanDownloadedAppUpdateCache()
-                    return@fromCallable emptyList<DownloadedAppUpdate>()
+                    // Failed to inflate, then tell the downstream null type to
+                    // go IDLE state.
+                    null to EMPTY_STRING
                 }
-
-                val record: DiskLruCache.Value? = diskCache.get(CACHE_KEY_DOWNLOADED_UPDATES)
-                val originalCache = record?.let { safeRecord ->
-                    val recordFile = safeRecord.getFile(0)
-                    val jsonText = recordFile.readText()
-
-                    cleanDownloadedAppUpdateCache()
-
-                    try {
-                        val jsonBuilder = jsonBuilder
-                        val jsonType = Types.newParameterizedType(List::class.java, DownloadedAppUpdate::class.java)
-                        val jsonAdapter = jsonBuilder.adapter<List<DownloadedAppUpdate>>(jsonType)
-                        val downloadedUpdates = jsonAdapter.fromJson(jsonText)
-                        downloadedUpdates?.trimGoneFiles()
-                    } catch (ignored: Throwable) {
-                        emptyList<DownloadedAppUpdate>()
-                    }
-                } ?: emptyList()
-                val allowDowngrade = updaterConfig.installAllowDowngrade
-                val trimmedCache = originalCache.trimByVersionCheck(packageManager, allowDowngrade)
-
-                trimmedCache
             }
             .subscribeOn(updaterScheduler)
     }
 
-    private fun persistDownloadedAppUpdates(
+    private fun inflatePendingAppsInstalls(
+        installJSON: String
+    ): List<DownloadedAppUpdate> {
+        ensureBackgroundThread()
+
+        val rawPendingInstalls = try {
+            val jsonBuilder = jsonBuilder
+            val jsonType = Types.newParameterizedType(List::class.java, DownloadedAppUpdate::class.java)
+            val jsonAdapter = jsonBuilder.adapter<List<DownloadedAppUpdate>>(jsonType)
+            val installs = jsonAdapter.fromJson(installJSON)
+                ?: throw JSONException("Invalid JSON, $installJSON")
+            installs
+        } catch (error: Throwable) {
+            Timber.w(error)
+            emptyList<DownloadedAppUpdate>()
+        }
+        val allowDowngrade = updaterConfig.installAllowDowngrade
+
+        return rawPendingInstalls
+            .trimGoneFiles()
+            .trimByVersionCheck(packageManager, allowDowngrade)
+    }
+
+    private fun inflatePendingFirmwareInstall(
+        installJSON: String
+    ): DownloadedFirmwareUpdate {
+        ensureBackgroundThread()
+
+        val jsonBuilder = jsonBuilder
+        val jsonAdapter = jsonBuilder.adapter<DownloadedFirmwareUpdate>(DownloadedFirmwareUpdate::class.java)
+        return jsonAdapter.fromJson(installJSON)
+            ?: throw JSONException("Invalid JSON, $installJSON")
+    }
+
+    private fun persistPendingAppInstalls(
         downloadedUpdates: List<DownloadedAppUpdate>
     ) {
         if (downloadedUpdates.isNotEmpty()) {
-            Timber.v("[Updater] Persist the downloaded updates")
-
             val jsonType = Types.newParameterizedType(List::class.java, DownloadedAppUpdate::class.java)
             val jsonAdapter = jsonBuilder.adapter<List<DownloadedAppUpdate>>(jsonType)
-            val jsonText = jsonAdapter.toJson(downloadedUpdates)
+            val installType = UpdateType.APPS.name
+            val installJSON = jsonAdapter.toJson(downloadedUpdates)
 
-            val diskCache = updaterConfig.downloadedUpdateDiskCache
-            if (diskCache.isClosed()) {
-                diskCache.open()
-            }
-            val editor = diskCache.edit(CACHE_KEY_DOWNLOADED_UPDATES)
-            val editorFile = editor.getFile()
+            val sb = StringBuilder()
+            sb.appendln("[Updater] Persist the pending installs...")
+            sb.appendln("* Pending install type: $installType")
+            sb.appendln("* Pending install JSON: $installJSON")
+            Timber.v(sb.toString())
 
-            try {
-                editorFile.writeText(jsonText)
-            } catch (error: Throwable) {
-                Timber.w(error)
-            } finally {
-                editor.commit()
-            }
+            appPreference.putString(INSTALL_PENDING_INSTALLS_TYPE, installType)
+            appPreference.putString(INSTALL_PENDING_INSTALLS_JSON, installJSON)
+        } else {
+            // Make sure no ghostly pending install is cached.
+            appPreference.unsetKey(INSTALL_PENDING_INSTALLS_TYPE)
+            appPreference.unsetKey(INSTALL_PENDING_INSTALLS_JSON)
         }
     }
 
-    private fun cleanDownloadedAppUpdateCache() {
-        val diskCache = updaterConfig.downloadedUpdateDiskCache
-        Timber.v("[Updater] Remove pending install cache")
-        diskCache.delete()
+    private fun persistPendingFirmwareInstall(
+        downloadedUpdate: DownloadedFirmwareUpdate
+    ) {
+        try {
+            val jsonAdapter = jsonBuilder.adapter<DownloadedFirmwareUpdate>(DownloadedFirmwareUpdate::class.java)
+            val installType = UpdateType.FIRMWARE.name
+            val installJSON = jsonAdapter.toJson(downloadedUpdate)
+
+            val sb = StringBuilder()
+            sb.appendln("[Updater] Persist the pending installs...")
+            sb.appendln("* Pending install type: $installType")
+            sb.appendln("* Pending install JSON: $installJSON")
+            Timber.v(sb.toString())
+
+            appPreference.putString(INSTALL_PENDING_INSTALLS_TYPE, installType)
+            appPreference.putString(INSTALL_PENDING_INSTALLS_JSON, installJSON)
+        } catch (error: Throwable) {
+            Timber.w(error)
+            // Make sure no ghostly pending install is cached.
+            appPreference.unsetKey(INSTALL_PENDING_INSTALLS_TYPE)
+            appPreference.unsetKey(INSTALL_PENDING_INSTALLS_JSON)
+        }
+    }
+
+    private fun clearPendingInstalls() {
+        Timber.v("[Updater] Remove installs cache")
+        appPreference.putString(INSTALL_PENDING_INSTALLS_TYPE, EMPTY_STRING)
+        appPreference.putString(INSTALL_PENDING_INSTALLS_JSON, EMPTY_STRING)
     }
 
     private fun List<DownloadedAppUpdate>.trimGoneFiles(): List<DownloadedAppUpdate> {
@@ -1164,11 +1218,7 @@ class UpdaterService : Service() {
             if (downloadedUpdates.isNotEmpty()) {
                 // Serialize the downloaded updates on storage for the case if the
                 // device reboots, we'll continue the install on boot.
-                try {
-                    persistDownloadedAppUpdates(downloadedUpdates)
-                } catch (error: Throwable) {
-                    Timber.w(error)
-                }
+                persistPendingAppInstalls(downloadedUpdates)
 
                 val updateString = downloadedUpdates.joinToString {
                     "${it.fromUpdate.packageName} - ${it.fromUpdate.versionName} - ${formatShortFileSize(this, it.file.length())}"
@@ -1215,11 +1265,7 @@ class UpdaterService : Service() {
         }
 
         // Clean the persistent downloaded updates.
-        try {
-            cleanDownloadedAppUpdateCache()
-        } catch (error: Throwable) {
-            Timber.w(error)
-        }
+        clearPendingInstalls()
 
         val appliedUpdates = intent.getParcelableArrayListExtra<AppliedUpdate>(IntentActions.PROP_APPLIED_UPDATES)
         // TODO: What shall we do with this info?
@@ -1333,12 +1379,7 @@ class UpdaterService : Service() {
 
             // Serialize the downloaded updates on storage for the case if the
             // device reboots, we'll continue the install on boot.
-            try {
-                // FIXME: Implement the firmware update cache
-                // persistDownloadedFirmwareUpdates(downloadedUpdates)
-            } catch (error: Throwable) {
-                Timber.w(error)
-            }
+            persistPendingFirmwareInstall(downloadedUpdate)
 
             val size = formatShortFileSize(this, downloadedUpdate.file.length())
             stateTracker.addStateMetadata(
@@ -1352,6 +1393,8 @@ class UpdaterService : Service() {
             transitionToInstallStateForFirmwareUpdate(downloadedUpdate)
         } catch (error: Throwable) {
             Timber.w(error)
+
+            clearPendingInstalls()
 
             stateTracker.addStateMetadata(
                 mapOf(
@@ -1425,12 +1468,7 @@ class UpdaterService : Service() {
     ) {
         val appliedUpdate = intent.getParcelableExtra<FirmwareUpdate>(IntentActions.PROP_APPLIED_UPDATE)
         // Clean the persistent downloaded updates.
-        try {
-            // FIXME: Implement the firmware update cache
-            // cleanDownloadedFirmwareUpdateCache()
-        } catch (error: Throwable) {
-            Timber.w(error)
-        }
+        clearPendingInstalls()
 
         stateTracker.addStateMetadata(
             mapOf(
@@ -1468,6 +1506,9 @@ class UpdaterService : Service() {
                 )
             )
         }
+
+        // Remove the cache since reattempting install isn't helpful.
+        clearPendingInstalls()
 
         // Transition to idle on fail.
         transitionToIdleState()

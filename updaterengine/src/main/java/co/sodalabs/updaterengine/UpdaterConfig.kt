@@ -21,6 +21,10 @@ interface UpdaterConfig {
      */
     var checkIntervalMillis: Long
     /**
+     * Boolean for beta or non-beta channel for the response from API.
+     */
+    val checkBetaAllowed: Boolean
+    /**
      * The window for installing updates. There is a begin and end hour of the
      * day, the same as [Calendar.HOUR_OF_DAY].
      */
@@ -46,13 +50,4 @@ interface UpdaterConfig {
      * Used for caching the downloaded APK files in disk.
      */
     val updateDiskCache: DiskLruCache
-    /**
-     * Used for caching the journal of downloaded updates in disk.
-     */
-    @Deprecated("Soon be replaced by shared preference")
-    val downloadedUpdateDiskCache: DiskLruCache
-    /**
-     * Boolean for beta or non-beta channel for the response from API.
-     */
-    val isBetaAllowed: Boolean
 }

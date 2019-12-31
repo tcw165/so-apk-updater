@@ -35,12 +35,14 @@ object PreferenceProps {
     const val CHECK_INTERVAL_SECONDS = "$PREFIX.check_interval"
 
     const val DOWNLOAD_USE_CACHE = "$PREFIX.download_use_cache"
-    const val DOWNLOAD_CACHE_MAX_SIZE_MB = "$PREFIX.download_cache_max_size"
+    const val DOWNLOAD_CACHE_MAX_SIZE_MB = "$PREFIX.download_cache_max_size_mb"
 
     const val INSTALL_HOUR_BEGIN = "$PREFIX.install_hour_begin"
     const val INSTALL_HOUR_END = "$PREFIX.install_hour_end"
     const val INSTALL_SILENTLY = "$PREFIX.install_silently"
     const val INSTALL_ALLOW_DOWNGRADE = "$PREFIX.install_allow_downgrade"
+    const val INSTALL_PENDING_INSTALLS_TYPE = "$PREFIX.install_pending_installs_type"
+    const val INSTALL_PENDING_INSTALLS_JSON = "$PREFIX.install_pending_installs_json"
 
     const val SESSION_ID = "$PREFIX.session_id"
 

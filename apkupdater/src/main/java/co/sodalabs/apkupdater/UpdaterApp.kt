@@ -432,6 +432,8 @@ class UpdaterApp :
         return key !in listOf(
             PreferenceProps.HEARTBEAT_VERBAL_RESULT,
             PreferenceProps.LOG_FILE_CREATED_TIMESTAMP,
+            PreferenceProps.INSTALL_PENDING_INSTALLS_TYPE,
+            PreferenceProps.INSTALL_PENDING_INSTALLS_JSON,
             PreferenceProps.SESSION_ID
         )
     }
