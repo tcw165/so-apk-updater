@@ -4,14 +4,12 @@ import android.content.Context
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import co.sodalabs.updaterengine.extension.ensureMainThread
-import co.sodalabs.updaterengine.utils.BuildUtils
 import co.sodalabs.updaterengine.utils.getWorkInfoByIdObservable
 import io.reactivex.Observable
 import java.util.concurrent.TimeUnit
@@ -39,28 +37,16 @@ class LogsPersistenceLauncher @Inject constructor(
             .build()
         val requestConstraints = provideCommonConstraint()
 
-        if (BuildUtils.isDebug()) {
-            val request = OneTimeWorkRequest
-                .Builder(LogPersistenceWorker::class.java)
-                .addTag(LogsPersistenceConstants.WORK_TAG)
-                .setConstraints(requestConstraints)
-                .build()
-            workManager.enqueueUniqueWork(
-                LogsPersistenceConstants.WORK_NAME,
-                ExistingWorkPolicy.REPLACE,
-                request)
-        } else {
-            val request = PeriodicWorkRequest
-                .Builder(LogPersistenceWorker::class.java, persistenceConfig.repeatIntervalInMillis, TimeUnit.MILLISECONDS)
-                .addTag(LogsPersistenceConstants.WORK_TAG)
-                .setConstraints(requestConstraints)
-                .setInputData(requestData)
-                .build()
-            workManager.enqueueUniquePeriodicWork(
-                LogsPersistenceConstants.WORK_NAME,
-                ExistingPeriodicWorkPolicy.REPLACE,
-                request)
-        }
+        val request = PeriodicWorkRequest
+            .Builder(LogPersistenceWorker::class.java, persistenceConfig.repeatIntervalInMillis, TimeUnit.MILLISECONDS)
+            .addTag(LogsPersistenceConstants.WORK_TAG)
+            .setConstraints(requestConstraints)
+            .setInputData(requestData)
+            .build()
+        workManager.enqueueUniquePeriodicWork(
+            LogsPersistenceConstants.WORK_NAME,
+            ExistingPeriodicWorkPolicy.REPLACE,
+            request)
     }
 
     override fun cancelPendingAndRunningBackingUp() {
