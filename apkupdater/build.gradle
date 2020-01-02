@@ -77,10 +77,10 @@ android {
         // Log Persistence Configs /////////////////////////////////////////////
         // IMPORTANT: The least interval value can be 15 minutes for [PeriodicWorkRequest]
         // Anything lower will be replaced on runtime with 15 minutes by the [WorkManager]
-        buildConfigField "long", "REPEAT_INTERVAL_IN_MILLIS", "3 * 60 * 60 * 1000L"         // 3 Hours
-        buildConfigField "long", "MAX_FILE_DURATION_IN_MILLIS", "7 * 24 * 60 * 60 * 1000L"  // 7 Days
-        buildConfigField "long", "MAX_LOG_FILE_SIZE_IN_BYTES", "2 * 1024 * 1024L"           // 2 MBs
-        buildConfigField "int", "MAX_LOG_LINES_COUNT", "1000"                              // 1000 Lines Max
+        buildConfigField "long", "LOG_REPEAT_INTERVAL_IN_MILLIS", "3 * 60 * 60 * 1000L"         // 3 Hours
+        buildConfigField "long", "LOG_FILE_MAX_DURATION_IN_MILLIS", "7 * 24 * 60 * 60 * 1000L"  // 7 Days
+        buildConfigField "long", "LOG_FILE_MAX_SIZE_IN_BYTES", "2 * 1024 * 1024L"               // 2 MBs
+        buildConfigField "int", "LOG_MAX_LINES_COUNT", "1000"                                   // 1000 Lines Max
         buildConfigField "String[]", "LOGGING_WHITELIST", "{" +
                 "\"co.sodalabs.sparkpoint\", " +
                 "\"co.sodalabs.privilegedinstaller\", " +
