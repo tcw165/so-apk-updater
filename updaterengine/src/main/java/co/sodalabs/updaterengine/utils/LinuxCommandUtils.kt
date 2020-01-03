@@ -11,8 +11,12 @@ import javax.inject.Inject
 
 private const val EMPTY_STRING = ""
 
-private const val CMD_GET_SODA_DIR_DISK_USAGE = "du /storage/emulated/legacy"
+private const val CMD_GET_CACHE_DISK_USAGE = "du /storage/emulated/legacy"
+private const val CMD_GET_DATA_DISK_USAGE = "du /data/data"
 private const val CMD_GET_SYSTEM_DISK_USAGE_STATS = "df"
+
+private const val LOG_FOOTER = "----------------------------"
+private const val HEADER_OR_FOOTER_SIZE = LOG_FOOTER.length
 
 class LinuxCommandUtils @Inject constructor() {
 
@@ -28,7 +32,12 @@ class LinuxCommandUtils @Inject constructor() {
             EMPTY_STRING
         }
         // IMPORTANT: Using println instead of Timber to avoid custom tags and timestamps
-        println("Start Disk Usage Log\n$log\nEnd Disk Usage Log")
+        val sb = StringBuilder(log.length + 2 * HEADER_OR_FOOTER_SIZE)
+        sb.appendln("------------ df ------------")
+        sb.appendln(log)
+        sb.appendln(LOG_FOOTER)
+        println(sb.toString())
+
         return log
     }
 
@@ -36,8 +45,31 @@ class LinuxCommandUtils @Inject constructor() {
      * Logs disk usage by folders owned by our system apps
      */
     fun logDiskUsageByApps(onlySodaApps: Boolean = false): String {
-        val log = try {
-            execCmd(CMD_GET_SODA_DIR_DISK_USAGE)
+        val logForCache = try {
+            // FIXME: Align the directory (some line should have less space and
+            //  some should have more)
+            execCmd(CMD_GET_CACHE_DISK_USAGE)
+                .lines()
+                .filter { it.isNotEmpty() }
+                .map { AppDir.fromString(it) }
+                .let { dirs ->
+                    if (onlySodaApps) {
+                        dirs.filter { it.path.contains("co.sodalabs") }
+                    } else {
+                        dirs
+                    }
+                }
+                .sortedByDescending { it.size }
+                .joinToString("\n")
+        } catch (e: Exception) {
+            Timber.e("[LinuxCommandUtils] Error while executing App Disk Usage command: ${e.message}")
+            e.printStackTrace()
+            EMPTY_STRING
+        }
+        val logForData = try {
+            // FIXME: Align the directory (some line should have less space and
+            //  some should have more)
+            execCmd(CMD_GET_DATA_DISK_USAGE)
                 .lines()
                 .filter { it.isNotEmpty() }
                 .map { AppDir.fromString(it) }
@@ -56,8 +88,15 @@ class LinuxCommandUtils @Inject constructor() {
             EMPTY_STRING
         }
         // IMPORTANT: Using println instead of Timber to avoid custom tags and timestamps
-        println("Start Sodalab App Disk Usage Log\n$log\nEnd Sodalab App Disk Usage Log")
-        return log
+        val sb = StringBuilder(logForCache.length + 3 * HEADER_OR_FOOTER_SIZE)
+        sb.appendln("------------ du ------------")
+        sb.appendln(logForCache)
+        sb.appendln("------------ du ------------")
+        sb.appendln(logForData)
+        sb.appendln(LOG_FOOTER)
+        println(sb.toString())
+
+        return logForCache
     }
 
     /**
