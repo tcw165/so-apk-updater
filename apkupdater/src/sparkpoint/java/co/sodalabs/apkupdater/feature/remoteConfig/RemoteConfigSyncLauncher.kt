@@ -30,6 +30,8 @@ class RemoteConfigSyncLauncher @Inject constructor(
         dataPairs.addIfNotNull(addInstallWindowFromConfig(config))
         dataPairs.addIfNotNull(addDowngradeFlagFromConfig(config))
         dataPairs.addIfNotNull(addCheckIntervalFromConfig(config))
+        dataPairs.addIfNotNull(addDiskCacheFlagFromConfig(config))
+        dataPairs.addIfNotNull(addFullFirmwareUpdateFlagFromConfig(config))
         if (dataPairs.isEmpty()) {
             // Do nothing since remote config is exactly the same with the local
             // config.
@@ -116,6 +118,20 @@ class RemoteConfigSyncLauncher @Inject constructor(
     ): Pair<String, Any>? {
         val allowDowngrade = config.allowDowngradeApp
         return PARAM_ALLOW_DOWNGRADE to allowDowngrade
+    }
+
+    private fun addDiskCacheFlagFromConfig(
+        config: RemoteConfig
+    ): Pair<String, Any>? {
+        val useDiskCache = config.downloadUsingDiskCache
+        return PARAM_USE_DISK_CACHE to useDiskCache
+    }
+
+    private fun addFullFirmwareUpdateFlagFromConfig(
+        config: RemoteConfig
+    ): Pair<String, Any>? {
+        val forceFullFirmwareUpdate = config.forceFullFirmwareUpdate
+        return PARAM_FORCE_FULL_FIRMWARE_UPDATE to forceFullFirmwareUpdate
     }
 
     private fun addCheckIntervalFromConfig(

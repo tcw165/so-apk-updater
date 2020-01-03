@@ -17,6 +17,8 @@ internal const val PARAM_TIMEZONE_CITY_ID = "$PREFIX.timezone_city_id"
 internal const val PARAM_INSTALL_WINDOW = "$PREFIX.install_window"
 internal const val PARAM_ALLOW_DOWNGRADE = "$PREFIX.allow_downgrade"
 internal const val PARAM_CHECK_INTERVAL = "$PREFIX.check_interval"
+internal const val PARAM_USE_DISK_CACHE = "$PREFIX.param_use_disk_cache"
+internal const val PARAM_FORCE_FULL_FIRMWARE_UPDATE = "$PREFIX.param_force_full_firmware_update"
 
 class RemoteConfigSyncWorker(
     context: Context,
@@ -36,6 +38,8 @@ class RemoteConfigSyncWorker(
             applyInstallWindow()
             applyDowngradeFlag()
             applyCheckInterval()
+            applyDiskCacheFlag()
+            applyFullFirmwareUpdateFlag()
 
             Result.success()
         } catch (error: Throwable) {
@@ -79,6 +83,26 @@ class RemoteConfigSyncWorker(
         if (currentDowngradeFlag != newDowngradeFlag) {
             Timber.v("[RemoteConfig] Changing allow downgrade flag from '$currentDowngradeFlag' to '$newDowngradeFlag'")
             appPreference.putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, newDowngradeFlag)
+        }
+    }
+
+    private fun applyDiskCacheFlag() {
+        val newDiskCacheFlag = inputData.getBoolean(PARAM_USE_DISK_CACHE, BuildConfig.DOWNLOAD_USE_CACHE)
+        val currentDiskCacheFlag = appPreference.getBoolean(PreferenceProps.DOWNLOAD_USE_CACHE, BuildConfig.DOWNLOAD_USE_CACHE)
+
+        if (currentDiskCacheFlag != newDiskCacheFlag) {
+            Timber.v("[RemoteConfig] Changing disk cache flag from '$currentDiskCacheFlag' to '$newDiskCacheFlag'")
+            appPreference.putBoolean(PreferenceProps.DOWNLOAD_USE_CACHE, newDiskCacheFlag)
+        }
+    }
+
+    private fun applyFullFirmwareUpdateFlag() {
+        val newFirmwareUpdateFlag = inputData.getBoolean(PARAM_FORCE_FULL_FIRMWARE_UPDATE, false)
+        val currentFirmwareUpdateFlag = appPreference.getBoolean(PreferenceProps.MOCK_USER_SETUP_INCOMPLETE, false)
+
+        if (currentFirmwareUpdateFlag != newFirmwareUpdateFlag) {
+            Timber.v("[RemoteConfig] Changing force full firmware update flag from '$currentFirmwareUpdateFlag' to '$newFirmwareUpdateFlag'")
+            appPreference.putBoolean(PreferenceProps.MOCK_USER_SETUP_INCOMPLETE, newFirmwareUpdateFlag)
         }
     }
 
