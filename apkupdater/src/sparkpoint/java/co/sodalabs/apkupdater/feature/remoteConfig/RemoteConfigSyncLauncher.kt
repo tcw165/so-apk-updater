@@ -75,7 +75,8 @@ class RemoteConfigSyncLauncher @Inject constructor(
                 is String -> builder.putString(key, value)
                 is Boolean -> builder.putBoolean(key, value)
                 is Int -> builder.putInt(key, value)
-                else -> Timber.w("[RemoteConfig] Unsupported value type, $value")
+                is Long -> builder.putLong(key, value)
+                else -> throw IllegalArgumentException("[RemoteConfig] Unsupported value type, $value")
             }
         }
 

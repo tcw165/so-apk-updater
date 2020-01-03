@@ -20,5 +20,5 @@ data class RemoteConfig(
     @Json(name = "allow_downgrade_app")
     val allowDowngradeApp: Boolean,
     @Json(name = "update_check_interval")
-    val updateCheckInterval: Int?
+    val updateCheckInterval: Long?
 )
