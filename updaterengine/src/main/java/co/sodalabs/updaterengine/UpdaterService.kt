@@ -42,7 +42,7 @@ import co.sodalabs.updaterengine.extension.prepareUpdateFound
 import co.sodalabs.updaterengine.extension.prepareUpdateInstalled
 import co.sodalabs.updaterengine.extension.toBoolean
 import co.sodalabs.updaterengine.extension.toInt
-import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceLauncher
+import co.sodalabs.updaterengine.feature.logPersistence.ILogsPersistenceLauncher
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import co.sodalabs.updaterengine.feature.statemachine.KEY_CHECK_ERROR
 import co.sodalabs.updaterengine.feature.statemachine.KEY_CHECK_INTERVAL
@@ -516,7 +516,7 @@ class UpdaterService : Service() {
     @Inject
     lateinit var schedulers: IThreadSchedulers
     @Inject
-    lateinit var logPersistenceScheduler: LogsPersistenceLauncher
+    lateinit var logPersistenceScheduler: ILogsPersistenceLauncher
     @Inject
     lateinit var timeUtil: ITimeUtil
 
@@ -530,7 +530,7 @@ class UpdaterService : Service() {
 
         // TODO: Shall we move this to WorkOnAppLaunchInitializer?
         // Persist logs locally to be used later
-        logPersistenceScheduler.scheduleBackingUpLogToCloud()
+        logPersistenceScheduler.schedulePeriodicBackingUpLogToCloud()
 
         observeUpdateIntentOnEngineThread()
         observeDeviceTimeChanges()

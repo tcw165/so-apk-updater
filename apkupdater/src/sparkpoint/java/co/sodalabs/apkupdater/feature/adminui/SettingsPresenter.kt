@@ -8,6 +8,7 @@ import co.sodalabs.updaterengine.IPackageVersionProvider
 import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.IThreadSchedulers
+import co.sodalabs.updaterengine.IWorkObserver
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.PreferenceProps
@@ -17,13 +18,14 @@ import co.sodalabs.updaterengine.data.FirmwareUpdate
 import co.sodalabs.updaterengine.exception.DeviceNotSetupException
 import co.sodalabs.updaterengine.extension.ALWAYS_RETRY
 import co.sodalabs.updaterengine.extension.smartRetryWhen
-import co.sodalabs.updaterengine.feature.logPersistence.LogsPersistenceLauncher
+import co.sodalabs.updaterengine.feature.logPersistence.ILogsPersistenceLauncher
 import com.jakewharton.rxrelay2.PublishRelay
 import io.reactivex.Observable
 import io.reactivex.Single
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import timber.log.Timber
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 private const val NOT_AVAILABLE_STRING = "n/a"
@@ -35,13 +37,14 @@ private const val PACKAGE_SPARKPOINT = Packages.SPARKPOINT_PACKAGE_NAME
 class SettingsPresenter @Inject constructor(
     private val screen: ISettingsScreen,
     private val heartbeater: UpdaterHeartBeater,
-    private val schedulers: IThreadSchedulers,
     private val pkgVersionProvider: IPackageVersionProvider,
     private val appPreference: IAppPreference,
     private val sharedSettings: ISharedSettings,
     private val systemProperties: ISystemProperties,
-    private val logsPersistenceLauncher: LogsPersistenceLauncher,
-    private val systemLauncherUtil: ISystemLauncherUtil
+    private val logsPersistenceLauncher: ILogsPersistenceLauncher,
+    private val workObserver: IWorkObserver,
+    private val systemLauncherUtil: ISystemLauncherUtil,
+    private val schedulers: IThreadSchedulers
 ) {
 
     private val disposables = CompositeDisposable()
@@ -297,11 +300,18 @@ class SettingsPresenter @Inject constructor(
             .addTo(disposables)
 
         screen.sendLogsPrefClicks
-            .flatMap { logsPersistenceLauncher.backupLogToCloudNow() }
+            .debounce(Intervals.DEBOUNCE_CLICKS, TimeUnit.MILLISECONDS, schedulers.computation())
+            .observeOn(schedulers.main()) // For the following 'switchMap'
+            .switchMapSingle { backupLogToCloudNow() }
             .observeOn(schedulers.main())
             .subscribe({ success ->
                 screen.showLogSendSuccessMessage(success)
             }, Timber::e)
             .addTo(disposables)
+    }
+
+    private fun backupLogToCloudNow(): Single<Boolean> {
+        val requestID = logsPersistenceLauncher.backupLogToCloudNow()
+        return workObserver.observeWorkSuccessByID(requestID)
     }
 }

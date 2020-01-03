@@ -14,6 +14,6 @@ abstract class SettingsFragmentModule {
     @FragmentScope
     @Binds
     abstract fun castFragmentToScreen(
-        activity: SettingsFragment
+        fragment: SettingsFragment
     ): ISettingsScreen
 }

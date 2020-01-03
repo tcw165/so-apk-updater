@@ -13,6 +13,7 @@ import co.sodalabs.apkupdater.feature.watchdog.ForegroundAppWatchdogMetadata.KEY
 import co.sodalabs.apkupdater.feature.watchdog.ForegroundAppWatchdogMetadata.KEY_RESCUE_TIME
 import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ITimeUtil
+import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.di.WorkerInjection
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import org.threeten.bp.ZoneId
@@ -55,12 +56,16 @@ class ForegroundAppWatchdogWorker(
             forcefullyStartLauncher()
 
             // Then start the periodic correction.
-            uiHandler.post { watchdogLauncher.schedulePeriodicallyCorrection() }
+            uiHandler.postDelayed({ watchdogLauncher.schedulePeriodicallyCorrection() }, Intervals.DELAY_ONE_SECOND)
 
             return Result.success()
         } else {
             correctLauncherAndSmartlyStart()
         }
+    }
+
+    override fun onStopped() {
+        // No-op
     }
 
     private fun forcefullyStartLauncher() {

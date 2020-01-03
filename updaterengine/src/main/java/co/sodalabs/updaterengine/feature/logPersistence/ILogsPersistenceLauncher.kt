@@ -1,10 +1,10 @@
 package co.sodalabs.updaterengine.feature.logPersistence
 
-import io.reactivex.Observable
+import java.util.UUID
 
 interface ILogsPersistenceLauncher {
-    fun scheduleBackingUpLogToCloud()
+    fun schedulePeriodicBackingUpLogToCloud()
     fun cancelPendingAndRunningBackingUp()
 
-    fun backupLogToCloudNow(): Observable<Boolean>
+    fun backupLogToCloudNow(): UUID
 }

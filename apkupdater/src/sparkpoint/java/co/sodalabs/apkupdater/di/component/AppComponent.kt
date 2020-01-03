@@ -27,6 +27,7 @@ import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.IThreadSchedulers
+import co.sodalabs.updaterengine.di.modules.WorkMiscModule
 import dagger.BindsInstance
 import dagger.Component
 import dagger.android.AndroidInjector
@@ -46,6 +47,7 @@ import dagger.android.support.AndroidSupportInjectionModule
     MapperModule::class,
     UpdaterModule::class,
     LoggingModule::class,
+    WorkMiscModule::class,
     ComponentLauncherModule::class,
     // Modules for constructing sub-components
     SubComponentActivityModule::class,
