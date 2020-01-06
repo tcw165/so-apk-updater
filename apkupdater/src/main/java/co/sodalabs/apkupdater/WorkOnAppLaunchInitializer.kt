@@ -27,7 +27,7 @@ class WorkOnAppLaunchInitializer : BroadcastReceiver() {
             Timber.v("[WorkOnLaunch] Schedule the works necessary for on-launching (Note: Not on-boot)...")
 
             foregroundAppWatchdogLauncher.cancelPendingAndOnGoingValidation()
-            foregroundAppWatchdogLauncher.correctNowThenCheckPeriodically()
+            foregroundAppWatchdogLauncher.schedulePeriodicallyCorrection()
         }
     }
 }
