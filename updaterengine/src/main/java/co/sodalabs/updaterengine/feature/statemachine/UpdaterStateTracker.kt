@@ -64,7 +64,7 @@ class UpdaterStateTracker @Inject constructor(
     private val packageVersionProvider: IPackageVersionProvider
 ) : IUpdaterStateTracker {
 
-    private val internalState = AtomicReference<UpdaterState>(UpdaterState.Idle)
+    private val internalState = AtomicReference<UpdaterState>(UpdaterState.Init)
     private val internalStateMetadata: MutableMap<String, String> = ConcurrentHashMap()
     private val lock = Any()
 

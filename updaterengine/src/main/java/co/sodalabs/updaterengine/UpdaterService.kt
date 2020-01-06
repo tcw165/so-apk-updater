@@ -886,6 +886,11 @@ class UpdaterService : Service() {
                             Timber.v("[Updater] Found a firmware install on start!")
                             transitionToInstallStateForFirmwareUpdate(inflatePendingFirmwareInstall(pendingInstallJSON))
                         }
+                        else -> {
+                            Timber.v("[Updater] No pending install is found!")
+                            // Note: The type is nullable!
+                            transitionToIdleState()
+                        }
                     }
                 } catch (error: Throwable) {
                     Timber.w(error, "[Updater] Cannot continue the state transition for pending install...")

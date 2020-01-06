@@ -9,6 +9,7 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
 import co.sodalabs.apkupdater.BuildConfig
+import co.sodalabs.apkupdater.feature.watchdog.ForegroundAppWatchdogMetadata.KEY_FOREGROUND_ACTIVITY
 import co.sodalabs.apkupdater.feature.watchdog.ForegroundAppWatchdogMetadata.KEY_NEXT_CHECK_TIME
 import co.sodalabs.updaterengine.ITimeUtil
 import co.sodalabs.updaterengine.Intervals
@@ -53,6 +54,9 @@ class ForegroundAppWatchdogLauncher @Inject constructor(
             .build()
 
         workManager.enqueueUniqueWork(
+            // Note: We intentionally use the same name for the one-shot and
+            // periodic work to avoid race condition. From there, the one-shot
+            // work has to be followed by a periodic work!
             UNIQUE_WORK_NAME,
             // Since the work is persistable and we'll schedule new one on boot,
             // it's always safe to override the work!
@@ -82,7 +86,8 @@ class ForegroundAppWatchdogLauncher @Inject constructor(
         // Add next check time to to heartbeat metadata!
         updaterStateTracker.addStateMetadata(
             mapOf(
-                KEY_NEXT_CHECK_TIME to timeUtil.now().plusMillis(MIN_DELAY_MILLIS).atZone(ZoneId.systemDefault()).toString()
+                KEY_NEXT_CHECK_TIME to timeUtil.now().plusMillis(MIN_DELAY_MILLIS).atZone(ZoneId.systemDefault()).toString(),
+                KEY_FOREGROUND_ACTIVITY to "n/a"
             )
         )
 
