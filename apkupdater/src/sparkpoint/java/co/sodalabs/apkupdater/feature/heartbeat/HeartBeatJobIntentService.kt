@@ -17,13 +17,12 @@ import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.PreferenceProps.HEARTBEAT_VERBAL_RESULT
 import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.exception.DeviceNotSetupException
+import co.sodalabs.updaterengine.extension.TimberExt
 import co.sodalabs.updaterengine.extension.benchmark
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import co.sodalabs.updaterengine.utils.LinuxCommandUtils
 import dagger.android.AndroidInjection
 import timber.log.Timber
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
 import javax.inject.Inject
 
 private const val LOW_STORAGE_THRESHOLD = 524288000 // 500 MB
@@ -176,13 +175,7 @@ class HeartBeatJobIntentService : JobIntentService() {
         zonedNow: String,
         error: Throwable
     ) {
-        if (error is DeviceNotSetupException ||
-            error is SocketTimeoutException ||
-            error is UnknownHostException) {
-            Timber.w(error)
-        } else {
-            Timber.e(error)
-        }
+        TimberExt.warnOnKnownElseError(error)
 
         // Persist the result in shared-preference so that UI could get this
         // information at any moment.
