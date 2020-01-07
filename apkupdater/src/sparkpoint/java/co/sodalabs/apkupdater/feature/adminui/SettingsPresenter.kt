@@ -85,7 +85,8 @@ class SettingsPresenter @Inject constructor(
         return Observable
             .merge<Unit>(
                 sharedSettings.observeDeviceId().map { Unit },
-                appPreference.observeAnyChange().map { Unit }
+                appPreference.observeAnyChange().map { Unit },
+                pkgVersionProvider.observePackageChanges()
             )
     }
 
