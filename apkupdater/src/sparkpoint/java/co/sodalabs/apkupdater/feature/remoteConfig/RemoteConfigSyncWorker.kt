@@ -106,12 +106,12 @@ class RemoteConfigSyncWorker(
     }
 
     private fun applyDowngradeFlag() {
-        val newDowngradeFlag = inputData.getBoolean(PARAM_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
-        val currentDowngradeFlag = appPreference.getBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
+        val newDowngradeFlag = inputData.getBoolean(PARAM_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_APP_DOWNGRADE)
+        val currentDowngradeFlag = appPreference.getBoolean(PreferenceProps.INSTALL_ALLOW_APP_DOWNGRADE, BuildConfig.INSTALL_ALLOW_APP_DOWNGRADE)
 
         if (currentDowngradeFlag != newDowngradeFlag) {
             Timber.v("[RemoteConfig] Changing allow downgrade flag from '$currentDowngradeFlag' to '$newDowngradeFlag'")
-            appPreference.putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, newDowngradeFlag)
+            appPreference.putBoolean(PreferenceProps.INSTALL_ALLOW_APP_DOWNGRADE, newDowngradeFlag)
         }
     }
 
@@ -127,11 +127,11 @@ class RemoteConfigSyncWorker(
 
     private fun applyFullFirmwareUpdateFlag() {
         val newFirmwareUpdateFlag = inputData.getBoolean(PARAM_FORCE_FULL_FIRMWARE_UPDATE, false)
-        val currentFirmwareUpdateFlag = appPreference.getBoolean(PreferenceProps.MOCK_USER_SETUP_INCOMPLETE, false)
+        val currentFirmwareUpdateFlag = appPreference.getBoolean(PreferenceProps.INSTALL_FORCE_FULL_FIRMWARE_UPDATE, false)
 
         if (currentFirmwareUpdateFlag != newFirmwareUpdateFlag) {
             Timber.v("[RemoteConfig] Changing force full firmware update flag from '$currentFirmwareUpdateFlag' to '$newFirmwareUpdateFlag'")
-            appPreference.putBoolean(PreferenceProps.MOCK_USER_SETUP_INCOMPLETE, newFirmwareUpdateFlag)
+            appPreference.putBoolean(PreferenceProps.INSTALL_FORCE_FULL_FIRMWARE_UPDATE, newFirmwareUpdateFlag)
         }
     }
 

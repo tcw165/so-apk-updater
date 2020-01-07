@@ -40,7 +40,8 @@ object PreferenceProps {
     const val INSTALL_HOUR_BEGIN = "$PREFIX.install_hour_begin"
     const val INSTALL_HOUR_END = "$PREFIX.install_hour_end"
     const val INSTALL_SILENTLY = "$PREFIX.install_silently"
-    const val INSTALL_ALLOW_DOWNGRADE = "$PREFIX.install_allow_downgrade"
+    const val INSTALL_ALLOW_APP_DOWNGRADE = "$PREFIX.install_allow_app_downgrade"
+    const val INSTALL_FORCE_FULL_FIRMWARE_UPDATE = "$PREFIX.install_force_full_firmware_update"
     const val INSTALL_PENDING_INSTALLS_TYPE = "$PREFIX.install_pending_installs_type"
     const val INSTALL_PENDING_INSTALLS_JSON = "$PREFIX.install_pending_installs_json"
 

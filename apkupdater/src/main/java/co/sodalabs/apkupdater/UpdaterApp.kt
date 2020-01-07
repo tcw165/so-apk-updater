@@ -382,9 +382,9 @@ class UpdaterApp :
                 .putInt(PreferenceProps.INSTALL_HOUR_END, BuildConfig.INSTALL_HOUR_END)
                 .apply()
         }
-        if (!rawPreference.contains(PreferenceProps.INSTALL_ALLOW_DOWNGRADE)) {
+        if (!rawPreference.contains(PreferenceProps.INSTALL_ALLOW_APP_DOWNGRADE)) {
             rawPreference.edit()
-                .putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
+                .putBoolean(PreferenceProps.INSTALL_ALLOW_APP_DOWNGRADE, BuildConfig.INSTALL_ALLOW_APP_DOWNGRADE)
                 .apply()
         }
     }

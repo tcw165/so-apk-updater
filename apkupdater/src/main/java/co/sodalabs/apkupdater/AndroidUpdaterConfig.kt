@@ -99,9 +99,9 @@ class AndroidUpdaterConfig @Inject constructor(
         }
 
     override var installAllowDowngrade: Boolean
-        get() = appPreference.getBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
+        get() = appPreference.getBoolean(PreferenceProps.INSTALL_ALLOW_APP_DOWNGRADE, BuildConfig.INSTALL_ALLOW_APP_DOWNGRADE)
         set(value) {
-            appPreference.putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, value)
+            appPreference.putBoolean(PreferenceProps.INSTALL_ALLOW_APP_DOWNGRADE, value)
         }
 
     override var downloadUseCache: Boolean

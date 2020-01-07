@@ -16,6 +16,7 @@ import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.IntentActions
+import co.sodalabs.updaterengine.PreferenceProps.INSTALL_FORCE_FULL_FIRMWARE_UPDATE
 import co.sodalabs.updaterengine.SharedSettingsProps
 import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.UpdaterJobs
@@ -203,12 +204,17 @@ class CheckJobIntentService : JobIntentService() {
 
     private fun checkFirmwareUpdate(): FirmwareUpdate? {
         val firmwareVersion = systemProperties.getFirmwareVersion()
-        val rawUpdate: FirmwareUpdate? = if (sharedSettings.isUserSetupComplete()) {
+        val rawUpdate: FirmwareUpdate? = if (checkForIncrementalUpdate()) {
             queryIncrementalFirmwareUpdate(firmwareVersion)
         } else {
             queryFullFirmwareUpdate(firmwareVersion)
         }
         return rawUpdate?.filterByVersionCheck(firmwareVersion)
+    }
+
+    private fun checkForIncrementalUpdate(): Boolean {
+        val allowIncrementalUpdate = !appPreference.getBoolean(INSTALL_FORCE_FULL_FIRMWARE_UPDATE, false)
+        return sharedSettings.isUserSetupComplete() && allowIncrementalUpdate
     }
 
     private fun FirmwareUpdate.filterByVersionCheck(
