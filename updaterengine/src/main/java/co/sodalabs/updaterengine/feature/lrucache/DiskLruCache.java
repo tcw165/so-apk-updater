@@ -665,7 +665,9 @@ public final class DiskLruCache implements IDiskLruCache, Closeable {
      */
     public void delete() throws IOException {
         close();
-        FileUtil.deleteContents(directory);
+        if (directory.exists()) {
+            FileUtil.deleteContents(directory);
+        }
     }
 
     private static String inputStreamToString(InputStream in) throws IOException {

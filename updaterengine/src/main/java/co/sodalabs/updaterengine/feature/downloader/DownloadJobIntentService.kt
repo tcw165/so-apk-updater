@@ -356,6 +356,7 @@ class DownloadJobIntentService : JobIntentService() {
         }
         // Open the cache
         if (!diskLruCache.isOpened()) {
+            Timber.v("[Download] Open cache!")
             diskLruCache.open()
         }
 
