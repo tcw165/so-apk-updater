@@ -17,7 +17,9 @@ import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import javax.inject.Inject
 
 /**
@@ -94,8 +96,16 @@ class LogPersistenceWorker(
             .doOnComplete {
                 Timber.i("[LogPersistence] Persistence task completed at ${timeUtils.systemZonedNow()}")
             }
-            .andThen(Single.just(Result.success()))
-            .onErrorReturnItem(Result.failure())
+            .toSingleDefault(Result.success())
+            .onErrorReturn { error ->
+                when (error) {
+                    // Retry for known exceptions.
+                    is TimeoutException,
+                    is SocketTimeoutException -> Result.retry()
+                    // Don't retry for the other cases.
+                    else -> Result.failure()
+                }
+            }
             .doAfterSuccess {
                 if (isUserTriggered) {
                     // Note: One-shot work replaces the periodic work to avoid
@@ -144,7 +154,6 @@ class LogPersistenceWorker(
             // never getting deleted.
             logSender.sendLogsToServer(file)
                 .timeout(Intervals.TIMEOUT_UPLOAD_MIN, TimeUnit.MINUTES)
-                .onErrorComplete()
                 .andThen(deleteLogFile(file))
                 .flatMap { Single.just(file) }
         } else {
