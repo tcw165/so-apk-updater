@@ -108,13 +108,13 @@
 
         <SwitchPreference
             app:defaultValue="false"
-            app:key="co.sodalabs.mock_user_setup_incomplete"
-            app:summary="@string/enable_full_update_desc"
-            app:title="@string/enable_full_update" />
+            app:key="co.sodalabs.install_force_full_firmware_update"
+            app:summary="@string/enable_full_firmware_update_desc"
+            app:title="@string/enable_full_firmware_update" />
 
         <SwitchPreference
-            app:key="co.sodalabs.install_allow_downgrade"
-            app:title="@string/install_allow_downgrade" />
+            app:key="co.sodalabs.install_allow_app_downgrade"
+            app:title="@string/install_allow_app_downgrade" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/network_category">

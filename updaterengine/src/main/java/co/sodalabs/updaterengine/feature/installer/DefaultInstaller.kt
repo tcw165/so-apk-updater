@@ -27,7 +27,7 @@ class DefaultInstaller(
 
     override fun installPackages(
         localUpdates: List<DownloadedAppUpdate>
-    ): Pair<List<AppliedUpdate>, List<Throwable>> {
+    ): InstallResult {
         val remainingUpdates: Queue<DownloadedAppUpdate> = LinkedList(localUpdates)
         val appliedUpdates = CopyOnWriteArrayList<AppliedUpdate>()
         val errors = CopyOnWriteArrayList<Throwable>()
@@ -64,7 +64,11 @@ class DefaultInstaller(
             context.unregisterReceiver(installReceiver)
         }
 
-        return Pair(appliedUpdates, errors)
+        return InstallResult(
+            appliedUpdates = appliedUpdates,
+            failedUpdates = emptyList(), // FIXME
+            errorsToFailedUpdate = errors
+        )
     }
 
     override fun uninstallPackage(

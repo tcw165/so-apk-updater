@@ -1,6 +1,7 @@
 package co.sodalabs.updaterengine
 
 import co.sodalabs.updaterengine.feature.lrucache.DiskLruCache
+import java.io.File
 import java.util.Calendar
 
 /**
@@ -20,6 +21,10 @@ interface UpdaterConfig {
      */
     var checkIntervalMillis: Long
     /**
+     * Boolean for beta or non-beta channel for the response from API.
+     */
+    val checkBetaAllowed: Boolean
+    /**
      * The window for installing updates. There is a begin and end hour of the
      * day, the same as [Calendar.HOUR_OF_DAY].
      */
@@ -38,16 +43,11 @@ interface UpdaterConfig {
      */
     var downloadUseCache: Boolean
     /**
+     * The root directory for all the disk cache.
+     */
+    val baseDiskCacheDir: File
+    /**
      * Used for caching the downloaded APK files in disk.
      */
-    val apkDiskCache: DiskLruCache
-    /**
-     * Used for caching the downloaded firmware patch in disk.
-     */
-    val firmwareDiskCache: DiskLruCache
-    /**
-     * Used for caching the journal of downloaded updates in disk.
-     */
-    val downloadedUpdateDiskCache: DiskLruCache
-    val isBetaAllowed: Boolean
+    val updateDiskCache: DiskLruCache
 }

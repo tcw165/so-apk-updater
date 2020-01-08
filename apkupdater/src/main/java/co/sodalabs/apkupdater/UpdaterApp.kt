@@ -108,7 +108,7 @@ class UpdaterApp :
 
         safeguardsUndeliverableException()
 
-        observeSystemConfigChange()
+        restartAppIfPreferenceChanges()
 
         // Initialize the launching works.
         sendBroadcast(Intent(WorkOnAppLaunchInitializer.UPDATER_LAUNCH))
@@ -382,9 +382,9 @@ class UpdaterApp :
                 .putInt(PreferenceProps.INSTALL_HOUR_END, BuildConfig.INSTALL_HOUR_END)
                 .apply()
         }
-        if (!rawPreference.contains(PreferenceProps.INSTALL_ALLOW_DOWNGRADE)) {
+        if (!rawPreference.contains(PreferenceProps.INSTALL_ALLOW_APP_DOWNGRADE)) {
             rawPreference.edit()
-                .putBoolean(PreferenceProps.INSTALL_ALLOW_DOWNGRADE, BuildConfig.INSTALL_ALLOW_DOWNGRADE)
+                .putBoolean(PreferenceProps.INSTALL_ALLOW_APP_DOWNGRADE, BuildConfig.INSTALL_ALLOW_APP_DOWNGRADE)
                 .apply()
         }
     }
@@ -402,9 +402,8 @@ class UpdaterApp :
     }
 
     @SuppressLint("ApplySharedPref")
-    private fun observeSystemConfigChange() {
+    private fun restartAppIfPreferenceChanges() {
         // FIXME: Please don't restart the process!
-
         // Restart the process for all kinds of rawPreference change!
         appPreference.observeAnyChange()
             .filter(this::ignoredProperties)
@@ -433,6 +432,9 @@ class UpdaterApp :
         return key !in listOf(
             PreferenceProps.HEARTBEAT_VERBAL_RESULT,
             PreferenceProps.LOG_FILE_CREATED_TIMESTAMP,
+            PreferenceProps.LAST_KNOWN_FIRMWARE_VERSION,
+            PreferenceProps.INSTALL_PENDING_INSTALLS_TYPE,
+            PreferenceProps.INSTALL_PENDING_INSTALLS_JSON,
             PreferenceProps.SESSION_ID
         )
     }

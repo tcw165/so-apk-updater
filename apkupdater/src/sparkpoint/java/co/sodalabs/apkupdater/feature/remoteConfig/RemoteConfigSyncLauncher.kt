@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.work.Constraints
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import timber.log.Timber
@@ -28,6 +29,12 @@ class RemoteConfigSyncLauncher @Inject constructor(
         val dataPairs = mutableMapOf<String, Any>()
         dataPairs.addIfNotNull(addTimezoneFromConfig(config))
         dataPairs.addIfNotNull(addInstallWindowFromConfig(config))
+        dataPairs.addIfNotNull(addDowngradeFlagFromConfig(config))
+        dataPairs.addIfNotNull(addCheckIntervalFromConfig(config))
+        dataPairs.addIfNotNull(addDiskCacheFlagFromConfig(config))
+        dataPairs.addIfNotNull(addFullFirmwareUpdateFlagFromConfig(config))
+        // Following are the fields for one-shot action from the server.
+        dataPairs.addIfNotNull(addRebootFlagFromConfig(config))
         if (dataPairs.isEmpty()) {
             // Do nothing since remote config is exactly the same with the local
             // config.
@@ -39,9 +46,8 @@ class RemoteConfigSyncLauncher @Inject constructor(
         val requestData = dataPairs.toRequestData()
         val requestConstraints = Constraints.Builder()
             .setTriggerContentMaxDelay(0L, TimeUnit.MILLISECONDS)
-            // Temporarily disable the network constraints since we only apply
-            // config without network at this moment.
-            // .setRequiredNetworkType(NetworkType.CONNECTED)
+            // Note: We need the internet to do some handshake with the server.
+            .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
         val request = OneTimeWorkRequest
             .Builder(RemoteConfigSyncWorker::class.java)
@@ -73,7 +79,8 @@ class RemoteConfigSyncLauncher @Inject constructor(
                 is String -> builder.putString(key, value)
                 is Boolean -> builder.putBoolean(key, value)
                 is Int -> builder.putInt(key, value)
-                else -> Timber.w("[RemoteConfig] Unsupported value type, $value")
+                is Long -> builder.putLong(key, value)
+                else -> throw IllegalArgumentException("[RemoteConfig] Unsupported value type, $value")
             }
         }
 
@@ -98,14 +105,52 @@ class RemoteConfigSyncLauncher @Inject constructor(
         }
     }
 
-    private fun addInstallWindowFromConfig(
+    private fun addCheckIntervalFromConfig(
         config: RemoteConfig
     ): Pair<String, Any>? {
-        // Block for the near future.
-        return null
+        val checkInterval = config.updateCheckInterval ?: return null
+        return PARAM_CHECK_INTERVAL to checkInterval
     }
 
     // Install Related ////////////////////////////////////////////////////////
+
+    private fun addInstallWindowFromConfig(
+        config: RemoteConfig
+    ): Pair<String, Any>? {
+        val remoteWindowStart: Int = config.installWindowStart ?: return null
+        val remoteWindowEnd: Int = config.installWindowEnd ?: return null
+        return PARAM_INSTALL_WINDOW to "$remoteWindowStart-$remoteWindowEnd"
+    }
+
+    private fun addDowngradeFlagFromConfig(
+        config: RemoteConfig
+    ): Pair<String, Any>? {
+        val allowDowngrade = config.allowDowngradeApp ?: return null
+        return PARAM_ALLOW_DOWNGRADE to allowDowngrade
+    }
+
+    private fun addDiskCacheFlagFromConfig(
+        config: RemoteConfig
+    ): Pair<String, Any>? {
+        val useDiskCache = config.downloadUsingDiskCache ?: return null
+        return PARAM_USE_DISK_CACHE to useDiskCache
+    }
+
+    private fun addFullFirmwareUpdateFlagFromConfig(
+        config: RemoteConfig
+    ): Pair<String, Any>? {
+        val forceFullFirmwareUpdate = config.forceFullFirmwareUpdate ?: return null
+        return PARAM_FORCE_FULL_FIRMWARE_UPDATE to forceFullFirmwareUpdate
+    }
+
+    // Maintenance Related ////////////////////////////////////////////////////
+
+    private fun addRebootFlagFromConfig(
+        config: RemoteConfig
+    ): Pair<String, Any>? {
+        val forceFullFirmwareUpdate = config.toReboot ?: return null
+        return PARAM_REBOOT to forceFullFirmwareUpdate
+    }
 
     // Section for the near future.
 }

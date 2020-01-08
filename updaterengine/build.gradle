@@ -114,6 +114,11 @@ dependencies {
     api deps.androidx.coreKtx
     api deps.androidx.workManager
     api deps.androidx.workManagerRx
+    // Room
+    api deps.androidx.arcRoom
+    api deps.androidx.arcRoomRx
+    api deps.androidx.arcRoomKtx
+    kapt deps.androidx.arcRoomAnnotation
 
     // Multi-dex.
     api deps.androidx.multidex

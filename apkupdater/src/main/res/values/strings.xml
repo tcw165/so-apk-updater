@@ -44,9 +44,9 @@
     <string name="install_hour_start_desc">The start hour of install window. This means the device will only start update after this time. The time is set in 24 hour format. You can only set on the hour right now.</string>
     <string name="install_hour_end">Install End Window</string>
     <string name="install_hour_end_desc">The end hour of install window. This means the device will not be able to update after this time. The time is set in 24 hour format. You can only set on the hour right now.</string>
-    <string name="enable_full_update">Enable Firmware Full Update [WILL BREAK HEART BEAT]</string>
-    <string name="enable_full_update_desc">Turning this on enables the FULL firmware update; Off for the silently incremental firmware update. This will break the heart beat functionality and will leave your device reporting offline so remember to disable this afterwards.</string>
-    <string name="install_allow_downgrade">Allow App Downgrade</string>
+    <string name="enable_full_firmware_update">Enable Firmware Full Update</string>
+    <string name="enable_full_firmware_update_desc">Turning this on enables the FULL firmware update; Off for the silently incremental firmware update. This will break the heart beat functionality and will leave your device reporting offline so remember to disable this afterwards.</string>
+    <string name="install_allow_app_downgrade">Allow App Downgrade</string>
 
 
     <string name="network_category">Network</string>

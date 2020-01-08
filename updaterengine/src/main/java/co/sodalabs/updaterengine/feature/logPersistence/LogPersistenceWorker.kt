@@ -1,6 +1,8 @@
 package co.sodalabs.updaterengine.feature.logPersistence
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.work.RxWorker
 import androidx.work.WorkerParameters
 import co.sodalabs.updaterengine.IAppPreference
@@ -15,7 +17,9 @@ import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import javax.inject.Inject
 
 /**
@@ -44,22 +48,27 @@ class LogPersistenceWorker(
     lateinit var timeUtils: ITimeUtil
     @Inject
     lateinit var logFileProvider: ILogFileProvider
+    @Inject
+    lateinit var logPersistenceLauncher: ILogsPersistenceLauncher
+
+    private val uiHandler = Handler(Looper.getMainLooper())
 
     private val logFile: File by lazy { logFileProvider.logFile }
     private val tempLogFile: File by lazy { logFileProvider.tempLogFile }
 
+    // FIXME: Replace the RxWorker with the regular one.
     override fun createWork(): Single<Result> {
         WorkerInjection.inject(this)
 
         // Log information about next scheduling of this task
-        Timber.i("[LogPersistenceWorker] Persistence task started at ${timeUtils.systemZonedNow()}")
+        Timber.i("[LogPersistence] Persistence task started at ${timeUtils.systemZonedNow()}")
         val isRepeatTask = inputData.getBoolean(LogsPersistenceConstants.PARAM_REPEAT_TASK, false)
         if (isRepeatTask) {
             val nextTriggerTime = timeUtils.systemZonedNow()
                 .plusNanos(TimeUnit.MILLISECONDS.toNanos(config.repeatIntervalInMillis))
-            Timber.i("[LogPersistenceWorker] Next persistence job scheduled for $nextTriggerTime")
+            Timber.i("[LogPersistence] Next persistence job scheduled for $nextTriggerTime")
         } else {
-            Timber.i("[LogPersistenceWorker] No future scheduling, this is a one-time task")
+            Timber.i("[LogPersistence] No future scheduling, this is a one-time task")
         }
         // Flag indicating whether the user triggered this action via Admin UI
         val isUserTriggered = inputData.getBoolean(LogsPersistenceConstants.PARAM_TRIGGERED_BY_USER, false)
@@ -85,10 +94,26 @@ class LogPersistenceWorker(
 
         return workSource
             .doOnComplete {
-                Timber.i("[LogPersistenceWorker] Persistence task completed at ${timeUtils.systemZonedNow()}")
+                Timber.i("[LogPersistence] Persistence task completed at ${timeUtils.systemZonedNow()}")
             }
-            .andThen(Single.just(Result.success()))
-            .onErrorReturnItem(Result.failure())
+            .toSingleDefault(Result.success())
+            .onErrorReturn { error ->
+                when (error) {
+                    // Retry for known exceptions.
+                    is TimeoutException,
+                    is SocketTimeoutException -> Result.retry()
+                    // Don't retry for the other cases.
+                    else -> Result.failure()
+                }
+            }
+            .doAfterSuccess {
+                if (isUserTriggered) {
+                    // Note: One-shot work replaces the periodic work to avoid
+                    // the race condition of accessing the file. Therefore, we
+                    // will need to start the periodic work afterwards.
+                    uiHandler.post { logPersistenceLauncher.schedulePeriodicBackingUpLogToCloud() }
+                }
+            }
     }
 
     private fun persistLogsLocally(): Completable {
@@ -112,15 +137,15 @@ class LogPersistenceWorker(
                     false
                 }
                 val shouldDeleteFile = isSizeLimitExceeded || isExpired
-                Timber.i("[LogPersistenceWorker] Should Delete File? $shouldDeleteFile")
-                Timber.i("[LogPersistenceWorker] Size Limit Exceeded: $isSizeLimitExceeded, Expired: $isExpired")
+                Timber.i("[LogPersistence] Should Delete File? $shouldDeleteFile")
+                Timber.i("[LogPersistence] Size Limit Exceeded: $isSizeLimitExceeded, Expired: $isExpired")
                 logFile to shouldDeleteFile
             }
     }
 
     private fun backupAndDeleteLogsIfRequired(file: File, shouldDelete: Boolean): Single<File> {
         return if (shouldDelete) {
-            Timber.i("[LogPersistenceWorker] Deleting file")
+            Timber.i("[LogPersistence] Deleting file")
 
             // Send logs to the server before deleting them.
             // Even if sending fails, we want to delete the logs because otherwise there is a
@@ -129,7 +154,6 @@ class LogPersistenceWorker(
             // never getting deleted.
             logSender.sendLogsToServer(file)
                 .timeout(Intervals.TIMEOUT_UPLOAD_MIN, TimeUnit.MINUTES)
-                .onErrorComplete()
                 .andThen(deleteLogFile(file))
                 .flatMap { Single.just(file) }
         } else {
@@ -148,18 +172,18 @@ class LogPersistenceWorker(
                 try {
                     // Create file and directory if does not exist
                     if (!file.parentFile.exists()) {
-                        Timber.i("[LogPersistenceWorker] Creating logs directory at ${file.parentFile.path}")
+                        Timber.i("[LogPersistence] Creating logs directory at ${file.parentFile.path}")
                         file.parentFile.mkdirs()
                     }
                     if (!file.exists()) {
-                        Timber.i("[LogPersistenceWorker] Creating log file")
+                        Timber.i("[LogPersistence] Creating log file")
                         val success = file.createNewFile()
                         if (success) {
                             // Java IO up to Java 7 (and Android API level 26) does not provide a way
                             // to know the creation date of a file, so we record it manually
                             val time = timeUtils.systemZonedNow()
                             appPreference.logFileCreatedTimestamp = time.toInstant().toEpochMilli()
-                            Timber.i("[LogPersistenceWorker] Log file created at: $time")
+                            Timber.i("[LogPersistence] Log file created at: $time")
                         } else {
                             throw IllegalStateException("Failed to create temporary file")
                         }
@@ -202,7 +226,7 @@ class LogPersistenceWorker(
                                 bytes = input.read(buffer)
                             }
                         }
-                        Timber.i("[LogPersistenceWorker] Wrote ${temp.length()} bytes to temp file")
+                        Timber.i("[LogPersistence] Wrote ${temp.length()} bytes to temp file")
                         temp.delete()
                         emitter.onComplete()
 

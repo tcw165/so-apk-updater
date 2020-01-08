@@ -4,7 +4,10 @@ import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import androidx.core.app.JobIntentService
+import co.sodalabs.updaterengine.IPackageVersionProvider
 import co.sodalabs.updaterengine.IRebootHelper
+import co.sodalabs.updaterengine.ISystemProperties
+import co.sodalabs.updaterengine.ITimeUtil
 import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Packages
 import co.sodalabs.updaterengine.UpdaterConfig
@@ -23,6 +26,8 @@ private val CACHE_DIR = File("/cache/recovery")
 
 private val COMMAND_FILE = File(CACHE_DIR, "command")
 private val EXTENDED_COMMAND_FILE = File(CACHE_DIR, "extendedcommand")
+
+private val MAX_ATTEMPTS_ALLOWED_FOR_INSTALLING_FIRMWARE = 1
 
 /**
  * MODIFIED FROM F-DROID OPEN SOURCE.
@@ -53,6 +58,12 @@ class InstallerJobIntentService : JobIntentService() {
     lateinit var updaterConfig: UpdaterConfig
     @Inject
     lateinit var rebootHelper: IRebootHelper
+    @Inject
+    lateinit var timeUtil: ITimeUtil
+    @Inject
+    lateinit var packageVersionProvider: IPackageVersionProvider
+    @Inject
+    lateinit var systemProperties: ISystemProperties
 
     override fun onCreate() {
         Timber.v("[Install] Installer Service is online")
@@ -81,16 +92,17 @@ class InstallerJobIntentService : JobIntentService() {
     private fun installAppUpdate(
         intent: Intent
     ) {
+        val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedAppUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
+
         val installer = createInstaller()
         val appliedUpdates = mutableListOf<AppliedUpdate>()
         val errors = mutableListOf<Throwable>()
 
-        val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedAppUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
-        val (updates, errs) = installer.installPackages(downloadedUpdates)
-        appliedUpdates.addAll(updates)
-        errors.addAll(errs)
+        val (successfulUpdates, failedUpdates, errorsToFailedUpdate) = installer.installPackages(downloadedUpdates)
+        appliedUpdates.addAll(successfulUpdates)
+        errors.addAll(errorsToFailedUpdate)
 
-        UpdaterService.notifyAppUpdateInstalled(this, appliedUpdates, errors)
+        UpdaterService.notifyAppUpdateInstalled(this, appliedUpdates, failedUpdates, errors)
     }
 
     private fun uninstallPackages(
@@ -132,7 +144,7 @@ class InstallerJobIntentService : JobIntentService() {
 
             // Assume the downloaded update is the incremental update
             val downloadedUpdates = intent.getParcelableArrayListExtra<DownloadedFirmwareUpdate>(IntentActions.PROP_DOWNLOADED_UPDATES)
-            require(downloadedUpdates.size == 1) { "For firmware update, there should be one downloaded update for installing!" }
+            require(downloadedUpdates.size == 1) { "There should be ONE downloaded firmware!" }
             val downloadedUpdate = downloadedUpdates.first()
             val fromUpdate = downloadedUpdate.fromUpdate
 
@@ -215,6 +227,8 @@ class InstallerJobIntentService : JobIntentService() {
             Timber.v("[Install] The actual command content:\n$content\n")
         }
     }
+
+    // Firmware
 
     private fun List<String>.concatWithLinebreak(): String {
         val builder = StringBuilder()

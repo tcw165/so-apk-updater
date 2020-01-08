@@ -2,6 +2,8 @@
 
 package co.sodalabs.updaterengine.utils
 
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.Observer
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import io.reactivex.Observable
@@ -16,8 +18,13 @@ import java.util.UUID
 fun WorkManager.getWorkInfoByIdObservable(requestId: UUID): Observable<WorkInfo> {
     return Observable
         .create<WorkInfo> { emitter ->
-            val observer = { info: WorkInfo -> emitter.onNext(info) }
-            val workInfo = this.getWorkInfoByIdLiveData(requestId)
+            val observer = Observer<WorkInfo?> { infoOpt ->
+                // Note: The LiveData could give nullable payload.
+                infoOpt?.let { info ->
+                    emitter.onNext(info)
+                }
+            }
+            val workInfo: LiveData<WorkInfo?> = this.getWorkInfoByIdLiveData(requestId)
             if (workInfo == null) {
                 emitter.onError(NoSuchElementException("No worker found with id: $requestId"))
             }

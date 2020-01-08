@@ -4,6 +4,7 @@ import androidx.annotation.Keep
 
 @Keep
 enum class UpdaterState {
+    Init,
     Idle,
     Check,
     Download,

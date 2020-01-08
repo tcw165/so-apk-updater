@@ -3,6 +3,8 @@ package co.sodalabs.updaterengine.utils
 import timber.log.Timber
 import java.util.Scanner
 import javax.inject.Inject
+import kotlin.math.ceil
+import kotlin.math.log
 
 /**
  * A wrapper class to isolate the ugly operation of calling the linux commands programmatically
@@ -11,8 +13,19 @@ import javax.inject.Inject
 
 private const val EMPTY_STRING = ""
 
-private const val CMD_GET_SODA_DIR_DISK_USAGE = "du /storage/emulated/legacy"
+/**
+ * The supported argument for 'du' linux command on Big-Tab.
+ *
+ * @param -c Display a grand total.
+ * @param -a Display an entry for each file in a file hierarchy.
+ * @param -k Display block counts in 1024-byte (1-Kbyte) blocks.
+ */
+private const val CMD_GET_CACHE_DISK_USAGE = "du -k /storage/emulated/legacy"
+private const val CMD_GET_DATA_DISK_USAGE = "du -k /data/data"
 private const val CMD_GET_SYSTEM_DISK_USAGE_STATS = "df"
+
+private const val LOG_FOOTER = "----------------------------"
+private const val HEADER_OR_FOOTER_SIZE = LOG_FOOTER.length
 
 class LinuxCommandUtils @Inject constructor() {
 
@@ -28,7 +41,12 @@ class LinuxCommandUtils @Inject constructor() {
             EMPTY_STRING
         }
         // IMPORTANT: Using println instead of Timber to avoid custom tags and timestamps
-        println("Start Disk Usage Log\n$log\nEnd Disk Usage Log")
+        val sb = StringBuilder(log.length + 2 * HEADER_OR_FOOTER_SIZE)
+        sb.appendln("------------ df ------------")
+        sb.appendln(log)
+        sb.appendln(LOG_FOOTER)
+        println(sb.toString())
+
         return log
     }
 
@@ -36,8 +54,10 @@ class LinuxCommandUtils @Inject constructor() {
      * Logs disk usage by folders owned by our system apps
      */
     fun logDiskUsageByApps(onlySodaApps: Boolean = false): String {
-        val log = try {
-            execCmd(CMD_GET_SODA_DIR_DISK_USAGE)
+        val logForCache = try {
+            // FIXME: Align the directory (some line should have less space and
+            //  some should have more)
+            execCmd(CMD_GET_CACHE_DISK_USAGE)
                 .lines()
                 .filter { it.isNotEmpty() }
                 .map { AppDir.fromString(it) }
@@ -49,15 +69,43 @@ class LinuxCommandUtils @Inject constructor() {
                     }
                 }
                 .sortedByDescending { it.size }
-                .joinToString("\n")
+                .smartlyJoinToString()
+        } catch (e: Exception) {
+            Timber.e("[LinuxCommandUtils] Error while executing App Disk Usage command: ${e.message}")
+            e.printStackTrace()
+            EMPTY_STRING
+        }
+        val logForData = try {
+            // FIXME: Align the directory (some line should have less space and
+            //  some should have more)
+            execCmd(CMD_GET_DATA_DISK_USAGE)
+                .lines()
+                .filter { it.isNotEmpty() }
+                .map { AppDir.fromString(it) }
+                .let { dirs ->
+                    if (onlySodaApps) {
+                        dirs.filter { it.path.contains("co.sodalabs") }
+                    } else {
+                        dirs
+                    }
+                }
+                .sortedByDescending { it.size }
+                .smartlyJoinToString()
         } catch (e: Exception) {
             Timber.e("[LinuxCommandUtils] Error while executing App Disk Usage command: ${e.message}")
             e.printStackTrace()
             EMPTY_STRING
         }
         // IMPORTANT: Using println instead of Timber to avoid custom tags and timestamps
-        println("Start Sodalab App Disk Usage Log\n$log\nEnd Sodalab App Disk Usage Log")
-        return log
+        val sb = StringBuilder(logForCache.length + 3 * HEADER_OR_FOOTER_SIZE)
+        sb.appendln("------------ du ------------")
+        sb.appendln(logForCache)
+        sb.appendln("------------ du ------------")
+        sb.appendln(logForData)
+        sb.appendln(LOG_FOOTER)
+        println(sb.toString())
+
+        return logForCache
     }
 
     /**
@@ -94,5 +142,23 @@ class LinuxCommandUtils @Inject constructor() {
         } else {
             EMPTY_STRING
         }
+    }
+
+    /**
+     * Just align the number for readability.
+     */
+    private fun List<AppDir>.smartlyJoinToString(): String {
+        var maxDigits = 0
+        this.forEach {
+            val digit = ceil(log(it.size.toDouble(), 10.0)).toInt()
+            maxDigits = maxDigits.coerceAtLeast(digit)
+        }
+        // 1 is the padding.
+        val formatter = "-%${1 + maxDigits}dKB %s"
+
+        return this.joinToString(
+            separator = System.lineSeparator(),
+            transform = { formatter.format(it.size, it.path) }
+        )
     }
 }

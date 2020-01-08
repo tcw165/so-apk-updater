@@ -10,6 +10,7 @@ object Intervals {
 
     const val DELAY_ONE_SECOND = 1000L
 
+    const val DEBOUNCE_CLICKS = 300L
     const val DEBOUNCE_VALUE_CHANGE = 250L
     const val DEBOUNCE_DATETIME_CHANGE = 5000L
 

@@ -65,6 +65,7 @@ class PrivilegedInstaller(
      */
     private val uninstalledOnce: MutableSet<String> = CopyOnWriteArraySet<String>()
     private val appliedUpdates = CopyOnWriteArrayList<AppliedUpdate>()
+    private val failedUpdates = CopyOnWriteArrayList<DownloadedAppUpdate>()
     private val errors = CopyOnWriteArrayList<Throwable>()
 
     private val installFlags by lazy {
@@ -77,11 +78,11 @@ class PrivilegedInstaller(
 
     override fun installPackages(
         localUpdates: List<DownloadedAppUpdate>
-    ): Pair<List<AppliedUpdate>, List<Throwable>> {
+    ): InstallResult {
         synchronized(this) {
             if (localUpdates.isEmpty()) {
                 Timber.v("[Install] Install skips due to no updates")
-                return Pair(emptyList(), emptyList())
+                return InstallResult(emptyList(), emptyList(), emptyList())
             }
 
             Timber.v("[Install] Install starts...$installFlagsPrettyString")
@@ -112,7 +113,11 @@ class PrivilegedInstaller(
             // Once all installs finishes, unbind the privileged service.
             connection.unbind()
 
-            return Pair(appliedUpdates, errors)
+            return InstallResult(
+                appliedUpdates = appliedUpdates,
+                failedUpdates = failedUpdates,
+                errorsToFailedUpdate = errors
+            )
         }
     }
 
@@ -175,6 +180,8 @@ class PrivilegedInstaller(
 
                     if (uninstalledOnce.contains(packageName)) {
                         Timber.w(error)
+
+                        failedUpdates.add(downloadedUpdate)
                         errors.add(error)
                     } else {
                         Timber.w(error, "[Install] Retry by uninstalling '$packageName' first")

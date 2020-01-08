@@ -39,7 +39,6 @@ import org.threeten.bp.format.DateTimeFormatter
 import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStream
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Named
@@ -225,28 +224,40 @@ class DownloadJobIntentService : JobIntentService() {
         updates: List<AppUpdate>
     ) {
         // Execute batch download
-        val (completedTasks, errors) = downloadBatchAppUpdate(
-            urls = updates.map { it.downloadUrl },
-            diskLruCache = updaterConfig.apkDiskCache,
-            downloadingCallback = { urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long ->
-                // Let the engine know the download is in-progress.
-                UpdaterService.notifyAppUpdateDownloadProgress(
-                    context = this,
-                    update = updates[urlIndex],
-                    percentageComplete = progressPercentage,
-                    currentBytes = currentBytes,
-                    totalBytes = totalBytes
-                )
-            }
-        )
+        try {
+            val (completedTasks, errors) = downloadBatchUpdates(
+                urls = updates.map { it.downloadUrl },
+                diskLruCache = updaterConfig.updateDiskCache,
+                downloadingCallback = object : IDownloadListener {
+                    override fun onDownloading(
+                        urlIndex: Int,
+                        progressPercentage: Int,
+                        currentBytes: Long,
+                        totalBytes: Long
+                    ) {
+                        // Let the engine know the download is in-progress.
+                        UpdaterService.notifyAppUpdateDownloadProgress(
+                            context = this@DownloadJobIntentService,
+                            update = updates[urlIndex],
+                            percentageComplete = progressPercentage,
+                            currentBytes = currentBytes,
+                            totalBytes = totalBytes
+                        )
+                    }
+                }
+            )
 
-        // Let the engine know the download finishes.
-        UpdaterService.notifyAppUpdateDownloaded(
-            context = this,
-            foundUpdates = updates,
-            downloadedUpdates = completedTasks.toDownloadedAppUpdate(updates),
-            errors = errors
-        )
+            // Let the engine know the download finishes.
+            UpdaterService.notifyAppUpdateDownloaded(
+                context = this,
+                foundUpdates = updates,
+                downloadedUpdates = completedTasks.toDownloadedAppUpdate(updates),
+                errors = errors
+            )
+        } catch (interrupt: DownloadCancelledException) {
+            // Only log and don't do any further transition!
+            Timber.w(interrupt)
+        }
     }
 
     private fun List<CompletedTask>.toDownloadedAppUpdate(
@@ -272,53 +283,66 @@ class DownloadJobIntentService : JobIntentService() {
         require(updates.size == 1) { "There should be one firmware found at a time" }
         val theSoleUpdate = updates.first()
 
-        // Execute batch download
-        val (completedTasks, errors) = downloadBatchAppUpdate(
-            urls = updates.map { it.fileURL },
-            diskLruCache = updaterConfig.firmwareDiskCache,
-            downloadingCallback = { urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long ->
-                // Let the engine know the download is in-progress.
-                UpdaterService.notifyFirmwareUpdateDownloadProgress(
+        try {
+            // Execute batch download
+            val (completedTasks, errors) = downloadBatchUpdates(
+                urls = updates.map { it.fileURL },
+                diskLruCache = updaterConfig.updateDiskCache,
+                downloadingCallback = object : IDownloadListener {
+                    override fun onDownloading(
+                        urlIndex: Int,
+                        progressPercentage: Int,
+                        currentBytes: Long,
+                        totalBytes: Long
+                    ) {
+                        // Let the engine know the download is in-progress.
+                        UpdaterService.notifyFirmwareUpdateDownloadProgress(
+                            context = this@DownloadJobIntentService,
+                            update = updates[urlIndex],
+                            percentageComplete = progressPercentage,
+                            currentBytes = currentBytes,
+                            totalBytes = totalBytes
+                        )
+                    }
+                }
+            )
+
+            if (completedTasks.isNotEmpty()) {
+                require(completedTasks.size == 1) { "There should be one firmware download task at a time" }
+
+                val theSoleTask = completedTasks.first()
+                val file = theSoleTask.downloadedFile
+
+                // Let the engine know the download finishes.
+                UpdaterService.notifyFirmwareUpdateDownloadComplete(
                     context = this,
-                    update = updates[urlIndex],
-                    percentageComplete = progressPercentage,
-                    currentBytes = currentBytes,
-                    totalBytes = totalBytes
+                    foundUpdate = theSoleUpdate,
+                    downloadedUpdate = DownloadedFirmwareUpdate(file, theSoleUpdate)
+                )
+            } else {
+                require(errors.size == 1) { "There should be an error" }
+                val theSoleError = errors.first()
+
+                // Let the engine know the download fails.
+                UpdaterService.notifyFirmwareUpdateDownloadError(
+                    context = this,
+                    foundUpdate = theSoleUpdate,
+                    error = theSoleError
                 )
             }
-        )
-
-        if (completedTasks.isNotEmpty()) {
-            require(completedTasks.size == 1) { "There should be one firmware download task at a time" }
-
-            val theSoleTask = completedTasks.first()
-            val file = theSoleTask.downloadedFile
-
-            // Let the engine know the download finishes.
-            UpdaterService.notifyFirmwareUpdateDownloadComplete(
-                context = this,
-                foundUpdate = theSoleUpdate,
-                downloadedUpdate = DownloadedFirmwareUpdate(file, theSoleUpdate)
-            )
-        } else {
-            require(errors.size == 1) { "There should be an error" }
-            val theSoleError = errors.first()
-
-            // Let the engine know the download fails.
-            UpdaterService.notifyFirmwareUpdateDownloadError(
-                context = this,
-                foundUpdate = theSoleUpdate,
-                error = theSoleError
-            )
+        } catch (interrupt: DownloadCancelledException) {
+            // Only log and don't do any further transition!
+            Timber.w(interrupt)
         }
     }
 
     // Common /////////////////////////////////////////////////////////////////
 
-    private fun downloadBatchAppUpdate(
+    @Throws(DownloadCancelledException::class)
+    private fun downloadBatchUpdates(
         urls: List<String>,
         diskLruCache: DiskLruCache,
-        downloadingCallback: (urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long) -> Unit
+        downloadingCallback: IDownloadListener
     ): Pair<List<CompletedTask>, List<Throwable>> {
         Timber.v("[Download] Start downloading ${urls.size} updates")
 
@@ -332,6 +356,7 @@ class DownloadJobIntentService : JobIntentService() {
         }
         // Open the cache
         if (!diskLruCache.isOpened()) {
+            Timber.v("[Download] Open cache!")
             diskLruCache.open()
         }
 
@@ -346,7 +371,7 @@ class DownloadJobIntentService : JobIntentService() {
             }
 
             // Step 1, send a HEAD request for the file size
-            val totalSize = try {
+            val totalBytes = try {
                 requestFileSize(url)
             } catch (error: Throwable) {
                 Timber.w(error)
@@ -357,18 +382,76 @@ class DownloadJobIntentService : JobIntentService() {
 
             // Step 2, download the file if cache file size is smaller than the total size.
             val cacheEditor = diskLruCache.edit(urlFileName)
-            val cacheFile = cacheEditor.getFile()
-            val cacheFileSize = cacheFile.length()
-            Timber.v("[Download] Open the cache '$cacheFile', $cacheFileSize bytes.")
+            val cacheFile = cacheEditor.file
             try {
-                executeDownload(i, url, totalSize, cacheFile, downloadingCallback)
-                completedTasks.add(CompletedTask(i, cacheFile))
+                // Ensure the file presence!
+                cacheFile.createNewFile()
+
+                val cacheFileSize = cacheFile.length()
+                Timber.v("[Download] Open the cache '$cacheFile', $cacheFileSize bytes.")
+
+                // Used to prevent progress updates of the same value
+                var currentBytes = cacheFileSize
+                var workingPercentage = computePercentage(currentBytes, totalBytes)
+
+                // Log percentage before the download starts.
+                Timber.v("[Download] Download '$url'... $workingPercentage%")
+
+                while (canRun.get() && currentBytes < totalBytes) {
+                    currentBytes = downloadNextChunk(url, cacheFile, totalBytes)
+
+                    val percentage = computePercentage(currentBytes, totalBytes)
+                    Timber.v("[Download] Download '$url'... $percentage%")
+
+                    // FIXME: The LRU cache library has a problem in the CLEAN
+                    // FIXME: and DIRTY annotation in the journal file.
+                    // FIXME: That design is to control the bytes within the
+                    // FIXME: capacity; If the record is marked as DIRTY, it
+                    // FIXME: would be removed on the cache initialization.
+                    // FIXME: That means if you power off the device while it's
+                    // FIXME: downloading a file. The file would be deleted next
+                    // FIXME: on-boot cause the file is marked DIRTY!
+
+                    // Prevent duplicate percentage notifications
+                    if (workingPercentage != percentage) {
+                        workingPercentage = percentage
+
+                        downloadingCallback.onDownloading(
+                            i,
+                            workingPercentage,
+                            currentBytes,
+                            totalBytes
+                        )
+                    }
+                }
+
+                if (currentBytes > totalBytes) {
+                    // Throw exception as the cache size is greater than the expected size.
+                    throw DownloadInvalidFileSizeException(cacheFile, currentBytes, totalBytes)
+                }
+
+                when {
+                    currentBytes == totalBytes -> {
+                        Timber.v("[Download] Download '$url'... 100%")
+                        completedTasks.add(CompletedTask(i, cacheFile))
+                    }
+                    canRun.get() -> {
+                        // If the size is not matched and it's still allowed running,
+                        // throw the invalid size exception.
+                        throw DownloadInvalidFileSizeException(cacheFile, currentBytes, totalBytes)
+                    }
+                    else -> {
+                        // Otherwise, it's a cancellation.
+                        throw DownloadCancelledException(url)
+                    }
+                }
             } catch (error: Throwable) {
                 // Conditionally collect the error and continue.
                 when (error) {
                     is DownloadCancelledException -> {
-                        // Don't report cause we don't want to retry this after canceling.
-                        Timber.v(error)
+                        // Populate the cancel exception to the caller to make
+                        // decision.
+                        throw error
                     }
                     else -> {
                         Timber.w(error)
@@ -376,7 +459,7 @@ class DownloadJobIntentService : JobIntentService() {
                     }
                 }
             } finally {
-                Timber.v("[Download] Close the cache \"$cacheFile\"")
+                Timber.v("[Download] Close the cache '$cacheFile'")
                 try {
                     cacheEditor.commit()
                 } catch (ignored: Throwable) {
@@ -392,7 +475,7 @@ class DownloadJobIntentService : JobIntentService() {
     private fun requestFileSize(
         url: String
     ): Long {
-        Timber.v("[Download] request file size for \"$url\"...")
+        Timber.v("[Download] request file size for '$url'...")
         val dateString = Instant.now()
             .atOffset(ZoneOffset.UTC)
             .format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -411,111 +494,73 @@ class DownloadJobIntentService : JobIntentService() {
             ?: throw DownloadSizeNotFoundException(url)
         val length = lengthString.toLong()
 
-        Timber.v("[Download] request file size for \"$url\"... $length bytes")
+        Timber.v("[Download] request file size for '$url'... $length bytes")
         return length
     }
 
-    private fun executeDownload(
-        taskIndex: Int,
+    private fun downloadNextChunk(
         url: String,
-        totalSize: Long,
         cacheFile: File,
-        onDownloadingCallback: (urlIndex: Int, progressPercentage: Int, currentBytes: Long, totalBytes: Long) -> Unit
-    ) {
-        cacheFile.createNewFile()
-        val cacheFileSize = cacheFile.length()
+        totalBytes: Long
+    ): Long {
+        val currentBytes = cacheFile.length()
+        return if (currentBytes < totalBytes) {
 
-        // Used to prevent progress updates of the same value
-        var workingPercentage = -1
-
-        if (cacheFileSize < totalSize) {
-            val startPercentage = (100f * cacheFileSize / totalSize).roundToInt()
-            Timber.v("[Download] Download \"$url\"... $startPercentage%")
             val dateString = Instant.now()
                 .atOffset(ZoneOffset.UTC)
                 .format(DateTimeFormatter.ISO_LOCAL_DATE)
             val buff = ByteArray(BUFFER_IN_BYTES)
-            var currentSize = cacheFileSize
+            var newCurrentBytes = currentBytes
 
             // Download the file chunk by chunk (progressive download)
-            while (canRun.get() && currentSize < totalSize) {
-                val endSize = min(currentSize + CHUNK_IN_BYTES, totalSize)
-                val headers = hashMapOf(
-                    Pair("Range", "bytes=$currentSize-$endSize"),
-                    Pair("x-ms-range", "bytes=$currentSize-$endSize"),
-                    Pair("x-ms-date", dateString),
-                    Pair("Date", dateString)
-                )
-                val request = Request.Builder()
-                    .url(url)
-                    .headers(Headers.of(headers))
-                    .get()
-                    .build()
-                val response = okHttpClient.newCall(request).execute()
+            val endSize = min(newCurrentBytes + CHUNK_IN_BYTES, totalBytes)
+            val headers = hashMapOf(
+                Pair("Range", "bytes=$newCurrentBytes-$endSize"),
+                Pair("x-ms-range", "bytes=$newCurrentBytes-$endSize"),
+                Pair("x-ms-date", dateString),
+                Pair("Date", dateString)
+            )
+            val request = Request.Builder()
+                .url(url)
+                .headers(Headers.of(headers))
+                .get()
+                .build()
+            val response = okHttpClient.newCall(request).execute()
 
-                if (!canRun.get()) break
+            if (!canRun.get()) return newCurrentBytes
 
-                if (response.isSuccessful) {
-                    var inputStream: InputStream? = null
-                    val outputStream = FileOutputStream(cacheFile, true)
-                    try {
-                        inputStream = response.body()?.byteStream()
+            if (response.isSuccessful) {
+                val body = response.body()
+                val bodyInputStream = body?.byteStream()
 
+                bodyInputStream.use { inputStream ->
+                    FileOutputStream(cacheFile, true).use { outputStream ->
                         // Write the response to the local file piece by piece.
                         while (canRun.get()) {
                             val read = inputStream?.read(buff) ?: -1
                             if (read <= 0) break
 
                             outputStream.write(buff, 0, read)
-                            currentSize += read
-
-                            // TODO: Timeout management?
+                            newCurrentBytes += read
                         }
-                    } finally {
-                        inputStream?.apply { close() }
                         outputStream.flush()
-                        outputStream.close()
                     }
-                } else {
-                    throw DownloadUnknownErrorException(response.code(), url)
                 }
-
-                val percentage = (100f * currentSize / totalSize).roundToInt()
-                Timber.v("[Download] Download \"$url\"... $percentage%")
-
-                // Prevent duplicate percentage notifications
-                if (workingPercentage != percentage) {
-                    workingPercentage = percentage
-
-                    onDownloadingCallback.invoke(
-                        taskIndex,
-                        workingPercentage,
-                        currentSize,
-                        totalSize
-                    )
-                }
-            }
-
-            // TODO: Timeout management?
-
-            if (currentSize == totalSize) {
-                Timber.v("[Download] Download \"$url\"... 100%")
             } else {
-                if (canRun.get()) {
-                    // If the size is not matched and it's still allowed running,
-                    // throw the invalid size exception.
-                    throw DownloadInvalidFileSizeException(cacheFile, currentSize, totalSize)
-                } else {
-                    // Otherwise, it's a cancellation.
-                    throw DownloadCancelledException(url)
-                }
+                throw DownloadUnknownErrorException(response.code(), url)
             }
-        } else if (cacheFileSize == totalSize) {
-            Timber.v("[Download] Download \"$url\"... 100%")
+
+            newCurrentBytes
         } else {
-            // Throw exception as the cache size is greater than the expected size.
-            throw DownloadInvalidFileSizeException(cacheFile, cacheFileSize, totalSize)
+            currentBytes
         }
+    }
+
+    private fun computePercentage(
+        currentBytes: Long,
+        totalBytes: Long
+    ): Int {
+        return (100f * currentBytes / totalBytes).roundToInt()
     }
 
     private data class CompletedTask(

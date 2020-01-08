@@ -10,8 +10,13 @@ class AndroidRebootHelper @Inject constructor(
     private val context: Context
 ) : IRebootHelper {
 
+    private val powerManager by lazy { context.getSystemService(Context.POWER_SERVICE) as PowerManager }
+
+    override fun rebootNormally() {
+        powerManager.reboot(null)
+    }
+
     override fun rebootToRecovery() {
-        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        pm.reboot(REBOOT_RECOVERY)
+        powerManager.reboot(REBOOT_RECOVERY)
     }
 }

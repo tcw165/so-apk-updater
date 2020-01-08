@@ -13,9 +13,7 @@ class UpdaterOnBootInitializer : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
             intent.action != QUICKBOOT_POWERON) return
 
-        // Do nothing, this initializes the Application already
-        Timber.v("[Updater] Start the updater engine: ${intent.action}")
-
+        Timber.v("[Updater] Start the UpdaterService on boot!")
         val engineServiceIntent = Intent(context, UpdaterService::class.java)
         engineServiceIntent.action = IntentActions.ACTION_ENGINE_START
         context.startService(engineServiceIntent)

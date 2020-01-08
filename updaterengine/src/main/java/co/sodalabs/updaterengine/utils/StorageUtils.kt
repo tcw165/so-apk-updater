@@ -56,11 +56,11 @@ object StorageUtils {
 
         if (appCacheDir == null) {
             val cacheDirPath = "/cache/" + context.packageName
-            Timber.w("Can't define system cache directory! \"%s\" will be used.", cacheDirPath)
+            Timber.w("Can't define system cache directory! '%s' will be used.", cacheDirPath)
             appCacheDir = File(cacheDirPath)
         }
 
-        Timber.v("Prepare cache directory, \"${appCacheDir.absolutePath}\"")
+        Timber.v("Prepare cache directory, '${appCacheDir.absolutePath}'")
 
         return appCacheDir
     }
