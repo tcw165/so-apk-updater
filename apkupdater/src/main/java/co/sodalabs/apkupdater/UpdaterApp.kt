@@ -17,11 +17,13 @@ import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.IThreadSchedulers
+import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.Intervals
 import co.sodalabs.updaterengine.PreferenceProps
 import co.sodalabs.updaterengine.SharedSettingsProps
 import co.sodalabs.updaterengine.SharedSettingsProps.SERVER_ENVIRONMENT
 import co.sodalabs.updaterengine.SharedSettingsProps.SPARKPOINT_REST_API_BASE_URL
+import co.sodalabs.updaterengine.UpdaterService
 import co.sodalabs.updaterengine.di.HasWorkerInjector
 import co.sodalabs.updaterengine.feature.statemachine.IUpdaterStateTracker
 import com.bugsnag.android.Bugsnag
@@ -112,6 +114,14 @@ class UpdaterApp :
 
         // Initialize the launching works.
         sendBroadcast(Intent(WorkOnAppLaunchInitializer.UPDATER_LAUNCH))
+
+        // FIXME: Start the UpdaterService without the ACTION_ENGINE_START.
+        //  Or handle the second engine start Intent?
+        // A last safeguard to make sure the UpdaterService starts!
+        val intent = Intent(this, UpdaterService::class.java).apply {
+            action = IntentActions.ACTION_ENGINE_START
+        }
+        startService(intent)
     }
 
     private fun initLeakCanary() {
