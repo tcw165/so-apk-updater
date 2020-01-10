@@ -293,6 +293,15 @@ class UpdaterApp :
     @SuppressLint("ApplySharedPref")
     @Deprecated("Remove all these injection when we retire settings.xml")
     private fun injectDefaultPreferencesBeforeInjectingDep() {
+        // FIXME: Z, please remove this later.
+        if (rawPreference.contains(PreferenceProps.MOCK_USER_SETUP_INCOMPLETE)) {
+            // Since we no longer expose the UI for changing this preference,
+            // we forcefully set it false by default.
+            rawPreference.edit()
+                .remove(PreferenceProps.MOCK_USER_SETUP_INCOMPLETE)
+                .apply()
+        }
+
         // Debug device ID
         try {
             if (Settings.Secure.getString(contentResolver, SharedSettingsProps.DEVICE_ID) == null &&
