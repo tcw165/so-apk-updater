@@ -3,14 +3,16 @@
 package co.sodalabs.apkupdater.di.module
 
 import co.sodalabs.apkupdater.AndroidPackageVersionProvider
-import co.sodalabs.updaterengine.AndroidSharedSettings
 import co.sodalabs.apkupdater.AndroidSystemProperties
-import co.sodalabs.updaterengine.IPackageVersionProvider
-import co.sodalabs.updaterengine.ISharedSettings
-import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.apkupdater.di.scopes.ApplicationScope
 import co.sodalabs.updaterengine.AndroidRebootHelper
+import co.sodalabs.updaterengine.AndroidSharedSettings
+import co.sodalabs.updaterengine.IPackageVersionProvider
 import co.sodalabs.updaterengine.IRebootHelper
+import co.sodalabs.updaterengine.ISharedSettings
+import co.sodalabs.updaterengine.ISystemProperties
+import co.sodalabs.updaterengine.utils.AndroidPreRebootCleaner
+import co.sodalabs.updaterengine.utils.IPreRebootCleaner
 import dagger.Binds
 import dagger.Module
 
@@ -40,4 +42,10 @@ abstract class SystemModule {
     abstract fun provideRebootHelper(
         helper: AndroidRebootHelper
     ): IRebootHelper
+
+    @Binds
+    @ApplicationScope
+    abstract fun providePreRebootCleaner(
+        helper: AndroidPreRebootCleaner
+    ): IPreRebootCleaner
 }

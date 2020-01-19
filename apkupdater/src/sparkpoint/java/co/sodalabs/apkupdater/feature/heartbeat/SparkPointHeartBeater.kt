@@ -53,9 +53,8 @@ class SparkPointHeartBeater @Inject constructor(
             val intent = Intent(context, HeartBeatJobIntentService::class.java)
             intent.action = IntentActions.ACTION_SEND_HEART_BEAT_NOW
 
-            val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+            val pendingIntent = PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_CANCEL_CURRENT)
 
-            // TODO: Do we need to recover the scheduling on boot?
             alarmManager.cancel(pendingIntent)
             alarmManager.setInexactRepeating(
                 AlarmManager.ELAPSED_REALTIME,
@@ -85,6 +84,27 @@ class SparkPointHeartBeater @Inject constructor(
             // to an Intent. Then the Intent is handled here in onHandleWork()!
             jobScheduler.cancel(UpdaterJobs.JOB_ID_HEART_BEAT)
             jobScheduler.schedule(builder.build())
+        }
+    }
+
+    override fun cancelRecurringHeartBeat() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+            Timber.v("[HeartBeat] (< 21) Cancel a recurring update, using AlarmManager")
+
+            val intent = Intent(context, HeartBeatJobIntentService::class.java).apply {
+                action = IntentActions.ACTION_SEND_HEART_BEAT_NOW
+            }
+            val pendingIntent: PendingIntent? = PendingIntent.getService(context, 0, intent,
+                PendingIntent.FLAG_NO_CREATE or
+                    PendingIntent.FLAG_CANCEL_CURRENT)
+
+            pendingIntent?.let {
+                alarmManager.cancel(it)
+            }
+        } else {
+            Timber.v("[HeartBeat] (>= 21) Cancel a recurring update, using android-21 JobScheduler")
+
+            jobScheduler.cancel(UpdaterJobs.JOB_ID_HEART_BEAT)
         }
     }
 

@@ -15,6 +15,11 @@ interface UpdaterHeartBeater {
     fun scheduleRecurringHeartBeat(intervalMs: Long)
 
     /**
+     * Cancel recurring heart beat scheduling.
+     */
+    fun cancelRecurringHeartBeat()
+
+    /**
      * Observe the heart beat response code over time.
      */
     fun observeRecurringHeartBeat(): Observable<Int>

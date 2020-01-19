@@ -2,14 +2,17 @@ package co.sodalabs.apkupdater.feature.remoteConfig
 
 import android.app.AlarmManager
 import android.content.Context
+import android.content.Intent
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import co.sodalabs.apkupdater.BuildConfig
 import co.sodalabs.apkupdater.feature.heartbeat.api.ISparkPointHeartBeatApi
 import co.sodalabs.updaterengine.IAppPreference
-import co.sodalabs.updaterengine.IRebootHelper
 import co.sodalabs.updaterengine.ISharedSettings
+import co.sodalabs.updaterengine.IntentActions
 import co.sodalabs.updaterengine.PreferenceProps
+import co.sodalabs.updaterengine.UpdaterConfig
 import co.sodalabs.updaterengine.data.HTTPResponseCode
 import co.sodalabs.updaterengine.di.WorkerInjection
 import co.sodalabs.updaterengine.extension.TimberExt
@@ -24,10 +27,10 @@ internal const val PARAM_ALLOW_DOWNGRADE = "$PREFIX.allow_downgrade"
 internal const val PARAM_CHECK_INTERVAL = "$PREFIX.check_interval"
 internal const val PARAM_USE_DISK_CACHE = "$PREFIX.param_use_disk_cache"
 internal const val PARAM_FORCE_FULL_FIRMWARE_UPDATE = "$PREFIX.param_force_full_firmware_update"
-internal const val PARAM_REBOOT = "$PREFIX.param_reboot"
+internal const val PARAM_TO_REBOOT = "$PREFIX.param_to_reboot"
 
 class RemoteConfigSyncWorker(
-    context: Context,
+    val context: Context,
     params: WorkerParameters
 ) : Worker(context, params) {
 
@@ -38,7 +41,7 @@ class RemoteConfigSyncWorker(
     @Inject
     lateinit var apiClient: ISparkPointHeartBeatApi
     @Inject
-    lateinit var rebootHelper: IRebootHelper
+    lateinit var updaterConfig: UpdaterConfig
 
     private val alarmManager by lazy { context.getSystemService(Context.ALARM_SERVICE) as AlarmManager }
 
@@ -142,11 +145,11 @@ class RemoteConfigSyncWorker(
     }
 
     private fun applyRebootFlag() {
-        val shouldReboot = inputData.getBoolean(PARAM_REBOOT, false)
+        val shouldReboot = inputData.getBoolean(PARAM_TO_REBOOT, false)
         if (!shouldReboot) return
 
         try {
-            Timber.v("[RemoteConfig] Patch the 'reboot' flag to the server.")
+            Timber.v("[RemoteConfig] Patch the 'enable_device_reboot' flag to the server.")
             val api = apiClient.patchRemoteConfig(
                 deviceID = sharedSettings.getDeviceId(),
                 body = RemoteConfig(
@@ -156,8 +159,10 @@ class RemoteConfigSyncWorker(
 
             if (apiResponse.isSuccessful) {
                 // Good to reboot!
-                Timber.v("[RemoteConfig] Rebooting...")
-                rebootHelper.rebootNormally()
+                val broadcastIntent = Intent()
+                broadcastIntent.action = IntentActions.ACTION_REBOOT_NOW
+                val broadcastManager = LocalBroadcastManager.getInstance(context)
+                broadcastManager.sendBroadcast(broadcastIntent)
             } else {
                 // We intentionally don't retry for the failure and simply wait
                 // for the next heartbeat to attempt again!
