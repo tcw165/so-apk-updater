@@ -26,6 +26,7 @@ object IntentActions {
     const val ACTION_INSTALL_FIRMWARE_UPDATE_ERROR = "$ACTION_PREFIX.install_firmware_update_error"
     // Heart-beat
     const val ACTION_SEND_HEART_BEAT_NOW = "$ACTION_PREFIX.send_heart_beat_now"
+    const val ACTION_REBOOT_NOW = "$ACTION_PREFIX.reboot_now"
 
     const val PROP_RESET_UPDATER_SESSION = "$EXTRA_PREFIX.reset_updater_session"
     const val PROP_INSTALL_IMMEDIATELY = "$EXTRA_PREFIX.install_immediately"

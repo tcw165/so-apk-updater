@@ -10,6 +10,7 @@ import co.sodalabs.apkupdater.feature.remoteConfig.IRemoteConfigSyncLauncher
 import co.sodalabs.apkupdater.feature.remoteConfig.RemoteConfig
 import co.sodalabs.updaterengine.IAppPreference
 import co.sodalabs.updaterengine.IPackageVersionProvider
+import co.sodalabs.updaterengine.IRebootHelper
 import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.ITimeUtil
@@ -43,6 +44,8 @@ class HeartBeatJobIntentService : JobIntentService() {
     lateinit var updaterStateTracker: IUpdaterStateTracker
     @Inject
     lateinit var timeUtil: ITimeUtil
+    @Inject
+    lateinit var rebootHelper: IRebootHelper
     // Note: The reason that heartbeat has to do with the remote config is this
     // implementation is low cost and viable before we scale up.
     @Inject
@@ -70,6 +73,11 @@ class HeartBeatJobIntentService : JobIntentService() {
     private val broadcastManager by lazy { LocalBroadcastManager.getInstance(this) }
 
     private fun sendHeartBeat() {
+        if (rebootHelper.isRebooting()) {
+            Timber.i("[HeartBeat] Skipping heartbeat, attempted while system was rebooting")
+            return
+        }
+
         val now = timeUtil.systemZonedNow().toString()
 
         try {

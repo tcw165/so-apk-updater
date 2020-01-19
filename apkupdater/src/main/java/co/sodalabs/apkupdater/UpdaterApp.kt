@@ -3,6 +3,7 @@ package co.sodalabs.apkupdater
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.StrictMode
 import android.os.StrictMode.VmPolicy
 import android.provider.Settings
@@ -13,7 +14,9 @@ import co.sodalabs.apkupdater.di.component.DaggerAppComponent
 import co.sodalabs.apkupdater.utils.BugsnagTree
 import co.sodalabs.apkupdater.utils.BuildUtils
 import co.sodalabs.apkupdater.utils.SessionLoggingTree
+import co.sodalabs.privilegedinstaller.RxLocalBroadcastReceiver
 import co.sodalabs.updaterengine.IAppPreference
+import co.sodalabs.updaterengine.IRebootHelper
 import co.sodalabs.updaterengine.ISharedSettings
 import co.sodalabs.updaterengine.ISystemProperties
 import co.sodalabs.updaterengine.IThreadSchedulers
@@ -70,6 +73,10 @@ class UpdaterApp :
     lateinit var sharedSettings: ISharedSettings
     @Inject
     lateinit var updaterStateTracker: IUpdaterStateTracker
+    @Inject
+    lateinit var systemLauncherUtil: ISystemLauncherUtil
+    @Inject
+    lateinit var rebootHelper: IRebootHelper
 
     private val rawPreference by lazy { PreferenceManager.getDefaultSharedPreferences(this) }
 
@@ -111,6 +118,7 @@ class UpdaterApp :
         safeguardsUndeliverableException()
 
         restartAppIfPreferenceChanges()
+        observeRestartBroadcast()
 
         // Initialize the launching works.
         sendBroadcast(Intent(WorkOnAppLaunchInitializer.UPDATER_LAUNCH))
@@ -418,6 +426,19 @@ class UpdaterApp :
         val environment = ServerEnvironment.fromRawUrl(apiBaseURL)
         sharedSettings.putGlobalString(SERVER_ENVIRONMENT, environment.name)
         Timber.v("[Updater] Set Default API environment, \"$environment\"")
+    }
+
+    private fun observeRestartBroadcast() {
+        val intentFilter = IntentFilter(IntentActions.ACTION_REBOOT_NOW)
+        val rebootBroadcastSource = RxLocalBroadcastReceiver.bind(applicationContext, intentFilter)
+            .share()
+
+        rebootBroadcastSource
+            .observeOn(schedulers.computation())
+            .subscribe({
+                rebootHelper.rebootNormally()
+            }, Timber::e)
+            .addTo(globalDisposables)
     }
 
     @SuppressLint("ApplySharedPref")

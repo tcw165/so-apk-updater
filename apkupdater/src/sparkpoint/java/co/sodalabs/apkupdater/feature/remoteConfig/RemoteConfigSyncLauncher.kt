@@ -149,7 +149,7 @@ class RemoteConfigSyncLauncher @Inject constructor(
         config: RemoteConfig
     ): Pair<String, Any>? {
         val forceFullFirmwareUpdate = config.toReboot ?: return null
-        return PARAM_REBOOT to forceFullFirmwareUpdate
+        return PARAM_TO_REBOOT to forceFullFirmwareUpdate
     }
 
     // Section for the near future.
