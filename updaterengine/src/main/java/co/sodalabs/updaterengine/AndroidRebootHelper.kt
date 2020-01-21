@@ -1,14 +1,9 @@
 package co.sodalabs.updaterengine
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.os.PowerManager
 import co.sodalabs.updaterengine.utils.IPreRebootCleaner
 import co.sodalabs.updaterengine.utils.LinuxCommandUtils
-import io.reactivex.Single
-import io.reactivex.schedulers.Schedulers
 import timber.log.Timber
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 private const val REBOOT_RECOVERY = "recovery"
@@ -19,48 +14,39 @@ class AndroidRebootHelper @Inject constructor(
     private val linuxCommandUtils: LinuxCommandUtils
 ) : IRebootHelper {
 
-    private val powerManager by lazy { context.getSystemService(Context.POWER_SERVICE) as PowerManager }
+    // FIXME: In Big-Tab API 19, reboot has an issue that ShutdownThread freezes
+    //  unexpectedly, and the caller process is likely killed. No reboot actually
+    //  happens, which is a nightmare.
+    //  See https://android.googlesource.com/platform/system/core/+/refs/heads/kitkat-release/adb/
+    //  to understand why adb-reboot always works but not PowerManager.
+    // private val powerManager by lazy { context.getSystemService(Context.POWER_SERVICE) as PowerManager }
 
     @Volatile
     private var rebooting: Boolean = false
 
     override fun rebootNormally() {
-        setupForceReboot()
+        Timber.v("[RemoteConfig] Rebooting...")
 
         rebooting = true
-        cleaner.stopSystemComponents()
-        Timber.v("[RemoteConfig] Rebooting...")
-        powerManager.reboot(null)
+
+        // FIXME: Temporarily disabled for the reboot issue described above.
+        // cleaner.stopSystemComponents()
+        // powerManager.reboot(null)
+
+        linuxCommandUtils.performAdbReboot()
     }
 
     override fun rebootToRecovery() {
-        setupForceReboot()
-
-        rebooting = true
-        cleaner.stopSystemComponents()
         Timber.v("[RemoteConfig] Rebooting to recovery...")
-        powerManager.reboot(REBOOT_RECOVERY)
-    }
 
-    override fun forceReboot() {
         rebooting = true
-        cleaner.stopSystemComponents()
-        linuxCommandUtils.performForceReboot()
+
+        // FIXME: Temporarily disabled for the reboot issue described above.
+        // cleaner.stopSystemComponents()
+        // powerManager.reboot(REBOOT_RECOVERY)
+
+        linuxCommandUtils.performAdbRebootToRecovery()
     }
 
     override fun isRebooting(): Boolean = rebooting
-
-    @SuppressLint("CheckResult")
-    private fun setupForceReboot() {
-        // TODO: This is a hack. We should be able to get things working with just the `rebootHelper`
-        // Assuming that normal reboot failed, trigger force reboot as a backup after 2 minutes
-        Timber.v("[RemoteConfig] Setting up force reboot...")
-        Single.just(1)
-            .observeOn(Schedulers.io())
-            .delay(2, TimeUnit.MINUTES)
-            .subscribe({
-                Timber.v("[RemoteConfig] Normal reboot failed force rebooting...")
-                forceReboot()
-            }, Timber::e)
-    }
 }

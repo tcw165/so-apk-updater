@@ -23,7 +23,8 @@ private const val EMPTY_STRING = ""
 private const val CMD_GET_CACHE_DISK_USAGE = "du -k /storage/emulated/legacy"
 private const val CMD_GET_DATA_DISK_USAGE = "du -k /data/data"
 private const val CMD_GET_SYSTEM_DISK_USAGE_STATS = "df"
-private const val CMD_FORCE_REBOOT = "reboot"
+private const val CMD_ADB_REBOOT = "reboot"
+private const val CMD_ADB_REBOOT_TO_RECOVERY = "recovery"
 
 private const val LOG_FOOTER = "----------------------------"
 private const val HEADER_OR_FOOTER_SIZE = LOG_FOOTER.length
@@ -163,17 +164,33 @@ class LinuxCommandUtils @Inject constructor() {
         )
     }
 
-    fun performForceReboot() {
+    fun performAdbReboot() {
         val log = try {
-            execCmd(CMD_FORCE_REBOOT)
+            execCmd(CMD_ADB_REBOOT)
         } catch (e: Exception) {
-            Timber.e("[LinuxCommandUtils] Error while executing force reboot command: ${e.message}")
+            Timber.e("[LinuxCommandUtils] Error while executing adb reboot command: ${e.message}")
             e.printStackTrace()
             EMPTY_STRING
         }
         // IMPORTANT: Using println instead of Timber to avoid custom tags and timestamps
         val sb = StringBuilder(log.length + 2 * HEADER_OR_FOOTER_SIZE)
-        sb.appendln("------------ Force Reboot ------------")
+        sb.appendln("------------ adb reboot ------------")
+        sb.appendln(log)
+        sb.appendln(LOG_FOOTER)
+        println(sb.toString())
+    }
+
+    fun performAdbRebootToRecovery() {
+        val log = try {
+            execCmd(CMD_ADB_REBOOT_TO_RECOVERY)
+        } catch (e: Exception) {
+            Timber.e("[LinuxCommandUtils] Error while executing adb reboot command: ${e.message}")
+            e.printStackTrace()
+            EMPTY_STRING
+        }
+        // IMPORTANT: Using println instead of Timber to avoid custom tags and timestamps
+        val sb = StringBuilder(log.length + 2 * HEADER_OR_FOOTER_SIZE)
+        sb.appendln("------------ adb reboot recovery ------------")
         sb.appendln(log)
         sb.appendln(LOG_FOOTER)
         println(sb.toString())
