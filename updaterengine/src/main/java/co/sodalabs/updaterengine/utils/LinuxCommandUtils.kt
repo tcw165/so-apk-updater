@@ -24,7 +24,7 @@ private const val CMD_GET_CACHE_DISK_USAGE = "du -k /storage/emulated/legacy"
 private const val CMD_GET_DATA_DISK_USAGE = "du -k /data/data"
 private const val CMD_GET_SYSTEM_DISK_USAGE_STATS = "df"
 private const val CMD_ADB_REBOOT = "reboot"
-private const val CMD_ADB_REBOOT_TO_RECOVERY = "recovery"
+private const val CMD_ADB_REBOOT_TO_RECOVERY = "reboot recovery"
 
 private const val LOG_FOOTER = "----------------------------"
 private const val HEADER_OR_FOOTER_SIZE = LOG_FOOTER.length
