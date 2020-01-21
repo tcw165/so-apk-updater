@@ -168,31 +168,35 @@ class LinuxCommandUtils @Inject constructor() {
         val log = try {
             execCmd(CMD_ADB_REBOOT)
         } catch (e: Exception) {
-            Timber.e("[LinuxCommandUtils] Error while executing adb reboot command: ${e.message}")
+            Timber.e("[LinuxCommandUtils] Error while executing '$CMD_ADB_REBOOT' command: ${e.message}")
             e.printStackTrace()
             EMPTY_STRING
         }
-        // IMPORTANT: Using println instead of Timber to avoid custom tags and timestamps
-        val sb = StringBuilder(log.length + 2 * HEADER_OR_FOOTER_SIZE)
-        sb.appendln("------------ adb reboot ------------")
-        sb.appendln(log)
-        sb.appendln(LOG_FOOTER)
-        println(sb.toString())
+        if (log.isNotEmpty()) {
+            val sb = StringBuilder(log.length + 2 * HEADER_OR_FOOTER_SIZE)
+            sb.appendln("------------ $CMD_ADB_REBOOT ------------")
+            sb.appendln(log)
+            sb.appendln(LOG_FOOTER)
+            // IMPORTANT: Using println instead of Timber to avoid custom tags and timestamps
+            println(sb.toString())
+        }
     }
 
     fun performAdbRebootToRecovery() {
         val log = try {
             execCmd(CMD_ADB_REBOOT_TO_RECOVERY)
         } catch (e: Exception) {
-            Timber.e("[LinuxCommandUtils] Error while executing adb reboot command: ${e.message}")
+            Timber.e("[LinuxCommandUtils] Error while executing '$CMD_ADB_REBOOT_TO_RECOVERY' command: ${e.message}")
             e.printStackTrace()
             EMPTY_STRING
         }
-        // IMPORTANT: Using println instead of Timber to avoid custom tags and timestamps
-        val sb = StringBuilder(log.length + 2 * HEADER_OR_FOOTER_SIZE)
-        sb.appendln("------------ adb reboot recovery ------------")
-        sb.appendln(log)
-        sb.appendln(LOG_FOOTER)
-        println(sb.toString())
+        if (log.isNotEmpty()) {
+            val sb = StringBuilder(log.length + 2 * HEADER_OR_FOOTER_SIZE)
+            sb.appendln("------------ $CMD_ADB_REBOOT_TO_RECOVERY ------------")
+            sb.appendln(log)
+            sb.appendln(LOG_FOOTER)
+            // IMPORTANT: Using println instead of Timber to avoid custom tags and timestamps
+            println(sb.toString())
+        }
     }
 }
